@@ -50,8 +50,7 @@ Lint Python:
   stage: lint
   extends: .lint-python
   before_script:
-    - pip3 install flake8
-    - pip3 install black
+    - pip3 install poetry flake8 black
   script:
     - poetry run pre-commit run --all-files
     - flake8 --extend-ignore E501,E226,E203 mo_ldap_import_export/
