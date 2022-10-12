@@ -34,11 +34,9 @@ include:
     file: templates/poetry-precommit.yml
 
 
-#workflow:
-#  rules:
-#    - if: $CI_COMMIT_TAG
-#    - if: $CI_COMMIT_BRANCH == "master"
-#    - if: $CI_MERGE_REQUEST_ID
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
 
 # ---------------------------------------------------------------------------
 # Lint
@@ -61,15 +59,15 @@ Lint Python:
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
-.test-template: &test
-  extends: .test-python
-  stage: test
-  needs: []
+Test:
+  extends: .pytest
+  variables:
+    PYTEST_EXTRA_FLAGS: -m unittest
 
-Test on Python 3.9:
-  <<: *test
-  image: python:3.9
+Export coverage:
+  extends: .export_coverage
+  needs: [Test]
 
-Test on Python 3.10:
-  <<: *test
-  image: python:3.10
+Check coverage:
+  extends: .check_coverage
+  needs: [Test]
