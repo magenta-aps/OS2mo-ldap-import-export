@@ -26,12 +26,45 @@ include:
     file: templates/poetry-precommit.yml
   - project: labs/salt-automation
     file: gitlab-ci-templates/python/pytest-meta.v1.yml
-  - project: labs/salt-automation
-    file: gitlab-ci-templates/common/docker-build.v1.yml
-  - project: labs/salt-automation
-    file: gitlab-ci-templates/common/docker-release.v1.yml
 
 
 #workflow:
 #  rules:
 #    - if: $CI_COMMIT_BRANCH
+
+# ---------------------------------------------------------------------------
+# Lint
+# ---------------------------------------------------------------------------
+
+Lint REUSE compliance:
+  stage: lint
+  image:
+    name: fsfe/reuse:latest
+    entrypoint: [""]
+  script:
+    - reuse lint
+
+Lint Python:
+  stage: lint
+  extends: .lint-python
+  script:
+    - poetry run pre-commit run --all-files
+
+# ---------------------------------------------------------------------------
+# Test
+# ---------------------------------------------------------------------------
+Test:
+  stage: test
+  extends: .pytest
+  variables:
+    PYTEST_EXTRA_FLAGS: -m unittest
+
+Export coverage:
+  stage: coverage
+  extends: .export_coverage
+  needs: [Test]
+
+Check coverage:
+  stage: coverage
+  extends: .check_coverage
+  needs: [Test]
