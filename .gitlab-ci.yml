@@ -2,6 +2,8 @@
 # Global
 # ---------------------------------------------------------------------------
 variables:
+  RELEASE_REGISTRY_IMAGE: index.docker.io/magentaaps/os2mo-ldap_import_export
+  IMAGE_SHA: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
   PYTEST_COV_MODULE: mo_ldap_import_export
@@ -16,12 +18,14 @@ stages:
 
 include:
   - project: labs/salt-automation
-    ref: 'master'
-    file: /gitlab-ci-templates/common/autopub.v1.yml
+    file: gitlab-ci-templates/common/autopub.v1.yml
+  - project: labs/salt-automation
+    file: gitlab-ci-templates/common/docker-release.v1.yml
+  - project: labs/salt-automation
+    file: gitlab-ci-templates/common/config-updater-meta.v1.yml
   - project: rammearkitektur/gitlab-ci-templates
     file: templates/poetry-precommit.yml
-  - project: labs/salt-automation
-    file: gitlab-ci-templates/python/pytest-meta.v1.yml
+
 
 
 #workflow:
