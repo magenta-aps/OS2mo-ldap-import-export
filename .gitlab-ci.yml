@@ -24,6 +24,8 @@ include:
     file: /gitlab-ci-templates/common/autopub.v1.yml
   - project: labs/salt-automation
     file: /gitlab-ci-templates/python/pypi.v1.yml
+  - project: labs/salt-automation
+    file: gitlab-ci-templates/common/docker-release.v1.yml
   - project: rammearkitektur/gitlab-ci-templates
     file: templates/poetry-precommit.yml
 
@@ -50,7 +52,6 @@ Lint Python:
   stage: lint
   script:
     - poetry run pre-commit run --all-files
-
 
 # ---------------------------------------------------------------------------
 # Test

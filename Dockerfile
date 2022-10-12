@@ -5,13 +5,17 @@ FROM python:3.10
 
 ENV PYTHONUNBUFFERED 1
 
-WORKDIR /code/
+WORKDIR /app/
 
-RUN pip install poetry
+ENV POETRY_HOME=/opt/poetry \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1
 
-COPY pyproject.toml poetry.lock ./
+RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python --
 
-RUN poetry install
+COPY pyproject.toml poetry.lock* ./
+
+RUN /opt/poetry/bin/poetry install --no-root --no-dev
 
 COPY mo_ldap_import_export mo_ldap_import_export
 
