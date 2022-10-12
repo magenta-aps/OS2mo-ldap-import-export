@@ -19,11 +19,14 @@ stages:
   - deploy
 
 include:
-  - project: 'labs/salt-automation'
+  - project: labs/salt-automation
     ref: 'master'
-    file: '/gitlab-ci-templates/common/autopub.v1.yml'
-  - project: 'labs/salt-automation'
-    file: "/gitlab-ci-templates/python/pypi.v1.yml"
+    file: /gitlab-ci-templates/common/autopub.v1.yml
+  - project: labs/salt-automation
+    file: /gitlab-ci-templates/python/pypi.v1.yml
+  - project: rammearkitektur/gitlab-ci-templates
+    file: templates/poetry-precommit.yml
+
 
 #workflow:
 #  rules:
@@ -31,53 +34,36 @@ include:
 #    - if: $CI_COMMIT_BRANCH == "master"
 #    - if: $CI_MERGE_REQUEST_ID
 
-
-# ---------------------------------------------------------------------------
-# Templates
-# ---------------------------------------------------------------------------
-.install-deps-template: &install-deps
-  before_script:
-    - pip install poetry
-    - poetry --version
-    - poetry config virtualenvs.in-project true
-    - poetry install -vv
-    - poetry run pre-commit install
-
-.lint-template: &lint
-  <<: *install-deps
-  image: python:3.10
-  stage: lint
-
-.test-template: &test # Coverage needed too
-  <<: *install-deps
-  needs: []
-  stage: test
-  script: poetry run pytest tests/ --cov mo_ldap_import_export/ --cov-fail-under=60
-
 # ---------------------------------------------------------------------------
 # Lint
 # ---------------------------------------------------------------------------
 
 Lint REUSE compliance:
-  <<: *lint
+  stage: lint
   image:
     name: fsfe/reuse:latest
     entrypoint: [""]
   script:
     - reuse lint
 
-Lint Project:
-  <<: *lint
+Lint Python:
+  stage: lint
   script:
     - poetry run pre-commit run --all-files
+
 
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
-Test on Python 3.8:
-  <<: *test
-  image: python:3.8
+.test-template: &test
+  extends: .test-python
+  stage: test
+  needs: []
 
 Test on Python 3.9:
   <<: *test
   image: python:3.9
+
+Test on Python 3.10:
+  <<: *test
+  image: python:3.10
