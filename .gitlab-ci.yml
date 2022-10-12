@@ -59,7 +59,7 @@ workflow:
 # ---------------------------------------------------------------------------
 
 Lint REUSE compliance:
-  extends: .lint
+  <<: *lint
   image:
     name: fsfe/reuse:latest
     entrypoint: [""]
