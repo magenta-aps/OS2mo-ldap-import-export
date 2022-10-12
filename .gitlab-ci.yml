@@ -28,10 +28,14 @@ include:
     file: /gitlab-ci-templates/common/autopub.v1.yml
   - project: labs/salt-automation
     file: /gitlab-ci-templates/python/pypi.v1.yml
-  - project: labs/salt-automation
-    file: gitlab-ci-templates/common/docker-release.v1.yml
   - project: rammearkitektur/gitlab-ci-templates
     file: templates/poetry-precommit.yml
+  - project: labs/salt-automation
+    file: gitlab-ci-templates/python/pytest-meta.v1.yml
+  - project: labs/salt-automation
+    file: gitlab-ci-templates/common/docker-build.v1.yml
+  - project: labs/salt-automation
+    file: gitlab-ci-templates/common/docker-release.v1.yml
 
 
 workflow:
