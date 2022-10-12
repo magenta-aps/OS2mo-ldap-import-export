@@ -1,0 +1,74 @@
+--- # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Global
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
+
+cache:
+  key: "${CI_JOB_NAME}"
+  paths:
+    - .venv/
+    - .cache/pip
+    - .cache/pre-commit
+
+stages:
+  - lint
+  - test
+  - release
+  - deploy
+
+include:
+  - project: 'labs/salt-automation'
+    ref: 'master'
+    file: '/gitlab-ci-templates/common/autopub.v1.yml'
+  - project: 'labs/salt-automation'
+    file: "/gitlab-ci-templates/python/pypi.v1.yml"
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_MERGE_REQUEST_ID
+
+
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
+.install-deps-template: &install-deps
+  before_script:
+    - pip install poetry
+    - poetry --version
+    - poetry config virtualenvs.in-project true
+    - poetry install -vv
+    - poetry run pre-commit install
+
+.lint-template: &lint
+  <<: *install-deps
+  image: python:3.10
+  stage: lint
+
+.test-template: &test # Coverage needed too
+  <<: *install-deps
+  needs: []
+  stage: test
+  script: poetry run pytest tests/ --cov mo_ldap_import_export/ --cov-fail-under=60
+
+# ---------------------------------------------------------------------------
+# Lint
+# ---------------------------------------------------------------------------
+Lint Project:
+  <<: *lint
+  script:
+    - poetry run pre-commit run --all-files
+
+# ---------------------------------------------------------------------------
+# Test
+# ---------------------------------------------------------------------------
+Test on Python 3.8:
+  <<: *test
+  image: python:3.8
+
+Test on Python 3.9:
+  <<: *test
+  image: python:3.9

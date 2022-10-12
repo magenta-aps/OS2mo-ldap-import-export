@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+
+  ldap-agent:
+    build: .
+    command: "poetry run python -m mo_ldap_import_export.ldap_agent next-events-to-queue"
+    environment:
+      amqp_url: amqp://guest:guest@msg_broker
+    networks:
+      - os2mo_default
+
+networks:
+  os2mo_default:
+    external: true
