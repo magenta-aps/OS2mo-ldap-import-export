@@ -69,13 +69,3 @@ Test:
   extends: .pytest
   variables:
     PYTEST_EXTRA_FLAGS: -m unittest
-
-Export coverage:
-  stage: test
-  extends: .export_coverage
-  needs: [Test]
-
-Check coverage:
-  stage: test
-  extends: .check_coverage
-  needs: [Test]
