@@ -39,9 +39,9 @@ include:
     file: gitlab-ci-templates/common/docker-release.v1.yml
 
 
-workflow:
-  rules:
-    - if: $CI_COMMIT_BRANCH
+#workflow:
+#  rules:
+#    - if: $CI_COMMIT_BRANCH
 
 # ---------------------------------------------------------------------------
 # Lint
@@ -64,8 +64,3 @@ Lint Python:
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
-Test:
-  stage: test
-  extends: .pytest
-  variables:
-    PYTEST_EXTRA_FLAGS: -m unittest
