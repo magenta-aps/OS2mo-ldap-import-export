@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2022 Magenta ApS
-#
-# SPDX-License-Identifier: MPL-2.0
-
 # ---------------------------------------------------------------------------
 # Global
 # ---------------------------------------------------------------------------
@@ -22,8 +18,6 @@ include:
   - project: labs/salt-automation
     ref: 'master'
     file: /gitlab-ci-templates/common/autopub.v1.yml
-  - project: labs/salt-automation
-    file: /gitlab-ci-templates/python/pypi.v1.yml
   - project: rammearkitektur/gitlab-ci-templates
     file: templates/poetry-precommit.yml
   - project: labs/salt-automation

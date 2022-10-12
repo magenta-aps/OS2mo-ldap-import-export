@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: 2022 Magenta ApS
-#
-# SPDX-License-Identifier: MPL-2.0
 FROM python:3.10
 
 ENV PYTHONUNBUFFERED 1

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2022 Magenta ApS
-#
-# SPDX-License-Identifier: MPL-2.0
-
 [tool.poetry]
 name = "mo-ldap-import-export"
 version = "0.1.0"

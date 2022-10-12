@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: 2019-2020 Magenta ApS
-#
-# SPDX-License-Identifier: MPL-2.0
 from pydantic import AmqpDsn
 from pydantic import BaseSettings
 from pydantic import parse_obj_as
