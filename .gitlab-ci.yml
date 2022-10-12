@@ -54,6 +54,7 @@ Lint REUSE compliance:
 
 Lint Python:
   stage: lint
+  extends: .lint-python
   script:
     - poetry run pre-commit run --all-files
 
