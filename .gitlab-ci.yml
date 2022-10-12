@@ -58,15 +58,8 @@ workflow:
 # Lint
 # ---------------------------------------------------------------------------
 
-.lint-default: &lint-default
-  stage: lint
-  needs: []
-  image: python:3.8
-  tags:
-    - docker
-
 Lint REUSE compliance:
-  extends: .lint-default
+  extends: .lint
   image:
     name: fsfe/reuse:latest
     entrypoint: [""]
