@@ -14,6 +14,6 @@ COPY pyproject.toml poetry.lock* ./
 
 RUN poetry install --no-root --no-dev
 
-COPY mo_ldap_import_export mo_ldap_import_export
+COPY mo_ldap_import_export /app/mo_ldap_import_export
 
 CMD ["poetry", "run", "python", "-m",  "mo_ldap_import_export.ldap_agent"]
