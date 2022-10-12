@@ -57,6 +57,15 @@ workflow:
 # ---------------------------------------------------------------------------
 # Lint
 # ---------------------------------------------------------------------------
+
+Lint REUSE compliance:
+  extends: .lint-default
+  image:
+    name: fsfe/reuse:latest
+    entrypoint: [""]
+  script:
+    - reuse lint
+
 Lint Project:
   <<: *lint
   script:
