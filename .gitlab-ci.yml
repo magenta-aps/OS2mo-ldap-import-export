@@ -47,7 +47,6 @@ Lint REUSE compliance:
 
 Lint Python:
   stage: lint
-  extends: .lint-python
   before_script:
     - pip3 install poetry flake8 black
   script:
