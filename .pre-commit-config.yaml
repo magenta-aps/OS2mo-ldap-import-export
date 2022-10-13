@@ -1,12 +1,27 @@
 repos:
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.5.1
+  - repo: https://github.com/pycqa/flake8
+    rev: 3.9.1
     hooks:
-      - id: prettier
-        files: \.(ts|js|svelte|css|html)$
+      - id: flake8
 
-  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-    rev: v9.1.0
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
     hooks:
-      - id: commitlint
-        stages: [commit-msg]
+      - id: black
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.812
+    hooks:
+      - id: mypy
+        language: system
+        types: [file, python]
+
+  - repo: https://github.com/asottile/reorder_python_imports
+    rev: v2.5.0
+    hooks:
+      - id: reorder-python-imports
+
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v0.12.1
+    hooks:
+      - id: reuse
