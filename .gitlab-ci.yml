@@ -4,10 +4,9 @@
 variables:
   RELEASE_REGISTRY_IMAGE: index.docker.io/magentaaps/os2mo-ldap_import_export
   IMAGE_SHA: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
   PYTEST_COV_MODULE: mo_ldap_import_export
   PYTEST_COV_FAIL_UNDER: 100
+  PRECOMMIT_USE_POETRY: "true"
 
 stages:
   - lint
