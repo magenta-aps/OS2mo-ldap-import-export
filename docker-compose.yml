@@ -7,6 +7,8 @@ services:
     command: "poetry run python -m mo_ldap_import_export.ldap_agent next-events-to-queue"
     environment:
       amqp_url: amqp://guest:guest@msg_broker
+    volumes:
+      - ./mo_ldap_import_export:/opt/app/
     networks:
       - os2mo_default
 

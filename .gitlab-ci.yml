@@ -41,23 +41,3 @@ include:
 #workflow:
 #  rules:
 #    - if: $CI_COMMIT_BRANCH
-
-
-# ---------------------------------------------------------------------------
-# Test
-# ---------------------------------------------------------------------------
-Test:
-  stage: test
-  extends: .pytest
-  variables:
-    PYTEST_EXTRA_FLAGS: -m unittest
-
-Export coverage:
-  stage: coverage
-  extends: .export_coverage
-  needs: [Test]
-
-Check coverage:
-  stage: coverage
-  extends: .check_coverage
-  needs: [Test]
