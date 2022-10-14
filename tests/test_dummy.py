@@ -1,2 +1,2 @@
 def test_initial() -> None:
-    pass
+    assert None is None
