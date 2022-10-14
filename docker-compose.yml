@@ -2,7 +2,7 @@ version: "3"
 
 services:
 
-  ldap-agent:
+  mo_ldap_import_export:
     build: .
     command: "poetry run python -m mo_ldap_import_export.ldap_agent next-events-to-queue"
     environment:
