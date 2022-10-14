@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "mo-ldap-import-export"
+name = "mo_ldap_import_export"
 version = "0.1.0"
 description = "Rammearkitektur AMQP service for making AMQP messages on changing effects in os2mo."
 authors = ["Magenta ApS <info@magenta.dk>"]
