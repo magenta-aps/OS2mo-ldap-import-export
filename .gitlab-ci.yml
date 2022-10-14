@@ -3,6 +3,7 @@
 # ---------------------------------------------------------------------------
 variables:
   RELEASE_REGISTRY_IMAGE: index.docker.io/magentaaps/os2mo-ldap_import_export
+  RELEASE_REGISTRY: docker.io
   IMAGE_SHA: ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}
   PYTEST_COV_MODULE: mo_ldap_import_export
   PYTEST_COV_FAIL_UNDER: 100
@@ -19,8 +20,6 @@ include:
   # See https://git.magenta.dk/labs/salt-automation/-/tree/master/gitlab-ci-templates/common
   - project: labs/salt-automation
     file: /gitlab-ci-templates/common/autopub.v1.yml
-  - project: labs/salt-automation
-    file: /gitlab-ci-templates/python/pytest-meta.v1.yml
   - project: labs/salt-automation
     file: /gitlab-ci-templates/common/docker-release.v1.yml
   - project: labs/salt-automation
