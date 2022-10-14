@@ -8,7 +8,6 @@ variables:
   PYTEST_COV_FAIL_UNDER: 100
   PRECOMMIT_USE_POETRY: "true"
 
-
 stages:
   - lint
   - test
