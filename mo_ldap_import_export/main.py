@@ -183,6 +183,17 @@ def create_app(**kwargs: Any) -> FastAPI:
     app = fastramqpi.get_app()
     app.include_router(fastapi_router)
 
+    @app.get("/AD/organizationalperson/converted", status_code=202)
+    async def convert_all_org_persons_from_ldap() -> Any:
+        """Request all organizational persons, converted to MO"""
+        logger.info("Manually triggered LDAP request of all organizational persons")
+        converter = EmployeeConverter(os.path.join(mappings_folder, "default.json"))
+        result = await fastramqpi._context["user_context"][
+            "dataloaders"
+        ].ad_org_persons_loader.load(1)
+        result = [converter.from_ldap(r) for r in result]
+        return result
+
     # Get a specific person from AD
     @app.get("/AD/employee/{dn}", status_code=202)
     async def load_employee_from_LDAP(dn: str, request: Request) -> Any:

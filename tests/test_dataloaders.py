@@ -188,7 +188,16 @@ async def test_load_ldap_employees(
     Department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_results = [{"Name": Name, "Department": Department, "dn": dn}]
+    expected_results = [
+        {
+            "Name": Name,
+            "Department": Department,
+            "dn": dn,
+            "objectGUID": None,
+            "givenName": None,
+            "sn": None,
+        }
+    ]
 
     # Mock AD connection
     ldap_connection.entries = [mock_ldap_entry(Name, Department, dn)]
@@ -224,6 +233,9 @@ async def test_upload_ldap_employee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
         Name="Nick Janssen",
         Department="GL",
+        objectGUID="{" + str(uuid4()) + "}",
+        givenName="Nick",
+        sn="Janssen",
     )
 
     bldap_response = {
@@ -318,7 +330,7 @@ async def test_create_ldap_employee(
         dataloaders.ldap_employees_uploader.load(employee),
     )
 
-    assert output == [[good_response, good_response]]
+    assert output == [[good_response, bad_response, bad_response, good_response, good_response]]
 
 
 async def test_load_mo_employees(
