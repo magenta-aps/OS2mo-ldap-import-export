@@ -33,7 +33,9 @@ class EmployeeConverter:
 
     @staticmethod
     def filter_splitfirst(text):
-        # Splits a string at the first space, returning two elements
+        """
+        Splits a string at the first space, returning two elements
+        """
         # This is convenient for splitting a name into a givenName and a surname
         # and works for names with no spaces (surname will then be empty)
         s = text.split(" ", 1)
