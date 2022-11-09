@@ -21,6 +21,7 @@ from ramodels.mo.employee import Employee
 from strawberry.dataloader import DataLoader
 
 from mo_ldap_import_export.dataloaders import Dataloaders
+from mo_ldap_import_export.dataloaders import LdapEmployee
 from mo_ldap_import_export.main import create_app
 from mo_ldap_import_export.main import create_fastramqpi
 from mo_ldap_import_export.main import listen_to_changes_in_employees
@@ -218,15 +219,16 @@ def test_ldap_get_all_endpoint(test_client: TestClient) -> None:
     response = test_client.get("/AD/employee")
     assert response.status_code == 202
 
+
 def test_ldap_get_all_converted_endpoint(
     test_client: TestClient, empty_dataloaders: Dataloaders
 ) -> None:
     """Test the LDAP get-all endpoint on our app."""
 
     async def loader(x):
-        return [[Employee(Name="Tester", Department="QA", dn="someDN")]]
+        return [[LdapEmployee(Name="Tester", Department="QA", dn="someDN")]]
 
-    empty_dataloaders.ad_org_persons_loader = DataLoader(load_fn=loader, cache=False)
+    empty_dataloaders.ldap_employees_loader = DataLoader(load_fn=loader, cache=False)
 
     response = test_client.get("/AD/employee/converted")
     assert response.status_code == 202

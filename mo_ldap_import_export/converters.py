@@ -11,7 +11,7 @@ from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ramodels.mo.employee import Employee
 
-from .dataloaders import ADOrganizationalPerson
+from .dataloaders import LdapEmployee
 
 
 def read_mapping_json(filename: str) -> Any:
@@ -57,16 +57,16 @@ class EmployeeConverter:
                 mapping[key] = self._populate_mapping_with_templates(value, environment)
         return mapping
 
-    def to_ldap(self, mo_object: Employee) -> ADOrganizationalPerson:
+    def to_ldap(self, mo_object: Employee) -> LdapEmployee:
         ldap_object = {}
         mapping = self.mapping["mo_to_ldap"]
         if "user_attrs" in mapping:
             user_attrs_mapping = mapping["user_attrs"]
             for ldap_field_name, template in user_attrs_mapping.items():
                 ldap_object[ldap_field_name] = template.render({"mo": mo_object})
-        return ADOrganizationalPerson(**ldap_object)
+        return LdapEmployee(**ldap_object)
 
-    def from_ldap(self, ldap_object: ADOrganizationalPerson) -> Employee:
+    def from_ldap(self, ldap_object: LdapEmployee) -> Employee:
         ldap_dict = CaseInsensitiveDict(
             {
                 key: value[0] if type(value) == list and len(value) == 1 else value

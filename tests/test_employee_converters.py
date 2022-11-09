@@ -5,7 +5,7 @@ from ramodels.mo import Employee
 
 from mo_ldap_import_export.converters import EmployeeConverter
 from mo_ldap_import_export.converters import read_mapping_json
-from mo_ldap_import_export.dataloaders import ADOrganizationalPerson
+from mo_ldap_import_export.dataloaders import LdapEmployee
 
 mapping = {
     "ldap_to_mo": {
@@ -26,7 +26,7 @@ mapping = {
 def test_ldap_to_mo() -> None:
     converter = EmployeeConverter(mapping)
     employee = converter.from_ldap(
-        ADOrganizationalPerson(
+        LdapEmployee(
             dn="",
             Name="",
             givenName="Tester",

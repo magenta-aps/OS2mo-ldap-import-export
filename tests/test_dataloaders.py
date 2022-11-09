@@ -238,7 +238,7 @@ async def test_upload_ldap_employee(
         sn="Janssen",
     )
 
-    bldap_response = {
+    bad_response = {
         "result": 67,
         "description": "notAllowedOnRDN",
         "dn": "",
@@ -270,7 +270,7 @@ async def test_upload_ldap_employee(
 
     results = iter(
         [good_response] * len(allowed_parameters_to_upload)
-        + [bldap_response] * len(disallowed_parameters_to_upload)
+        + [bad_response] * len(disallowed_parameters_to_upload)
     )
 
     def set_new_result(*args, **kwargs) -> None:
@@ -284,7 +284,9 @@ async def test_upload_ldap_employee(
         dataloaders.ldap_employees_uploader.load(employee),
     )
 
-    assert output == [[good_response, bldap_response]]
+    assert output == [
+        [good_response, good_response, good_response, good_response, bad_response]
+    ]
 
 
 async def test_create_ldap_employee(
@@ -330,7 +332,9 @@ async def test_create_ldap_employee(
         dataloaders.ldap_employees_uploader.load(employee),
     )
 
-    assert output == [[good_response, bad_response, bad_response, good_response, good_response]]
+    assert output == [
+        [good_response, good_response, good_response, good_response, good_response]
+    ]
 
 
 async def test_load_mo_employees(
