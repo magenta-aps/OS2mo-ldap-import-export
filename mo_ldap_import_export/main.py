@@ -45,21 +45,21 @@ help(RequestType)
 async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
+    user_context = context["user_context"]
     logger.info("[MO] Change registered in the employee model")
     logger.info("Payload: %s" % payload)
 
-    user_context = context["user_context"]
-
-    changed_employee: Employee = await user_context[
-        "dataloaders"
-    ].mo_employee_loader.load(payload.uuid)
-
+    # Get MO employee
+    mo_employee_loader = user_context["dataloaders"].mo_employee_loader
+    changed_employee: Employee = await mo_employee_loader.load(payload.uuid)
     logger.info("Found Employee in MO: %s" % changed_employee)
 
+    # Convert to LDAP
     logger.info("Converting MO Employee object to AD object")
     converter = EmployeeConverter(context)
     ldap_employee = converter.to_ldap(changed_employee)
 
+    # Upload to LDAP
     logger.info("Uploading %s to AD" % ldap_employee)
     await user_context["dataloaders"].ldap_employees_uploader.load(ldap_employee)
 
