@@ -182,15 +182,15 @@ def create_app(**kwargs: Any) -> FastAPI:
     app = fastramqpi.get_app()
     app.include_router(fastapi_router)
 
+    dataloaders = fastramqpi._context["user_context"]["dataloaders"]
+
     @app.get("/AD/employee/converted", status_code=202)
     async def convert_all_org_persons_from_ldap() -> Any:
         """Request all organizational persons, converted to MO"""
         logger.info("Manually triggered LDAP request of all organizational persons")
 
         converter = EmployeeConverter(fastramqpi._context)
-        result = await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].ldap_employees_loader.load(1)
+        result = await dataloaders.ldap_employees_loader.load(1)
         result = [converter.from_ldap(r) for r in result]
         return result
 
@@ -200,9 +200,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request single employee"""
         logger.info("Manually triggered AD request of %s" % dn)
 
-        result = await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].ldap_employee_loader.load(dn)
+        result = await dataloaders.ldap_employee_loader.load(dn)
         return result
 
     # Get all persons from AD
@@ -211,9 +209,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request all employees"""
         logger.info("Manually triggered AD request of all employees")
 
-        result = await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].ldap_employees_loader.load(1)
+        result = await dataloaders.ldap_employees_loader.load(1)
         return result
 
     # Modify a person in AD
@@ -221,9 +217,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_employee_to_LDAP(employee: LdapEmployee) -> Any:
         logger.info("Posting %s to AD" % employee)
 
-        await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].ldap_employees_uploader.load(employee)
+        await dataloaders.ldap_employees_uploader.load(employee)
 
     # Get all persons from MO
     @app.get("/MO/employee", status_code=202)
@@ -231,9 +225,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request all persons from MO"""
         logger.info("Manually triggered MO request of all employees")
 
-        result = await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].mo_employees_loader.load(1)
+        result = await dataloaders.mo_employees_loader.load(1)
         return result
 
     # Post a person to MO
@@ -241,9 +233,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_employee_to_MO(employee: Employee) -> Any:
         logger.info("Posting %s to MO" % employee)
 
-        await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].mo_employee_uploader.load(employee)
+        await dataloaders.mo_employee_uploader.load(employee)
 
     # Get a speficic person from MO
     @app.get("/MO/employee/{uuid}", status_code=202)
@@ -251,9 +241,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request single employee"""
         logger.info("Manually triggered MO request of %s" % uuid)
 
-        result = await fastramqpi._context["user_context"][
-            "dataloaders"
-        ].mo_employee_loader.load(uuid)
+        result = await dataloaders.mo_employee_loader.load(uuid)
         return result
 
     return app
