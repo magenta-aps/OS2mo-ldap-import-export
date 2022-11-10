@@ -45,7 +45,7 @@ class LdapEmployee(BaseModel):
 
     dn: str
     name: str  # TODO: This field cannot be modified in AD. Add a 'protected' flag?
-    Department: Union[str, None]
+    department: Union[str, None]
     objectGUID: Union[str, None]
     givenName: Union[str, None]
     sn: Union[str, None]
@@ -86,7 +86,7 @@ async def load_ldap_employee(
         employee = LdapEmployee(
             dn=response[0]["dn"],
             name=response[0]["attributes"]["name"],
-            Department=response[0]["attributes"]["department"],
+            department=response[0]["attributes"]["department"],
         )
 
         logger.info("Found %s" % employee)
@@ -133,7 +133,7 @@ async def load_ldap_employees(
         LdapEmployee(
             dn=o.entry_dn,
             name=o.name.value,
-            Department=o.Department.value,
+            department=o.department.value,
         )
         for o in output
     ]

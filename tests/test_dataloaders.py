@@ -82,14 +82,14 @@ def dataloaders(
 
 
 def mock_ldap_entry(
-    name: str, Department: Union[str, None, list], dn: str
+    name: str, department: Union[str, None, list], dn: str
 ) -> MagicMock:
 
     entry = MagicMock()
     entry.entry_dn = dn
 
     entry.attach_mock(MagicMock(value=name), "name")
-    entry.attach_mock(MagicMock(value=Department), "Department")
+    entry.attach_mock(MagicMock(value=department), "department")
 
     return entry
 
@@ -99,13 +99,13 @@ async def test_load_ldap_employee(
 ) -> None:
     # Mock data
     name = "Nick Janssen"
-    Department = None
+    department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_result = [LdapEmployee(name=name, Department=Department, dn=dn)]
+    expected_result = [LdapEmployee(name=name, department=department, dn=dn)]
 
     ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": name, "department": Department}}
+        {"dn": dn, "attributes": {"name": name, "department": department}}
     ]
 
     output = await asyncio.gather(
@@ -119,14 +119,14 @@ async def test_load_ldap_employee_empty_list(
     ldap_connection: MagicMock, dataloaders: Dataloaders
 ) -> None:
     """
-    Simulate case where the Department is an empty list
+    Simulate case where the department is an empty list
     """
     # Mock data
     name = "Nick Janssen"
-    Department = None
+    department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_result = [LdapEmployee(name=name, Department=Department, dn=dn)]
+    expected_result = [LdapEmployee(name=name, department=department, dn=dn)]
 
     ldap_connection.response = [
         {"dn": dn, "attributes": {"name": name, "department": []}}
@@ -144,11 +144,11 @@ async def test_load_ldap_employee_multiple_results(
 ) -> None:
     # Mock data
     name = "Nick Janssen"
-    Department = None
+    department = None
     dn = "DC=ad,DC=addev"
 
     ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": name, "department": Department}}
+        {"dn": dn, "attributes": {"name": name, "department": department}}
     ] * 20
 
     try:
@@ -185,13 +185,13 @@ async def test_load_ldap_employees(
 
     # Mock data
     name = "Nick Janssen"
-    Department = None
+    department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
     expected_results = [
         {
             "name": name,
-            "Department": Department,
+            "department": department,
             "dn": dn,
             "objectGUID": None,
             "givenName": None,
@@ -200,7 +200,7 @@ async def test_load_ldap_employees(
     ]
 
     # Mock AD connection
-    ldap_connection.entries = [mock_ldap_entry(name, Department, dn)]
+    ldap_connection.entries = [mock_ldap_entry(name, department, dn)]
 
     # Simulate three pages
     cookies = [bytes("first page", "utf-8"), bytes("second page", "utf-8"), None]
@@ -232,7 +232,7 @@ async def test_upload_ldap_employee(
     employee = LdapEmployee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
         name="Nick Janssen",
-        Department="GL",
+        department="GL",
         objectGUID="{" + str(uuid4()) + "}",
         givenName="Nick",
         sn="Janssen",
@@ -296,7 +296,7 @@ async def test_create_ldap_employee(
     employee = LdapEmployee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
         name="Nick Janssen",
-        Department="GL",
+        department="GL",
     )
 
     non_existing_object_response = {

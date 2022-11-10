@@ -29,14 +29,14 @@ new_department = (
 ldap_person_to_post = {
     "dn": "CN=Lars Peter Thomsen,OU=Users,OU=Magenta,DC=ad,DC=addev",
     "name": "Lars Peter Thomsen",
-    "Department": new_department,
+    "department": new_department,
 }
 requests.post("http://0.0.0.0:8000/AD/employee", json=ldap_person_to_post)
 
 
 # Get the users again - validate that the user is modified
 r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % ldap_person_to_post["dn"])
-assert r.json()["Department"] == new_department
+assert r.json()["department"] == new_department
 print("Successfully edited department to '%s' in AD" % new_department)
 print("")
 
