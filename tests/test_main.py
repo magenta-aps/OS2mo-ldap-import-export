@@ -20,6 +20,7 @@ from fastramqpi.main import FastRAMQPI
 from ramodels.mo.employee import Employee
 from strawberry.dataloader import DataLoader
 
+from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import Dataloaders
 from mo_ldap_import_export.dataloaders import LdapEmployee
 from mo_ldap_import_export.main import create_app
@@ -226,7 +227,7 @@ def test_ldap_get_all_converted_endpoint(
     """Test the LDAP get-all endpoint on our app."""
 
     async def loader(x):
-        return [[LdapEmployee(Name="Tester", Department="QA", dn="someDN")]]
+        return [[LdapEmployee(name="Tester", Department="QA", dn="someDN")]]
 
     empty_dataloaders.ldap_employees_loader = DataLoader(load_fn=loader, cache=False)
 
@@ -239,7 +240,7 @@ def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:
 
     ldap_person_to_post = {
         "dn": "CN=Lars Peter Thomsen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        "Name": "Lars Peter Thomsen",
+        "name": "Lars Peter Thomsen",
         "Department": None,
     }
     response = test_client.post("/AD/employee", json=ldap_person_to_post)
@@ -306,8 +307,16 @@ async def test_listen_to_changes_in_employees() -> None:
     settings_mock.ldap_organizational_unit = "foo"
     settings_mock.ldap_search_base = "bar"
 
+    mapping = read_mapping_json(
+        os.path.join(os.path.dirname(__file__), "resources", "mapping.json")
+    )
+
     context = {
-        "user_context": {"dataloaders": dataloader_mock, "app_settings": settings_mock}
+        "user_context": {
+            "dataloaders": dataloader_mock,
+            "app_settings": settings_mock,
+            "mapping": mapping,
+        }
     }
     payload = MagicMock
     payload.uuid = uuid4()

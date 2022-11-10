@@ -12,6 +12,7 @@ import structlog
 from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Request
+from fastramqpi.context import Context
 from fastramqpi.main import FastRAMQPI
 from ldap3 import Connection
 from raclients.graph.client import PersistentGraphQLClient
@@ -42,7 +43,7 @@ help(RequestType)
 
 @amqp_router.register("employee.employee.*")
 async def listen_to_changes_in_employees(
-    context: dict, payload: PayloadType, **kwargs: Any
+    context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
     logger.info("[MO] Change registered in the employee model")
     logger.info("Payload: %s" % payload)
@@ -56,15 +57,8 @@ async def listen_to_changes_in_employees(
     logger.info("Found Employee in MO: %s" % changed_employee)
 
     logger.info("Converting MO Employee object to AD object")
-    # ldap_employee: LdapEmployee = convert_employee_from_mo_to_ldap(changed_employee)
-
-    cn = "CN=%s," % (changed_employee.givenname + " " + changed_employee.surname)
-    ou = "OU=Users,%s," % user_context["app_settings"].ldap_organizational_unit
-    dc = user_context["app_settings"].ldap_search_base
-    dn = cn + ou + dc
-    ldap_employee = LdapEmployee(
-        dn=dn, Name=changed_employee.givenname, Department=changed_employee.org
-    )
+    converter = EmployeeConverter(context)
+    ldap_employee = converter.to_ldap(changed_employee)
 
     logger.info("Uploading %s to AD" % ldap_employee)
     await user_context["dataloaders"].ldap_employees_uploader.load(ldap_employee)
@@ -171,6 +165,9 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
 
     fastramqpi.add_context(app_settings=settings)
 
+    mappings_folder = os.path.join(os.path.dirname(__file__), "mappings")
+    fastramqpi.add_context(mapping=os.path.join(mappings_folder, "default.json"))
+
     return fastramqpi
 
 
@@ -185,13 +182,12 @@ def create_app(**kwargs: Any) -> FastAPI:
     app = fastramqpi.get_app()
     app.include_router(fastapi_router)
 
-    mappings_folder = os.path.join(os.path.dirname(__file__), "mappings")
-
     @app.get("/AD/employee/converted", status_code=202)
     async def convert_all_org_persons_from_ldap() -> Any:
         """Request all organizational persons, converted to MO"""
         logger.info("Manually triggered LDAP request of all organizational persons")
-        converter = EmployeeConverter(os.path.join(mappings_folder, "default.json"))
+
+        converter = EmployeeConverter(fastramqpi._context)
         result = await fastramqpi._context["user_context"][
             "dataloaders"
         ].ldap_employees_loader.load(1)

@@ -1,6 +1,8 @@
 import os.path
 import uuid
+from unittest.mock import MagicMock
 
+from fastramqpi.context import Context
 from ramodels.mo import Employee
 
 from mo_ldap_import_export.converters import EmployeeConverter
@@ -16,19 +18,27 @@ mapping = {
             "givenName": "{{mo.givenname}}",
             "sn": "{{mo.surname}}",
             "displayName": "{{mo.surname}}, {{mo.givenname}}",
-            "Name": "{{mo.givenname}} {{mo.surname}}",
+            "name": "{{mo.givenname}} {{mo.surname}}",
             "dn": "",
         }
     },
 }
 
+app_settings_mock = MagicMock()
+app_settings_mock.ldap_organizational_unit = "foo"
+app_settings_mock.ldap_search_base = "bar"
+
+context: Context = {
+    "user_context": {"mapping": mapping, "app_settings": app_settings_mock}
+}
+
 
 def test_ldap_to_mo() -> None:
-    converter = EmployeeConverter(mapping)
+    converter = EmployeeConverter(context)
     employee = converter.from_ldap(
         LdapEmployee(
             dn="",
-            Name="",
+            name="",
             givenName="Tester",
             sn="Testersen",
             objectGUID="{" + str(uuid.uuid4()) + "}",
@@ -39,11 +49,11 @@ def test_ldap_to_mo() -> None:
 
 
 def test_mo_to_ldap() -> None:
-    converter = EmployeeConverter(mapping)
+    converter = EmployeeConverter(context)
     ldap_object = converter.to_ldap(Employee(givenname="Tester", surname="Testersen"))
     assert ldap_object.givenName == "Tester"
     assert ldap_object.sn == "Testersen"
-    assert ldap_object.Name == "Tester Testersen"
+    assert ldap_object.name == "Tester Testersen"
 
 
 def test_mapping_loader() -> None:

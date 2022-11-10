@@ -6,6 +6,7 @@ import re
 from typing import Any
 from typing import Dict
 
+from fastramqpi.context import Context
 from jinja2 import Environment
 from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
@@ -22,7 +23,12 @@ def read_mapping_json(filename: str) -> Any:
 
 
 class EmployeeConverter:
-    def __init__(self, mapping: Dict[str, Any] | str):
+    def __init__(self, context: Context):
+
+        self.user_context = context["user_context"]
+        self.app_settings = context["user_context"]["app_settings"]
+        mapping = self.user_context["mapping"]
+
         environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = EmployeeConverter.filter_splitlast
         environment.filters["splitfirst"] = EmployeeConverter.filter_splitfirst
@@ -68,6 +74,13 @@ class EmployeeConverter:
             user_attrs_mapping = mapping["user_attrs"]
             for ldap_field_name, template in user_attrs_mapping.items():
                 ldap_object[ldap_field_name] = template.render({"mo": mo_object})
+
+        cn = "CN=%s," % (mo_object.givenname + " " + mo_object.surname)
+        ou = "OU=Users,%s," % self.app_settings.ldap_organizational_unit
+        dc = self.app_settings.ldap_search_base
+        dn = cn + ou + dc
+        ldap_object["dn"] = dn
+
         return LdapEmployee(**ldap_object)
 
     def from_ldap(self, ldap_object: LdapEmployee) -> Employee:

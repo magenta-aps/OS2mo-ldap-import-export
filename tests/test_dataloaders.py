@@ -82,13 +82,13 @@ def dataloaders(
 
 
 def mock_ldap_entry(
-    Name: str, Department: Union[str, None, list], dn: str
+    name: str, Department: Union[str, None, list], dn: str
 ) -> MagicMock:
 
     entry = MagicMock()
     entry.entry_dn = dn
 
-    entry.attach_mock(MagicMock(value=Name), "Name")
+    entry.attach_mock(MagicMock(value=name), "name")
     entry.attach_mock(MagicMock(value=Department), "Department")
 
     return entry
@@ -98,14 +98,14 @@ async def test_load_ldap_employee(
     ldap_connection: MagicMock, dataloaders: Dataloaders
 ) -> None:
     # Mock data
-    Name = "Nick Janssen"
+    name = "Nick Janssen"
     Department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_result = [LdapEmployee(Name=Name, Department=Department, dn=dn)]
+    expected_result = [LdapEmployee(name=name, Department=Department, dn=dn)]
 
     ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": Name, "department": Department}}
+        {"dn": dn, "attributes": {"name": name, "department": Department}}
     ]
 
     output = await asyncio.gather(
@@ -122,14 +122,14 @@ async def test_load_ldap_employee_empty_list(
     Simulate case where the Department is an empty list
     """
     # Mock data
-    Name = "Nick Janssen"
+    name = "Nick Janssen"
     Department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_result = [LdapEmployee(Name=Name, Department=Department, dn=dn)]
+    expected_result = [LdapEmployee(name=name, Department=Department, dn=dn)]
 
     ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": Name, "department": []}}
+        {"dn": dn, "attributes": {"name": name, "department": []}}
     ]
 
     output = await asyncio.gather(
@@ -143,12 +143,12 @@ async def test_load_ldap_employee_multiple_results(
     ldap_connection: MagicMock, dataloaders: Dataloaders
 ) -> None:
     # Mock data
-    Name = "Nick Janssen"
+    name = "Nick Janssen"
     Department = None
     dn = "DC=ad,DC=addev"
 
     ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": Name, "department": Department}}
+        {"dn": dn, "attributes": {"name": name, "department": Department}}
     ] * 20
 
     try:
@@ -184,13 +184,13 @@ async def test_load_ldap_employees(
     """Test that load_organizationalPersons works as expected."""
 
     # Mock data
-    Name = "Nick Janssen"
+    name = "Nick Janssen"
     Department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
     expected_results = [
         {
-            "Name": Name,
+            "name": name,
             "Department": Department,
             "dn": dn,
             "objectGUID": None,
@@ -200,7 +200,7 @@ async def test_load_ldap_employees(
     ]
 
     # Mock AD connection
-    ldap_connection.entries = [mock_ldap_entry(Name, Department, dn)]
+    ldap_connection.entries = [mock_ldap_entry(name, Department, dn)]
 
     # Simulate three pages
     cookies = [bytes("first page", "utf-8"), bytes("second page", "utf-8"), None]
@@ -231,7 +231,7 @@ async def test_upload_ldap_employee(
 
     employee = LdapEmployee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        Name="Nick Janssen",
+        name="Nick Janssen",
         Department="GL",
         objectGUID="{" + str(uuid4()) + "}",
         givenName="Nick",
@@ -258,8 +258,8 @@ async def test_upload_ldap_employee(
         "type": "modifyResponse",
     }
 
-    # LDAP does not allow one to change the 'Name' attribute and throws a bad response
-    not_allowed_on_RDN = ["Name"]
+    # LDAP does not allow one to change the 'name' attribute and throws a bad response
+    not_allowed_on_RDN = ["name"]
     parameters_to_upload = [k for k in employee.dict().keys() if k != "dn"]
     allowed_parameters_to_upload = [
         p for p in parameters_to_upload if p not in not_allowed_on_RDN
@@ -295,7 +295,7 @@ async def test_create_ldap_employee(
 
     employee = LdapEmployee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        Name="Nick Janssen",
+        name="Nick Janssen",
         Department="GL",
     )
 

@@ -28,7 +28,7 @@ new_department = (
 )
 ldap_person_to_post = {
     "dn": "CN=Lars Peter Thomsen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-    "Name": "Lars Peter Thomsen",
+    "name": "Lars Peter Thomsen",
     "Department": new_department,
 }
 requests.post("http://0.0.0.0:8000/AD/employee", json=ldap_person_to_post)
@@ -68,7 +68,7 @@ dn = "CN=%s %s,OU=Users,OU=Magenta,DC=ad,DC=addev" % (
     mo_employee_to_post["surname"],
 )
 r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % dn)
-assert r.json()["Name"] == "%s %s" % (
+assert r.json()["name"] == "%s %s" % (
     mo_employee_to_post["givenname"],
     mo_employee_to_post["surname"],
 )
