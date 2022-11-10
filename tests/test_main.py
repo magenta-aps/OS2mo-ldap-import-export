@@ -235,6 +235,20 @@ def test_ldap_get_all_converted_endpoint(
     assert response.status_code == 202
 
 
+def test_ldap_get_converted_endpoint(
+    test_client: TestClient, empty_dataloaders: Dataloaders
+) -> None:
+    """Test the LDAP get endpoint on our app."""
+
+    async def loader(x):
+        return [LdapEmployee(name="Tester", Department="QA", dn="someDN")]
+
+    empty_dataloaders.ldap_employee_loader = DataLoader(load_fn=loader, cache=False)
+
+    response = test_client.get("/AD/employee/foo/converted")
+    assert response.status_code == 202
+
+
 def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:
     """Test the AD get-all endpoint on our app."""
 

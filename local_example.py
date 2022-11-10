@@ -17,9 +17,14 @@ import requests  # type: ignore
 # Get all users from AD
 r = requests.get("http://0.0.0.0:8000/AD/employee")
 print("Found a user from AD:")
-print(r.json()[-2])
+print(r.json()[-1])
 print("")
 
+# Get all users from AD (Converted to MO)
+r2 = requests.get("http://0.0.0.0:8000/AD/employee/%s/converted" % r.json()[-1]["dn"])
+print("Here is the same user, MO style:")
+print(r2.json())
+print("")
 
 # Modify a user in AD
 ldap_person_to_post = r.json()[-2]
@@ -53,7 +58,7 @@ nickname_givenname = "Man who can do %d push ups" % random.randint(0, 10_000)
 mo_employee_to_post = {}
 mo_employee_to_post["uuid"] = str(uuid4())
 mo_employee_to_post["nickname_givenname"] = nickname_givenname
-mo_employee_to_post["surname"] = "Hansen" + " %d" % random.randint(0, 10_000)
+mo_employee_to_post["surname"] = "Hansen_%d" % random.randint(0, 10_000)
 mo_employee_to_post["givenname"] = "Hans"
 requests.post("http://0.0.0.0:8000/MO/employee", json=mo_employee_to_post)
 

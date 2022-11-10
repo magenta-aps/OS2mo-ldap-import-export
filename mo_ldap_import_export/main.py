@@ -184,6 +184,7 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     dataloaders = fastramqpi._context["user_context"]["dataloaders"]
 
+    # Get all persons from AD - Converted to MO
     @app.get("/AD/employee/converted", status_code=202)
     async def convert_all_org_persons_from_ldap() -> Any:
         """Request all organizational persons, converted to MO"""
@@ -201,6 +202,18 @@ def create_app(**kwargs: Any) -> FastAPI:
         logger.info("Manually triggered AD request of %s" % dn)
 
         result = await dataloaders.ldap_employee_loader.load(dn)
+        return result
+
+    # Get a specific person from AD - Converted to MO
+    @app.get("/AD/employee/{dn}/converted", status_code=202)
+    async def convert_employee_from_LDAP(dn: str, request: Request) -> Any:
+        """Request single employee"""
+        logger.info("Manually triggered AD request of %s" % dn)
+
+        result = await dataloaders.ldap_employee_loader.load(dn)
+
+        converter = EmployeeConverter(fastramqpi._context)
+        result = converter.from_ldap(result)
         return result
 
     # Get all persons from AD
