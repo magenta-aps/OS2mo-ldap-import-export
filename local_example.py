@@ -20,13 +20,13 @@ print("Found a user from AD:")
 print(r.json()[-1])
 print("")
 
-# Get all users from AD (Converted to MO)
+# Get a user from AD (Converted to MO)
 r2 = requests.get("http://0.0.0.0:8000/AD/employee/%s/converted" % r.json()[-1]["dn"])
 print("Here is the same user, MO style:")
 print(r2.json())
 print("")
 
-# Modify a user in AD
+# %% Modify a user in AD
 ldap_person_to_post = r.json()[-2]
 new_department = (
     "Department which will buy %d cakes for its colleagues" % random.randint(0, 10_000)

@@ -7,6 +7,7 @@
 """Test dataloaders."""
 import asyncio
 from collections.abc import Iterator
+from typing import Collection
 from typing import Union
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -18,6 +19,7 @@ from ramodels.mo.employee import Employee
 from mo_ldap_import_export.config import Settings
 from mo_ldap_import_export.dataloaders import configure_dataloaders
 from mo_ldap_import_export.dataloaders import Dataloaders
+from mo_ldap_import_export.dataloaders import get_ldap_attributes
 from mo_ldap_import_export.dataloaders import LdapEmployee
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
@@ -81,17 +83,20 @@ def dataloaders(
     yield dataloaders
 
 
-def mock_ldap_entry(
+def mock_ldap_response(
     name: str, department: Union[str, None, list], dn: str
-) -> MagicMock:
+) -> dict[str, Collection[str]]:
 
-    entry = MagicMock()
-    entry.entry_dn = dn
+    expected_attributes = get_ldap_attributes(LdapEmployee)
+    inner_dict = {"department": department, "name": name}
 
-    entry.attach_mock(MagicMock(value=name), "name")
-    entry.attach_mock(MagicMock(value=department), "department")
+    for attribute in expected_attributes:
+        if attribute not in inner_dict.keys():
+            inner_dict[attribute] = None
 
-    return entry
+    response = {"dn": dn, "type": "searchResEntry", "attributes": inner_dict}
+
+    return response
 
 
 async def test_load_ldap_employee(
@@ -104,9 +109,7 @@ async def test_load_ldap_employee(
 
     expected_result = [LdapEmployee(name=name, department=department, dn=dn)]
 
-    ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": name, "department": department}}
-    ]
+    ldap_connection.response = [mock_ldap_response(name, department, dn)]
 
     output = await asyncio.gather(
         dataloaders.ldap_employee_loader.load(dn),
@@ -123,14 +126,11 @@ async def test_load_ldap_employee_empty_list(
     """
     # Mock data
     name = "Nick Janssen"
-    department = None
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_result = [LdapEmployee(name=name, department=department, dn=dn)]
+    expected_result = [LdapEmployee(name=name, department=None, dn=dn)]
 
-    ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": name, "department": []}}
-    ]
+    ldap_connection.response = [mock_ldap_response(name, [], dn)]
 
     output = await asyncio.gather(
         dataloaders.ldap_employee_loader.load(dn),
@@ -147,9 +147,7 @@ async def test_load_ldap_employee_multiple_results(
     department = None
     dn = "DC=ad,DC=addev"
 
-    ldap_connection.response = [
-        {"dn": dn, "attributes": {"name": name, "department": department}}
-    ] * 20
+    ldap_connection.response = [mock_ldap_response(name, department, dn)] * 20
 
     try:
         await asyncio.gather(
@@ -189,18 +187,20 @@ async def test_load_ldap_employees(
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
     expected_results = [
-        {
-            "name": name,
-            "department": department,
-            "dn": dn,
-            "objectGUID": None,
-            "givenName": None,
-            "sn": None,
-        }
+        LdapEmployee(
+            **{
+                "name": name,
+                "department": department,
+                "dn": dn,
+                "objectGUID": None,
+                "givenName": None,
+                "sn": None,
+            }
+        )
     ]
 
     # Mock AD connection
-    ldap_connection.entries = [mock_ldap_entry(name, department, dn)]
+    ldap_connection.response = [mock_ldap_response(name, department, dn)]
 
     # Simulate three pages
     cookies = [bytes("first page", "utf-8"), bytes("second page", "utf-8"), None]

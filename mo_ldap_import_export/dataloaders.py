@@ -51,8 +51,24 @@ class LdapEmployee(BaseModel):
     sn: Union[str, None]
 
 
-def get_ldap_attributes() -> list[str]:
-    return [a for a in LdapEmployee.schema()["properties"].keys() if a != "dn"]
+def get_ldap_attributes(object_class: Any) -> list[str]:
+    return [a for a in object_class.schema()["properties"].keys() if a != "dn"]
+
+
+def make_ldap_object(response: dict, object_class: Any) -> Any:
+    """
+    Takes an ldap response and formats it as a class
+    """
+
+    ldap_dict = {"dn": response["dn"]}
+    for attribute in get_ldap_attributes(object_class):
+        value = response["attributes"][attribute]
+        if value == []:
+            ldap_dict[attribute] = None
+        else:
+            ldap_dict[attribute] = value
+
+    return object_class(**ldap_dict)
 
 
 async def load_ldap_employee(
@@ -66,7 +82,7 @@ async def load_ldap_employee(
         searchParameters = {
             "search_base": dn,
             "search_filter": "(objectclass=organizationalPerson)",
-            "attributes": get_ldap_attributes(),
+            "attributes": get_ldap_attributes(LdapEmployee),
         }
 
         ldap_connection.search(**searchParameters)
@@ -79,15 +95,7 @@ async def load_ldap_employee(
         elif len(response) == 0:
             raise NoObjectsReturnedException("Found no entries for dn=%s" % dn)
 
-        for attribute, value in response[0]["attributes"].items():
-            if value == []:
-                response[0]["attributes"][attribute] = None
-
-        employee = LdapEmployee(
-            dn=response[0]["dn"],
-            name=response[0]["attributes"]["name"],
-            department=response[0]["attributes"]["department"],
-        )
+        employee: LdapEmployee = make_ldap_object(response[0], LdapEmployee)
 
         logger.info("Found %s" % employee)
         output.append(employee)
@@ -104,12 +112,12 @@ async def load_ldap_employees(
     Returns list with all organizationalPersons
     """
     logger = structlog.get_logger()
-    output = []
+    responses = []
 
     searchParameters = {
         "search_base": search_base,
         "search_filter": "(objectclass=organizationalPerson)",
-        "attributes": get_ldap_attributes(),
+        "attributes": get_ldap_attributes(LdapEmployee),
         "paged_size": 500,  # TODO: Find this number from AD rather than hard-code it?
     }
 
@@ -117,7 +125,8 @@ async def load_ldap_employees(
     for page in range(0, 10_000):
         logger.info("searching page %d" % page)
         ldap_connection.search(**searchParameters)
-        output.extend(ldap_connection.entries)
+        entries = [r for r in ldap_connection.response if r["type"] == "searchResEntry"]
+        responses.extend(entries)
 
         # TODO: Skal "1.2.840.113556.1.4.319" være Configurerbar?
         cookie = ldap_connection.result["controls"]["1.2.840.113556.1.4.319"]["value"][
@@ -129,16 +138,9 @@ async def load_ldap_employees(
         else:
             break
 
-    output_list = [
-        LdapEmployee(
-            dn=o.entry_dn,
-            name=o.name.value,
-            department=o.department.value,
-        )
-        for o in output
-    ]
+    output: list[LdapEmployee] = [make_ldap_object(r, LdapEmployee) for r in responses]
 
-    return [output_list]
+    return [output]
 
 
 async def upload_ldap_employee(keys: list[LdapEmployee], ldap_connection: Connection):
