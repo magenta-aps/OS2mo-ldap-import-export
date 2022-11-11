@@ -13,8 +13,11 @@ from fastramqpi.context import Context
 from gql import gql
 from gql.client import AsyncClientSession
 from ldap3 import Connection
+from more_itertools import always_iterable
 from more_itertools import flatten
+from more_itertools import only
 from pydantic import BaseModel
+from pydantic import Extra
 from raclients.modelclient.mo import ModelClient
 from ramodels.mo.employee import Employee
 from strawberry.dataloader import DataLoader
@@ -39,31 +42,37 @@ class Dataloaders(BaseModel):
     mo_employee_loader: DataLoader
 
 
-# TODO: move this placeholder class to its own file and extend properties
-class LdapEmployee(BaseModel):
-    """Model for an AD employee"""
-
+# We don't decide what needs to be in this model. LDAP does
+class LdapEmployee(BaseModel, extra=Extra.allow):
     dn: str
-    name: str  # TODO: This field cannot be modified in AD. Add a 'protected' flag?
-    department: Union[str, None]
-    objectGUID: Union[str, None]
-    givenName: Union[str, None]
-    sn: Union[str, None]
 
 
-def get_ldap_attributes(object_class: Any) -> list[str]:
-    return [a for a in object_class.schema()["properties"].keys() if a != "dn"]
+def get_ldap_attributes(ldap_connection, ad_object: Union[str, None]):
+    """
+    ldap_connection : ldap connection object
+    ad_object : ad_object to fetch attributes for. for example "organizationalPerson"
+    """
+
+    logger = structlog.get_logger()
+    all_attributes = []
+    while ad_object is not None:
+        schema = ldap_connection.server.schema.object_classes[ad_object]
+        if ad_object != "top":
+            logger.info("Fetching allowed objects for %s" % ad_object)
+            all_attributes += schema.may_contain
+        ad_object = only(always_iterable(schema.superior))
+    return all_attributes
 
 
-def make_ldap_object(response: dict, object_class: Any) -> Any:
+def make_ldap_object(response: dict, object_class: Any, attributes: list) -> Any:
     """
     Takes an ldap response and formats it as a class
     """
 
     ldap_dict = {"dn": response["dn"]}
-    for attribute in get_ldap_attributes(object_class):
+    for attribute in attributes:
         value = response["attributes"][attribute]
-        if value == []:
+        if (value == []) or (type(value) is bytes):
             ldap_dict[attribute] = None
         else:
             ldap_dict[attribute] = value
@@ -77,12 +86,13 @@ async def load_ldap_employee(
 
     logger = structlog.get_logger()
     output = []
+    attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
 
     for dn in keys:
         searchParameters = {
             "search_base": dn,
             "search_filter": "(objectclass=organizationalPerson)",
-            "attributes": get_ldap_attributes(LdapEmployee),
+            "attributes": attributes,
         }
 
         ldap_connection.search(**searchParameters)
@@ -95,7 +105,7 @@ async def load_ldap_employee(
         elif len(response) == 0:
             raise NoObjectsReturnedException("Found no entries for dn=%s" % dn)
 
-        employee: LdapEmployee = make_ldap_object(response[0], LdapEmployee)
+        employee: LdapEmployee = make_ldap_object(response[0], LdapEmployee, attributes)
 
         logger.info("Found %s" % employee)
         output.append(employee)
@@ -113,11 +123,12 @@ async def load_ldap_employees(
     """
     logger = structlog.get_logger()
     responses = []
+    attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
 
     searchParameters = {
         "search_base": search_base,
         "search_filter": "(objectclass=organizationalPerson)",
-        "attributes": get_ldap_attributes(LdapEmployee),
+        "attributes": attributes,
         "paged_size": 500,  # TODO: Find this number from AD rather than hard-code it?
     }
 
@@ -138,7 +149,9 @@ async def load_ldap_employees(
         else:
             break
 
-    output: list[LdapEmployee] = [make_ldap_object(r, LdapEmployee) for r in responses]
+    output: list[LdapEmployee] = [
+        make_ldap_object(r, LdapEmployee, attributes) for r in responses
+    ]
 
     return [output]
 

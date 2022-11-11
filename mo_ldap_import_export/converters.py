@@ -90,7 +90,7 @@ class EmployeeConverter:
                 for key, value in ldap_object.dict().items()
             }
         )
-        mo_dict = {"uuid": ldap_dict["objectGUID"]}
+        mo_dict = {}
         mapping = self.mapping["ldap_to_mo"]
         if "user_attrs" in mapping:
             user_attrs_mapping = mapping["user_attrs"]

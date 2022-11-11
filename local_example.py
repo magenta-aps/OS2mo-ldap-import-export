@@ -17,11 +17,12 @@ import requests  # type: ignore
 # Get all users from AD
 r = requests.get("http://0.0.0.0:8000/AD/employee")
 print("Found a user from AD:")
-print(r.json()[-1])
+ad_user = r.json()[300]
+print(ad_user)
 print("")
 
 # Get a user from AD (Converted to MO)
-r2 = requests.get("http://0.0.0.0:8000/AD/employee/%s/converted" % r.json()[-1]["dn"])
+r2 = requests.get("http://0.0.0.0:8000/AD/employee/%s/converted" % ad_user["dn"])
 print("Here is the same user, MO style:")
 print(r2.json())
 print("")
@@ -73,11 +74,8 @@ dn = "CN=%s %s,OU=Users,OU=Magenta,DC=ad,DC=addev" % (
     mo_employee_to_post["surname"],
 )
 r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % dn)
-assert r.json()["name"] == "%s %s" % (
-    mo_employee_to_post["givenname"],
-    mo_employee_to_post["surname"],
-)
-
+assert r.json()["givenName"] == mo_employee_to_post["givenname"]
+assert r.json()["sn"] == mo_employee_to_post["surname"]
 # Modify the user in MO
 
 # Check that it is also modified in AD
