@@ -10,7 +10,6 @@ Created on Mon Oct 24 09:37:25 2022
 @author: nick
 """
 import random
-from uuid import uuid4
 
 import requests  # type: ignore
 
@@ -22,26 +21,26 @@ print(ad_user)
 print("")
 
 # Get a user from AD (Converted to MO)
-r2 = requests.get("http://0.0.0.0:8000/AD/employee/%s/converted" % ad_user["dn"])
+r2 = requests.get("http://0.0.0.0:8000/AD/employee/%s/converted" % ad_user["cpr"])
 print("Here is the same user, MO style:")
 print(r2.json())
 print("")
 
 # %% Modify a user in AD
-ldap_person_to_post = r.json()[-2]
 new_department = (
     "Department which will buy %d cakes for its colleagues" % random.randint(0, 10_000)
 )
 ldap_person_to_post = {
-    "dn": "CN=Lars Peter Thomsen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-    "name": "Lars Peter Thomsen",
+    "dn": "CN=1212125556,OU=Users,OU=Magenta,DC=ad,DC=addev",
+    "name": "Joe Jackson",
     "department": new_department,
+    "cpr": "1212125556",
 }
 requests.post("http://0.0.0.0:8000/AD/employee", json=ldap_person_to_post)
 
 
 # Get the users again - validate that the user is modified
-r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % ldap_person_to_post["dn"])
+r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % ldap_person_to_post["cpr"])
 assert r.json()["department"] == new_department
 print("Successfully edited department to '%s' in AD" % new_department)
 print("")
@@ -50,35 +49,30 @@ print("")
 # Get all users from MO
 r = requests.get("http://0.0.0.0:8000/MO/employee")
 print("Found a user from MO:")
-print(r.json()[-1])
+mo_user = r.json()[-12]
+print(mo_user)
 print("")
 
 
-# Post a new user to MO (Which should also trigger an AD user create)
+# Modify a user in MO (Which should also trigger an AD user create/modify)
+mo_employee_to_post = mo_user
 nickname_givenname = "Man who can do %d push ups" % random.randint(0, 10_000)
-mo_employee_to_post = {}
-mo_employee_to_post["uuid"] = str(uuid4())
 mo_employee_to_post["nickname_givenname"] = nickname_givenname
 mo_employee_to_post["surname"] = "Hansen_%d" % random.randint(0, 10_000)
 mo_employee_to_post["givenname"] = "Hans"
+
 requests.post("http://0.0.0.0:8000/MO/employee", json=mo_employee_to_post)
 
 # Load the user and check if the nickname was changed appropriately
 r = requests.get("http://0.0.0.0:8000/MO/employee/%s" % mo_employee_to_post["uuid"])
+assert r.json()["surname"] == mo_employee_to_post["surname"]
 assert r.json()["nickname_givenname"] == nickname_givenname
 print("Successfully edited nickname_givenname to '%s' in MO" % nickname_givenname)
 
 # Check that the user is now also in AD, and that his name is correct
-dn = "CN=%s %s,OU=Users,OU=Magenta,DC=ad,DC=addev" % (
-    mo_employee_to_post["givenname"],
-    mo_employee_to_post["surname"],
-)
-r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % dn)
+r = requests.get("http://0.0.0.0:8000/AD/employee/%s" % mo_employee_to_post["cpr_no"])
 assert r.json()["givenName"] == mo_employee_to_post["givenname"]
 assert r.json()["sn"] == mo_employee_to_post["surname"]
-# Modify the user in MO
-
-# Check that it is also modified in AD
 
 # Print the hyperlink to the employee.
 print("")

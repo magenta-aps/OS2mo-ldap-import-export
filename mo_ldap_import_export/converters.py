@@ -6,13 +6,15 @@ import re
 from typing import Any
 from typing import Dict
 
+import structlog
 from fastramqpi.context import Context
 from jinja2 import Environment
 from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ramodels.mo.employee import Employee
 
-from .dataloaders import LdapEmployee
+from .exceptions import CprNoNotFound
+from .ldap_classes import LdapEmployee
 
 
 def read_mapping_json(filename: str) -> Any:
@@ -22,20 +24,49 @@ def read_mapping_json(filename: str) -> Any:
         return json.loads(data)
 
 
+def find_cpr_field(mapping):
+    """
+    Get the field which contains the CPR number in LDAP
+    """
+    logger = structlog.get_logger()
+    user_attrs_mapping = mapping["mo_to_ldap"]["user_attrs"]
+
+    # See if we can find a match for this search field/result
+    search_result = "123"
+    search_field = "cpr_no"
+
+    mo_dict = {search_field: search_result}
+    cpr_field = None
+    for ldap_field_name, template in user_attrs_mapping.items():
+        value = template.render({"mo": mo_dict}).strip()
+
+        if value == search_result:
+            cpr_field = ldap_field_name
+            logger.info("Found CPR field in LDAP: '%s'" % cpr_field)
+            break
+
+    if cpr_field is None:
+        raise CprNoNotFound("CPR field not found")
+
+    return cpr_field
+
+
 class EmployeeConverter:
     def __init__(self, context: Context):
 
         self.user_context = context["user_context"]
-        self.app_settings = context["user_context"]["app_settings"]
+        self.settings = context["user_context"]["settings"]
         mapping = self.user_context["mapping"]
 
         environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = EmployeeConverter.filter_splitlast
         environment.filters["splitfirst"] = EmployeeConverter.filter_splitfirst
         self.mapping = self._populate_mapping_with_templates(
-            read_mapping_json(mapping) if type(mapping) is str else mapping,
+            mapping,
             environment,
         )
+
+        self.cpr_field = find_cpr_field(mapping)
 
     @staticmethod
     def filter_splitfirst(text):
@@ -69,6 +100,7 @@ class EmployeeConverter:
 
     def to_ldap(self, mo_object: Employee) -> LdapEmployee:
         ldap_object = {}
+
         mapping = self.mapping["mo_to_ldap"]
         if "user_attrs" in mapping:
             user_attrs_mapping = mapping["user_attrs"]
@@ -76,10 +108,11 @@ class EmployeeConverter:
                 ldap_object[ldap_field_name] = template.render({"mo": mo_object})
 
         cn = "CN=%s," % (mo_object.givenname + " " + mo_object.surname)
-        ou = "OU=Users,%s," % self.app_settings.ldap_organizational_unit
-        dc = self.app_settings.ldap_search_base
+        ou = "OU=Users,%s," % self.settings.ldap_organizational_unit
+        dc = self.settings.ldap_search_base
         dn = cn + ou + dc
         ldap_object["dn"] = dn
+        ldap_object["cpr"] = ldap_object[self.cpr_field]
 
         return LdapEmployee(**ldap_object)
 

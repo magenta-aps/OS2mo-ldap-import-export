@@ -23,10 +23,11 @@ from ramqp.mo.models import PayloadType
 
 from .config import Settings
 from .converters import EmployeeConverter
+from .converters import read_mapping_json
 from .dataloaders import configure_dataloaders
-from .dataloaders import LdapEmployee
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
+from .ldap_classes import LdapEmployee
 
 logger = structlog.get_logger()
 fastapi_router = APIRouter()
@@ -56,7 +57,7 @@ async def listen_to_changes_in_employees(
 
     # Convert to LDAP
     logger.info("Converting MO Employee object to AD object")
-    converter = EmployeeConverter(context)
+    converter = user_context["converter"]
     ldap_employee = converter.to_ldap(changed_employee)
 
     # Upload to LDAP
@@ -146,7 +147,6 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
 
     logger.info("Setting up clients")
     gql_client, model_client = construct_clients(settings)
-
     fastramqpi.add_context(model_client=model_client)
     fastramqpi.add_context(gql_client=gql_client)
 
@@ -155,7 +155,6 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(ldap_connection=ldap_connection)
     fastramqpi.add_healthcheck(name="ADConnection", healthcheck=ldap_healthcheck)
     fastramqpi.add_lifespan_manager(open_ldap_connection(ldap_connection), 1500)
-
     fastramqpi.add_lifespan_manager(seed_dataloaders(fastramqpi), 2000)
 
     logger.info("Configuring Dataloaders")
@@ -163,10 +162,15 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     dataloaders = configure_dataloaders(context)
     fastramqpi.add_context(dataloaders=dataloaders)
 
-    fastramqpi.add_context(app_settings=settings)
-
+    logger.info("Loading mapping file")
     mappings_folder = os.path.join(os.path.dirname(__file__), "mappings")
-    fastramqpi.add_context(mapping=os.path.join(mappings_folder, "default.json"))
+    mappings_file = os.path.join(mappings_folder, "default.json")
+    fastramqpi.add_context(mapping=read_mapping_json(mappings_file))
+
+    logger.info("Initializing converters")
+    converter = EmployeeConverter(context)
+    fastramqpi.add_context(cpr_field=converter.cpr_field)
+    fastramqpi.add_context(converter=converter)
 
     return fastramqpi
 
@@ -182,7 +186,9 @@ def create_app(**kwargs: Any) -> FastAPI:
     app = fastramqpi.get_app()
     app.include_router(fastapi_router)
 
-    dataloaders = fastramqpi._context["user_context"]["dataloaders"]
+    user_context = fastramqpi._context["user_context"]
+    dataloaders = user_context["dataloaders"]
+    converter = user_context["converter"]
 
     # Get all persons from AD - Converted to MO
     @app.get("/AD/employee/converted", status_code=202)
@@ -190,18 +196,17 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request all organizational persons, converted to MO"""
         logger.info("Manually triggered LDAP request of all organizational persons")
 
-        converter = EmployeeConverter(fastramqpi._context)
         result = await dataloaders.ldap_employees_loader.load(1)
         result = [converter.from_ldap(r) for r in result]
         return result
 
     # Get a specific person from AD
-    @app.get("/AD/employee/{dn}", status_code=202)
-    async def load_employee_from_LDAP(dn: str, request: Request) -> Any:
+    @app.get("/AD/employee/{cpr}", status_code=202)
+    async def load_employee_from_LDAP(cpr: str, request: Request) -> Any:
         """Request single employee"""
-        logger.info("Manually triggered AD request of %s" % dn)
+        logger.info("Manually triggered AD request of %s" % cpr)
 
-        result = await dataloaders.ldap_employee_loader.load(dn)
+        result = await dataloaders.ldap_employee_loader.load(cpr)
         return result
 
     # Get a specific person from AD - Converted to MO
@@ -211,8 +216,6 @@ def create_app(**kwargs: Any) -> FastAPI:
         logger.info("Manually triggered AD request of %s" % dn)
 
         result = await dataloaders.ldap_employee_loader.load(dn)
-
-        converter = EmployeeConverter(fastramqpi._context)
         result = converter.from_ldap(result)
         return result
 

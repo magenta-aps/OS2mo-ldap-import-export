@@ -22,7 +22,7 @@ from strawberry.dataloader import DataLoader
 
 from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import Dataloaders
-from mo_ldap_import_export.dataloaders import LdapEmployee
+from mo_ldap_import_export.ldap_classes import LdapEmployee
 from mo_ldap_import_export.main import create_app
 from mo_ldap_import_export.main import create_fastramqpi
 from mo_ldap_import_export.main import listen_to_changes_in_employees
@@ -227,7 +227,13 @@ def test_ldap_get_all_converted_endpoint(
     """Test the LDAP get-all endpoint on our app."""
 
     async def loader(x):
-        return [[LdapEmployee(name="Tester", Department="QA", dn="someDN")]]
+        return [
+            [
+                LdapEmployee(
+                    name="Tester", Department="QA", dn="someDN", cpr="0101011234"
+                )
+            ]
+        ]
 
     empty_dataloaders.ldap_employees_loader = DataLoader(load_fn=loader, cache=False)
 
@@ -241,7 +247,9 @@ def test_ldap_get_converted_endpoint(
     """Test the LDAP get endpoint on our app."""
 
     async def loader(x):
-        return [LdapEmployee(name="Tester", Department="QA", dn="someDN")]
+        return [
+            LdapEmployee(name="Tester", Department="QA", dn="someDN", cpr="0101011234")
+        ]
 
     empty_dataloaders.ldap_employee_loader = DataLoader(load_fn=loader, cache=False)
 
@@ -254,6 +262,7 @@ def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:
 
     ldap_person_to_post = {
         "dn": "CN=Lars Peter Thomsen,OU=Users,OU=Magenta,DC=ad,DC=addev",
+        "cpr": "0101121234",
         "name": "Lars Peter Thomsen",
         "Department": None,
     }
@@ -312,12 +321,12 @@ async def test_listen_to_changes_in_employees() -> None:
     async def empty_fn(keys):
         return ["foo"] * len(keys)
 
-    dataloader_mock = MagicMock
+    dataloader_mock = MagicMock()
     dataloader_mock.mo_employee_loader = DataLoader(load_fn=employee_fn, cache=False)
 
     dataloader_mock.ldap_employees_uploader = DataLoader(load_fn=empty_fn, cache=False)
 
-    settings_mock = MagicMock
+    settings_mock = MagicMock()
     settings_mock.ldap_organizational_unit = "foo"
     settings_mock.ldap_search_base = "bar"
 
@@ -325,17 +334,21 @@ async def test_listen_to_changes_in_employees() -> None:
         os.path.join(os.path.dirname(__file__), "resources", "mapping.json")
     )
 
+    converter_mock = MagicMock()
+    converter_mock.cpr_field = "EmployeeID"
+
     context = {
         "user_context": {
             "dataloaders": dataloader_mock,
-            "app_settings": settings_mock,
+            "settings": settings_mock,
             "mapping": mapping,
+            "converter": converter_mock,
         }
     }
-    payload = MagicMock
+    payload = MagicMock()
     payload.uuid = uuid4()
 
-    settings = MagicMock
+    settings = MagicMock()
     settings.ldap_organizational_unit = "OU=foo"
     settings.ldap_search_base = "DC=bar"
 

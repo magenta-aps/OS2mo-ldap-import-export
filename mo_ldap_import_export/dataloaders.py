@@ -12,18 +12,17 @@ import structlog
 from fastramqpi.context import Context
 from gql import gql
 from gql.client import AsyncClientSession
-from ldap3 import Connection
 from more_itertools import always_iterable
 from more_itertools import flatten
 from more_itertools import only
 from pydantic import BaseModel
-from pydantic import Extra
 from raclients.modelclient.mo import ModelClient
 from ramodels.mo.employee import Employee
 from strawberry.dataloader import DataLoader
 
 from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NoObjectsReturnedException
+from .ldap_classes import LdapEmployee
 
 
 class Dataloaders(BaseModel):
@@ -40,11 +39,6 @@ class Dataloaders(BaseModel):
     mo_employees_loader: DataLoader
     mo_employee_uploader: DataLoader
     mo_employee_loader: DataLoader
-
-
-# We don't decide what needs to be in this model. LDAP does
-class LdapEmployee(BaseModel, extra=Extra.allow):
-    dn: str
 
 
 def get_ldap_attributes(ldap_connection, ad_object: Union[str, None]):
@@ -64,12 +58,18 @@ def get_ldap_attributes(ldap_connection, ad_object: Union[str, None]):
     return all_attributes
 
 
-def make_ldap_object(response: dict, object_class: Any, attributes: list) -> Any:
+def make_ldap_object(
+    response: dict, object_class: Any, attributes: list, context: Context
+) -> Any:
     """
     Takes an ldap response and formats it as a class
     """
+    cpr_field = context["user_context"]["cpr_field"]
+    cpr_number = response["attributes"][cpr_field]
 
-    ldap_dict = {"dn": response["dn"]}
+    # TODO: Add a cpr number check here
+    ldap_dict = {"dn": response["dn"], "cpr": str(cpr_number)}
+
     for attribute in attributes:
         value = response["attributes"][attribute]
         if (value == []) or (type(value) is bytes):
@@ -80,32 +80,38 @@ def make_ldap_object(response: dict, object_class: Any, attributes: list) -> Any
     return object_class(**ldap_dict)
 
 
-async def load_ldap_employee(
-    keys: list[str], ldap_connection: Connection
-) -> list[LdapEmployee]:
+async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapEmployee]:
 
     logger = structlog.get_logger()
+    search_base = context["user_context"]["settings"].ldap_search_base
+    ldap_connection = context["user_context"]["ldap_connection"]
     output = []
     attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
 
-    for dn in keys:
+    for cpr in keys:
         searchParameters = {
-            "search_base": dn,
-            "search_filter": "(objectclass=organizationalPerson)",
+            "search_base": search_base,
+            "search_filter": "(&(objectclass=organizationalPerson)(%s=%s))"
+            % (context["user_context"]["cpr_field"], cpr),
             "attributes": attributes,
         }
 
         ldap_connection.search(**searchParameters)
         response = ldap_connection.response
 
-        if len(response) > 1:
-            raise MultipleObjectsReturnedException(
-                "Found multiple entries for dn=%s" % dn
-            )
-        elif len(response) == 0:
-            raise NoObjectsReturnedException("Found no entries for dn=%s" % dn)
+        search_entries = [r for r in response if r["type"] == "searchResEntry"]
 
-        employee: LdapEmployee = make_ldap_object(response[0], LdapEmployee, attributes)
+        if len(search_entries) > 1:
+            logger.info(response)
+            raise MultipleObjectsReturnedException(
+                "Found multiple entries for cpr=%s" % cpr
+            )
+        elif len(search_entries) == 0:
+            raise NoObjectsReturnedException("Found no entries for cpr=%s" % cpr)
+
+        employee: LdapEmployee = make_ldap_object(
+            search_entries[0], LdapEmployee, attributes, context
+        )
 
         logger.info("Found %s" % employee)
         output.append(employee)
@@ -113,15 +119,14 @@ async def load_ldap_employee(
     return output
 
 
-async def load_ldap_employees(
-    key: int,
-    ldap_connection: Connection,
-    search_base: str,
-) -> list[list[LdapEmployee]]:
+async def load_ldap_employees(key: int, context: Context) -> list[list[LdapEmployee]]:
     """
     Returns list with all organizationalPersons
     """
     logger = structlog.get_logger()
+    search_base = context["user_context"]["settings"].ldap_search_base
+    ldap_connection = context["user_context"]["ldap_connection"]
+
     responses = []
     attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
 
@@ -150,22 +155,52 @@ async def load_ldap_employees(
             break
 
     output: list[LdapEmployee] = [
-        make_ldap_object(r, LdapEmployee, attributes) for r in responses
+        make_ldap_object(r, LdapEmployee, attributes, context) for r in responses
     ]
 
     return [output]
 
 
-async def upload_ldap_employee(keys: list[LdapEmployee], ldap_connection: Connection):
+async def upload_ldap_employee(
+    keys: list[LdapEmployee],
+    context: Context,
+):
     logger = structlog.get_logger()
+    ldap_connection = context["user_context"]["ldap_connection"]
+
+    all_attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
     output = []
     success = 0
     failed = 0
+    cpr_field = context["user_context"]["cpr_field"]
     for key in keys:
-        dn = key.dn
-        parameters_to_upload = [k for k in key.dict().keys() if k != "dn"]
+
+        try:
+            existing_employee = await load_ldap_employee(
+                [key.cpr],
+                context=context,
+            )
+            dn = existing_employee[0].dn
+            logger.info("Found existing employee: %s" % dn)
+        except NoObjectsReturnedException as e:
+            logger.info("Could not find existing employee: %s" % e)
+
+            # Note: it is possible that the employee exists, but that the CPR no.
+            # attribute is not set. In that case this function will just set the cpr no.
+            # attribute in LDAP.
+            dn = key.dn
+
+        parameters_to_upload = [
+            k for k in key.dict().keys() if k != "dn" and k in all_attributes
+        ]
         results = []
         parameters = key.dict()
+
+        # Add cpr field
+        if cpr_field not in parameters_to_upload:
+            parameters_to_upload = parameters_to_upload + [cpr_field]
+        parameters[cpr_field] = key.cpr
+
         for parameter_to_upload in parameters_to_upload:
             value = parameters[parameter_to_upload]
             value_to_upload = [] if value is None else [value]
@@ -305,31 +340,27 @@ def configure_dataloaders(context: Context) -> Dataloaders:
         cache=False,
     )
 
-    settings = user_context["settings"]
-    ldap_connection = user_context["ldap_connection"]
-    ldap_employees_loader = DataLoader(
-        load_fn=partial(
-            load_ldap_employees,
-            ldap_connection=ldap_connection,
-            search_base=settings.ldap_search_base,
-        ),
-        cache=False,
-    )
+    ldap_loader_functions: dict[str, Callable] = {
+        "ldap_employees_loader": load_ldap_employees,
+        "ldap_employee_loader": load_ldap_employee,
+        "ldap_employees_uploader": upload_ldap_employee,
+    }
 
-    ldap_employee_loader = DataLoader(
-        load_fn=partial(load_ldap_employee, ldap_connection=ldap_connection),
-        cache=False,
-    )
-
-    ldap_employees_uploader = DataLoader(
-        load_fn=partial(upload_ldap_employee, ldap_connection=ldap_connection),
-        cache=False,
-    )
+    ldap_dataloaders: dict[str, DataLoader] = {
+        key: DataLoader(
+            load_fn=partial(
+                value,
+                # ldap_connection=ldap_connection,
+                # search_base=settings.ldap_search_base,
+                context=context,
+            ),
+            cache=False,
+        )
+        for key, value in ldap_loader_functions.items()
+    }
 
     return Dataloaders(
         **graphql_dataloaders,
-        ldap_employees_loader=ldap_employees_loader,
-        ldap_employee_loader=ldap_employee_loader,
-        ldap_employees_uploader=ldap_employees_uploader,
+        **ldap_dataloaders,
         mo_employee_uploader=mo_employee_uploader,
     )

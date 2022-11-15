@@ -28,7 +28,12 @@ from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 
 @pytest.fixture()
 def ldap_attributes() -> dict:
-    return {"department": None, "name": "John"}
+    return {"department": None, "name": "John", "employeeID": "0101011234"}
+
+
+@pytest.fixture
+def cpr_field() -> str:
+    return "employeeID"
 
 
 @pytest.fixture
@@ -75,6 +80,7 @@ def dataloaders(
     gql_client: AsyncMock,
     model_client: AsyncMock,
     settings: Settings,
+    cpr_field: str,
 ) -> Iterator[Dataloaders]:
     """Fixture to construct a dataloaders object using fixture mocks.
 
@@ -88,6 +94,7 @@ def dataloaders(
                 "ldap_connection": ldap_connection,
                 "gql_client": gql_client,
                 "model_client": model_client,
+                "cpr_field": cpr_field,
             },
         }
     )
@@ -114,8 +121,9 @@ async def test_load_ldap_employee(
 ) -> None:
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
+    cpr = "0101011234"
 
-    expected_result = [LdapEmployee(dn=dn, **ldap_attributes)]
+    expected_result = [LdapEmployee(dn=dn, cpr=cpr, **ldap_attributes)]
 
     ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
 
@@ -134,9 +142,10 @@ async def test_load_ldap_employee_empty_list(
     """
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
+    cpr = "0101011234"
 
     ldap_attributes["department"] = None
-    expected_result = [LdapEmployee(dn=dn, **ldap_attributes)]
+    expected_result = [LdapEmployee(dn=dn, cpr=cpr, **ldap_attributes)]
 
     ldap_attributes["department"] = []
     ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
@@ -160,10 +169,8 @@ async def test_load_ldap_employee_multiple_results(
         await asyncio.gather(
             dataloaders.ldap_employee_loader.load(dn),
         )
-    except MultipleObjectsReturnedException as e:
-        assert str(e) == "Found multiple entries for dn=%s" % dn
-    else:
-        raise Exception("Test failed")
+    except Exception as e:
+        assert type(e) == MultipleObjectsReturnedException
 
 
 async def test_load_ldap_employee_no_results(
@@ -177,10 +184,8 @@ async def test_load_ldap_employee_no_results(
         await asyncio.gather(
             dataloaders.ldap_employee_loader.load(dn),
         )
-    except NoObjectsReturnedException as e:
-        assert str(e) == "Found no entries for dn=%s" % dn
-    else:
-        raise Exception("Test failed")
+    except Exception as e:
+        assert type(e) == NoObjectsReturnedException
 
 
 async def test_load_ldap_employees(
@@ -190,8 +195,9 @@ async def test_load_ldap_employees(
 
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
+    cpr = "0101011234"
 
-    expected_results = [LdapEmployee(dn=dn, **ldap_attributes)]
+    expected_results = [LdapEmployee(dn=dn, cpr=cpr, **ldap_attributes)]
 
     # Mock AD connection
     ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
@@ -219,17 +225,16 @@ async def test_load_ldap_employees(
     assert output == [expected_results * len(cookies)]
 
 
-async def test_upload_ldap_employee(
-    ldap_connection: MagicMock, dataloaders: Dataloaders
+async def test_modify_ldap_employee(
+    ldap_connection: MagicMock,
+    dataloaders: Dataloaders,
+    ldap_attributes: dict,
 ) -> None:
 
     employee = LdapEmployee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        name="Nick Janssen",
-        department="GL",
-        objectGUID="{" + str(uuid4()) + "}",
-        givenName="Nick",
-        sn="Janssen",
+        cpr="0101011234",
+        **ldap_attributes
     )
 
     bad_response = {
@@ -254,7 +259,7 @@ async def test_upload_ldap_employee(
 
     # LDAP does not allow one to change the 'name' attribute and throws a bad response
     not_allowed_on_RDN = ["name"]
-    parameters_to_upload = [k for k in employee.dict().keys() if k != "dn"]
+    parameters_to_upload = [k for k in employee.dict().keys() if k not in ["dn", "cpr"]]
     allowed_parameters_to_upload = [
         p for p in parameters_to_upload if p not in not_allowed_on_RDN
     ]
@@ -270,27 +275,39 @@ async def test_upload_ldap_employee(
     def set_new_result(*args, **kwargs) -> None:
         ldap_connection.result = next(results)
 
-    # Every time a search is performed, point to the next page.
+    # Every time a modification is performed, point to the next page.
     ldap_connection.modify.side_effect = set_new_result
 
     # Get result from dataloader
-    output = await asyncio.gather(
-        dataloaders.ldap_employees_uploader.load(employee),
-    )
+    with patch(
+        "mo_ldap_import_export.dataloaders.load_ldap_employee", return_value=[employee]
+    ):
+        output = await asyncio.gather(
+            dataloaders.ldap_employees_uploader.load(employee),
+        )
 
     assert output == [
-        [good_response, good_response, good_response, good_response, bad_response]
+        [good_response] * len(allowed_parameters_to_upload)
+        + [bad_response] * len(disallowed_parameters_to_upload)
     ]
 
 
 async def test_create_ldap_employee(
-    ldap_connection: MagicMock, dataloaders: Dataloaders
+    ldap_connection: MagicMock,
+    dataloaders: Dataloaders,
+    ldap_attributes: dict,
+    cpr_field: str,
 ) -> None:
+
+    # Test to see if the cpr field is added. Even if not supplied in the attributes
+    ldap_attributes_without_cpr_field = {
+        key: value for key, value in ldap_attributes.items() if key != cpr_field
+    }
 
     employee = LdapEmployee(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        name="Nick Janssen",
-        department="GL",
+        cpr="0101011234",
+        **ldap_attributes_without_cpr_field
     )
 
     non_existing_object_response = {
@@ -311,7 +328,9 @@ async def test_create_ldap_employee(
         "type": "modifyResponse",
     }
 
-    parameters_to_upload = [k for k in employee.dict().keys() if k != "dn"]
+    parameters_to_upload = [k for k in employee.dict().keys() if k not in ["dn", "cpr"]]
+    parameters_to_upload += [cpr_field]
+
     results = iter(
         [non_existing_object_response] + [good_response] * len(parameters_to_upload)
     )
