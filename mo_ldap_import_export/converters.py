@@ -7,6 +7,7 @@ from typing import Any
 from typing import Dict
 
 import structlog
+import typing_extensions
 from fastramqpi.context import Context
 from jinja2 import Environment
 from jinja2 import Undefined
@@ -14,6 +15,7 @@ from ldap3.utils.ciDict import CaseInsensitiveDict
 from ramodels.mo.employee import Employee
 
 from .exceptions import CprNoNotFound
+from .exceptions import IncorrectMapping
 from .ldap_classes import LdapEmployee
 
 
@@ -58,7 +60,7 @@ class EmployeeConverter:
         self.settings = self.user_context["settings"]
         mapping = self.user_context["mapping"]
 
-        environment = Environment(undefined=Undefined)
+        environment = Environment(undefined=LenientUndefined)
         environment.filters["splitlast"] = EmployeeConverter.filter_splitlast
         environment.filters["splitfirst"] = EmployeeConverter.filter_splitfirst
         self.mapping = self._populate_mapping_with_templates(
@@ -75,8 +77,12 @@ class EmployeeConverter:
         This is convenient for splitting a name into a givenName and a surname
         and works for names with no spaces (surname will then be empty)
         """
-        s = text.split(" ", 1)
-        return s if len(s) > 1 else (s + [""])
+        if text is not None:
+            text = str(text)
+            if text != "":
+                s = text.split(" ", 1)
+                return s if len(s) > 1 else (s + [""])
+        return ["", ""]
 
     @staticmethod
     def filter_splitlast(text):
@@ -85,8 +91,13 @@ class EmployeeConverter:
         This is convenient for splitting a name into a givenName and a surname
         and works for names with no spaces (givenname will then be empty)
         """
-        s = text.split(" ")
-        return [" ".join(s[:-1]), s[-1]]
+        if text is not None:
+            text = str(text)
+            if text != "":
+                text = str(text)
+                s = text.split(" ")
+                return [" ".join(s[:-1]), s[-1]]
+        return ["", ""]
 
     def _populate_mapping_with_templates(
         self, mapping: Dict[str, Any], environment: Environment
@@ -136,4 +147,13 @@ class EmployeeConverter:
                 value = template.render({"ldap": ldap_dict}).strip()
                 if value != "None":
                     mo_dict[mo_field_name] = value
+        else:
+            raise IncorrectMapping("Missing 'user_attrs' in mapping 'ldap_to_mo'")
         return Employee(**mo_dict)
+
+
+class LenientUndefined(Undefined):
+    def _fail_with_undefined_error(
+        self, *args: Any, **kwargs: Any
+    ) -> typing_extensions.NoReturn:
+        pass

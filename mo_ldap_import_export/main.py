@@ -15,6 +15,7 @@ from fastapi import Request
 from fastramqpi.context import Context
 from fastramqpi.main import FastRAMQPI
 from ldap3 import Connection
+from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
 from ramodels.mo.employee import Employee
@@ -197,8 +198,13 @@ def create_app(**kwargs: Any) -> FastAPI:
         logger.info("Manually triggered LDAP request of all organizational persons")
 
         result = await dataloaders.ldap_employees_loader.load(1)
-        result = [converter.from_ldap(r) for r in result]
-        return result
+        converted_results = []
+        for r in result:
+            try:
+                converted_results.append(converter.from_ldap(r))
+            except ValidationError as e:
+                logger.warn("Cannot create MO Employee: %s" % str(e))
+        return converted_results
 
     # Get a specific person from LDAP
     @app.get("/LDAP/employee/{cpr}", status_code=202)
@@ -216,8 +222,11 @@ def create_app(**kwargs: Any) -> FastAPI:
         logger.info("Manually triggered LDAP request of %s" % dn)
 
         result = await dataloaders.ldap_employee_loader.load(dn)
-        result = converter.from_ldap(result)
-        return result
+        try:
+            return converter.from_ldap(result)
+        except ValidationError as e:
+            logger.warn("Cannot create MO Employee: %s" % str(e))
+            return None  # TODO: return 404? Other status?
 
     # Get all persons from LDAP
     @app.get("/LDAP/employee", status_code=202)

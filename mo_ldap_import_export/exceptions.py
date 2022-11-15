@@ -13,3 +13,7 @@ class NoObjectsReturnedException(Exception):
 
 class CprNoNotFound(Exception):
     pass
+
+
+class IncorrectMapping(Exception):
+    pass
