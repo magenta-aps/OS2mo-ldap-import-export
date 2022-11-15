@@ -55,7 +55,7 @@ class EmployeeConverter:
     def __init__(self, context: Context):
 
         self.user_context = context["user_context"]
-        self.settings = context["user_context"]["settings"]
+        self.settings = self.user_context["settings"]
         mapping = self.user_context["mapping"]
 
         environment = Environment(undefined=Undefined)
@@ -107,15 +107,15 @@ class EmployeeConverter:
                 ldap_object[ldap_field_name] = template.render({"mo": mo_object})
 
         #  Common Name
-        cn = "CN=%s %s - %s," % (
+        cn = "CN=%s %s - %s" % (
             mo_object.givenname,
             mo_object.surname,
             mo_object.cpr_no or "",
         )
 
-        ou = "OU=Users,%s," % self.settings.ldap_organizational_unit  # Org. Unit
+        ou = "OU=Users,%s" % self.settings.ldap_organizational_unit  # Org. Unit
         dc = self.settings.ldap_search_base  # Domain Component
-        dn = cn + ou + dc  # Distinguished Name
+        dn = ",".join([cn, ou, dc])  # Distinguished Name
         ldap_object["dn"] = dn
         ldap_object["cpr"] = ldap_object[self.cpr_field]
 

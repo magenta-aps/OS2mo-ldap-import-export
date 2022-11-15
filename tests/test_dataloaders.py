@@ -103,7 +103,6 @@ def dataloaders(
 
 def mock_ldap_response(ldap_attributes: dict, dn: str) -> dict[str, Collection[str]]:
 
-    # expected_attributes = get_ldap_attributes(LdapEmployee)
     expected_attributes = ldap_attributes.keys()
     inner_dict = ldap_attributes
 

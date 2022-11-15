@@ -130,9 +130,9 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapEmplo
     Returns list with all organizationalPersons
     """
     logger = structlog.get_logger()
-    user_contex = context["user_context"]
-    search_base = user_contex["settings"].ldap_search_base
-    ldap_connection = user_contex["ldap_connection"]
+    user_context = context["user_context"]
+    search_base = user_context["settings"].ldap_search_base
+    ldap_connection = user_context["ldap_connection"]
 
     responses = []
     attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
@@ -198,8 +198,9 @@ async def upload_ldap_employee(
             # attribute in LDAP.
             dn = key.dn
 
+        parameters_to_upload = list(key.dict().keys())
         parameters_to_upload = [
-            k for k in key.dict().keys() if k != "dn" and k in all_attributes
+            p for p in parameters_to_upload if p != "dn" and p in all_attributes
         ]
         results = []
         parameters = key.dict()
