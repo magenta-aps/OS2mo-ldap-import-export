@@ -33,3 +33,5 @@ import requests
 r = requests.get("http://0.0.0.0:8000/LDAP/all")
 print(r.json()[-2])
 ```
+
+Or you can go to [the swagger documentation](http://localhost:8000/docs) for a more graphic interface
