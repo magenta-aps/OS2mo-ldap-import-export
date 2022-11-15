@@ -64,11 +64,16 @@ def make_ldap_object(
     """
     Takes an ldap response and formats it as a class
     """
-    cpr_field = context["user_context"]["cpr_field"]
-    cpr_number = response["attributes"][cpr_field]
 
-    # TODO: Add a cpr number check here
-    ldap_dict = {"dn": response["dn"], "cpr": str(cpr_number)}
+    ldap_dict = {"dn": response["dn"]}
+
+    if object_class.__name__ == "LdapEmployee":
+        # The employee class must contain a cpr number field
+        cpr_field = context["user_context"]["cpr_field"]
+        cpr_number = response["attributes"][cpr_field]
+
+        # TODO: Add a cpr number check here?
+        ldap_dict["cpr"] = str(cpr_number)
 
     for attribute in attributes:
         value = response["attributes"][attribute]
