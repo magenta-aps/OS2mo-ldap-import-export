@@ -88,8 +88,9 @@ def make_ldap_object(
 async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapEmployee]:
 
     logger = structlog.get_logger()
-    search_base = context["user_context"]["settings"].ldap_search_base
-    ldap_connection = context["user_context"]["ldap_connection"]
+    user_context = context["user_context"]
+    search_base = user_context["settings"].ldap_search_base
+    ldap_connection = user_context["ldap_connection"]
     output = []
     attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
 
@@ -97,7 +98,7 @@ async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapEmpl
         searchParameters = {
             "search_base": search_base,
             "search_filter": "(&(objectclass=organizationalPerson)(%s=%s))"
-            % (context["user_context"]["cpr_field"], cpr),
+            % (user_context["cpr_field"], cpr),
             "attributes": attributes,
         }
 
@@ -129,8 +130,9 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapEmplo
     Returns list with all organizationalPersons
     """
     logger = structlog.get_logger()
-    search_base = context["user_context"]["settings"].ldap_search_base
-    ldap_connection = context["user_context"]["ldap_connection"]
+    user_contex = context["user_context"]
+    search_base = user_contex["settings"].ldap_search_base
+    ldap_connection = user_contex["ldap_connection"]
 
     responses = []
     attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
@@ -171,13 +173,14 @@ async def upload_ldap_employee(
     context: Context,
 ):
     logger = structlog.get_logger()
-    ldap_connection = context["user_context"]["ldap_connection"]
+    user_context = context["user_context"]
+    ldap_connection = user_context["ldap_connection"]
 
     all_attributes = get_ldap_attributes(ldap_connection, "organizationalPerson")
     output = []
     success = 0
     failed = 0
-    cpr_field = context["user_context"]["cpr_field"]
+    cpr_field = user_context["cpr_field"]
     for key in keys:
 
         try:

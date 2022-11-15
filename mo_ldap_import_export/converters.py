@@ -100,21 +100,22 @@ class EmployeeConverter:
 
     def to_ldap(self, mo_object: Employee) -> LdapEmployee:
         ldap_object = {}
-
         mapping = self.mapping["mo_to_ldap"]
         if "user_attrs" in mapping:
             user_attrs_mapping = mapping["user_attrs"]
             for ldap_field_name, template in user_attrs_mapping.items():
                 ldap_object[ldap_field_name] = template.render({"mo": mo_object})
 
+        #  Common Name
         cn = "CN=%s %s - %s," % (
             mo_object.givenname,
             mo_object.surname,
             mo_object.cpr_no or "",
         )
-        ou = "OU=Users,%s," % self.settings.ldap_organizational_unit
-        dc = self.settings.ldap_search_base
-        dn = cn + ou + dc
+
+        ou = "OU=Users,%s," % self.settings.ldap_organizational_unit  # Org. Unit
+        dc = self.settings.ldap_search_base  # Domain Component
+        dn = cn + ou + dc  # Distinguished Name
         ldap_object["dn"] = dn
         ldap_object["cpr"] = ldap_object[self.cpr_field]
 
