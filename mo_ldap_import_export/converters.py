@@ -107,7 +107,11 @@ class EmployeeConverter:
             for ldap_field_name, template in user_attrs_mapping.items():
                 ldap_object[ldap_field_name] = template.render({"mo": mo_object})
 
-        cn = "CN=%s," % (mo_object.givenname + " " + mo_object.surname)
+        cn = "CN=%s %s - %s," % (
+            mo_object.givenname,
+            mo_object.surname,
+            mo_object.cpr_no or "",
+        )
         ou = "OU=Users,%s," % self.settings.ldap_organizational_unit
         dc = self.settings.ldap_search_base
         dn = cn + ou + dc
