@@ -56,18 +56,18 @@ async def listen_to_changes_in_employees(
     logger.info("Found Employee in MO: %s" % changed_employee)
 
     # Convert to LDAP
-    logger.info("Converting MO Employee object to AD object")
+    logger.info("Converting MO Employee object to LDAP object")
     converter = user_context["converter"]
     ldap_employee = converter.to_ldap(changed_employee)
 
     # Upload to LDAP
-    logger.info("Uploading %s to AD" % ldap_employee)
+    logger.info("Uploading %s to LDAP" % ldap_employee)
     await user_context["dataloaders"].ldap_employees_uploader.load(ldap_employee)
 
 
 @asynccontextmanager
 async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[None]:
-    """Open the AD connection during FastRAMQPI lifespan.
+    """Open the LDAP connection during FastRAMQPI lifespan.
 
     Yields:
         None
@@ -150,10 +150,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(model_client=model_client)
     fastramqpi.add_context(gql_client=gql_client)
 
-    logger.info("Configuring AD connection")
+    logger.info("Configuring LDAP connection")
     ldap_connection = configure_ldap_connection(settings)
     fastramqpi.add_context(ldap_connection=ldap_connection)
-    fastramqpi.add_healthcheck(name="ADConnection", healthcheck=ldap_healthcheck)
+    fastramqpi.add_healthcheck(name="LDAPConnection", healthcheck=ldap_healthcheck)
     fastramqpi.add_lifespan_manager(open_ldap_connection(ldap_connection), 1500)
     fastramqpi.add_lifespan_manager(seed_dataloaders(fastramqpi), 2000)
 
@@ -190,8 +190,8 @@ def create_app(**kwargs: Any) -> FastAPI:
     dataloaders = user_context["dataloaders"]
     converter = user_context["converter"]
 
-    # Get all persons from AD - Converted to MO
-    @app.get("/AD/employee/converted", status_code=202)
+    # Get all persons from LDAP - Converted to MO
+    @app.get("/LDAP/employee/converted", status_code=202)
     async def convert_all_org_persons_from_ldap() -> Any:
         """Request all organizational persons, converted to MO"""
         logger.info("Manually triggered LDAP request of all organizational persons")
@@ -200,38 +200,38 @@ def create_app(**kwargs: Any) -> FastAPI:
         result = [converter.from_ldap(r) for r in result]
         return result
 
-    # Get a specific person from AD
-    @app.get("/AD/employee/{cpr}", status_code=202)
+    # Get a specific person from LDAP
+    @app.get("/LDAP/employee/{cpr}", status_code=202)
     async def load_employee_from_LDAP(cpr: str, request: Request) -> Any:
         """Request single employee"""
-        logger.info("Manually triggered AD request of %s" % cpr)
+        logger.info("Manually triggered LDAP request of %s" % cpr)
 
         result = await dataloaders.ldap_employee_loader.load(cpr)
         return result
 
-    # Get a specific person from AD - Converted to MO
-    @app.get("/AD/employee/{dn}/converted", status_code=202)
+    # Get a specific person from LDAP - Converted to MO
+    @app.get("/LDAP/employee/{dn}/converted", status_code=202)
     async def convert_employee_from_LDAP(dn: str, request: Request) -> Any:
         """Request single employee"""
-        logger.info("Manually triggered AD request of %s" % dn)
+        logger.info("Manually triggered LDAP request of %s" % dn)
 
         result = await dataloaders.ldap_employee_loader.load(dn)
         result = converter.from_ldap(result)
         return result
 
-    # Get all persons from AD
-    @app.get("/AD/employee", status_code=202)
+    # Get all persons from LDAP
+    @app.get("/LDAP/employee", status_code=202)
     async def load_all_employees_from_LDAP() -> Any:
         """Request all employees"""
-        logger.info("Manually triggered AD request of all employees")
+        logger.info("Manually triggered LDAP request of all employees")
 
         result = await dataloaders.ldap_employees_loader.load(1)
         return result
 
-    # Modify a person in AD
-    @app.post("/AD/employee")
+    # Modify a person in LDAP
+    @app.post("/LDAP/employee")
     async def post_employee_to_LDAP(employee: LdapEmployee) -> Any:
-        logger.info("Posting %s to AD" % employee)
+        logger.info("Posting %s to LDAP" % employee)
 
         await dataloaders.ldap_employees_uploader.load(employee)
 

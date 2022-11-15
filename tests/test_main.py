@@ -41,7 +41,7 @@ def settings_overrides() -> Iterator[dict[str, str]]:
         "CLIENT_ID": "Foo",
         "CLIENT_SECRET": "bar",
         "LDAP_CONTROLLERS": '[{"host": "localhost"}]',
-        "LDAP_DOMAIN": "AD",
+        "LDAP_DOMAIN": "LDAP",
         "LDAP_USER": "foo",
         "LDAP_PASSWORD": "foo",
         "LDAP_SEARCH_BASE": "DC=ad,DC=addev",
@@ -215,9 +215,9 @@ async def test_seed_dataloaders(fastramqpi: FastRAMQPI) -> None:
 
 
 def test_ldap_get_all_endpoint(test_client: TestClient) -> None:
-    """Test the AD get-all endpoint on our app."""
+    """Test the LDAP get-all endpoint on our app."""
 
-    response = test_client.get("/AD/employee")
+    response = test_client.get("/LDAP/employee")
     assert response.status_code == 202
 
 
@@ -237,7 +237,7 @@ def test_ldap_get_all_converted_endpoint(
 
     empty_dataloaders.ldap_employees_loader = DataLoader(load_fn=loader, cache=False)
 
-    response = test_client.get("/AD/employee/converted")
+    response = test_client.get("/LDAP/employee/converted")
     assert response.status_code == 202
 
 
@@ -253,12 +253,12 @@ def test_ldap_get_converted_endpoint(
 
     empty_dataloaders.ldap_employee_loader = DataLoader(load_fn=loader, cache=False)
 
-    response = test_client.get("/AD/employee/foo/converted")
+    response = test_client.get("/LDAP/employee/foo/converted")
     assert response.status_code == 202
 
 
 def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:
-    """Test the AD get-all endpoint on our app."""
+    """Test the LDAP get-all endpoint on our app."""
 
     ldap_person_to_post = {
         "dn": "CN=Lars Peter Thomsen,OU=Users,OU=Magenta,DC=ad,DC=addev",
@@ -266,7 +266,7 @@ def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:
         "name": "Lars Peter Thomsen",
         "Department": None,
     }
-    response = test_client.post("/AD/employee", json=ldap_person_to_post)
+    response = test_client.post("/LDAP/employee", json=ldap_person_to_post)
     assert response.status_code == 200
 
 
@@ -308,9 +308,9 @@ def test_mo_post_employee_endpoint(test_client: TestClient) -> None:
 
 
 def test_ldap_get_organizationalUser_endpoint(test_client: TestClient) -> None:
-    """Test the AD get endpoint on our app."""
+    """Test the LDAP get endpoint on our app."""
 
-    response = test_client.get("/AD/employee/foo")
+    response = test_client.get("/LDAP/employee/foo")
     assert response.status_code == 202
 
 

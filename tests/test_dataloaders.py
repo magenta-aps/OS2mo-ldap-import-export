@@ -66,7 +66,7 @@ def settings(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLIENT_ID", "foo")
     monkeypatch.setenv("client_secret", "bar")
     monkeypatch.setenv("LDAP_CONTROLLERS", '[{"host": "0.0.0.0"}]')
-    monkeypatch.setenv("LDAP_DOMAIN", "AD")
+    monkeypatch.setenv("LDAP_DOMAIN", "LDAP")
     monkeypatch.setenv("LDAP_USER", "foo")
     monkeypatch.setenv("LDAP_PASSWORD", "bar")
     monkeypatch.setenv("LDAP_SEARCH_BASE", "DC=ad,DC=addev")
@@ -199,7 +199,7 @@ async def test_load_ldap_employees(
 
     expected_results = [LdapEmployee(dn=dn, cpr=cpr, **ldap_attributes)]
 
-    # Mock AD connection
+    # Mock LDAP connection
     ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
 
     # Simulate three pages

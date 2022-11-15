@@ -30,6 +30,6 @@ You can use the app like this:
 
 ```
 import requests
-r = requests.get("http://0.0.0.0:8000/AD/all")
+r = requests.get("http://0.0.0.0:8000/LDAP/all")
 print(r.json()[-2])
 ```

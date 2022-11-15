@@ -134,7 +134,7 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapEmplo
         "search_base": search_base,
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": attributes,
-        "paged_size": 500,  # TODO: Find this number from AD rather than hard-code it?
+        "paged_size": 500,  # TODO: Find this number from LDAP rather than hard-code it?
     }
 
     # Max 10_000 pages to avoid eternal loops
