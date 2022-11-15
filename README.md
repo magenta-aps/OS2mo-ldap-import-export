@@ -22,9 +22,11 @@ You can get the coverage report like this:
 
 You can boot the app like this:
 
-`poetry lock`
-`poetry install`
-`docker-compose up`
+```
+poetry lock
+poetry install
+docker-compose up
+```
 
 You can use the app like this:
 
