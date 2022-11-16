@@ -123,13 +123,13 @@ def test_mapping_loader_failure() -> None:
     }
 
     for bad_mapping in ({}, {"ldap_to_mo": {}}, {"mo_to_ldap": {}}):
-        with pytest.raises(IncorrectMapping) as exc_info:
+        with pytest.raises(IncorrectMapping):
             EmployeeConverter(
                 context={
                     "user_context": {"mapping": bad_mapping, "settings": settings_mock}
                 }
             )
-        with pytest.raises(IncorrectMapping) as exc_info:
+        with pytest.raises(IncorrectMapping):
             EmployeeConverter(
                 context={
                     "user_context": {"mapping": bad_mapping, "settings": settings_mock}
@@ -142,7 +142,7 @@ def test_mapping_loader_failure() -> None:
             }
         )
         converter.mapping = bad_mapping
-        with pytest.raises(IncorrectMapping) as exc_info:
+        with pytest.raises(IncorrectMapping):
             converter.from_ldap(
                 LdapEmployee(
                     dn="",
