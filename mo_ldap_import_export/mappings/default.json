@@ -3,7 +3,7 @@
     "user_attrs": {
       "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
       "surname": "{{ldap.surname or ldap.sn or ldap.name|splitlast|last or ''}}",
-      "cpr_no": "{{ldap.employeeID or None}}",
+      "cpr_no": "{{ldap.employeeID or ldap.cpr or None}}",
       "seniority": "{{ldap.seniority or None}}",
       "nickname_givenname": "{{ldap.nickname_givenname or None}}",
       "nickname_surname": "{{ldap.nickname_surname or None}}"

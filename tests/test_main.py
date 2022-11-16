@@ -241,6 +241,22 @@ def test_ldap_get_all_converted_endpoint(
     assert response.status_code == 202
 
 
+def test_ldap_get_all_converted_endpoint_failure(
+    test_client: TestClient, empty_dataloaders: Dataloaders
+) -> None:
+    """Test the LDAP get-all endpoint on our app."""
+
+    async def loader(x):
+        return [
+            [LdapEmployee(name="Tester", Department="QA", dn="someDN", cpr="invalid")]
+        ]
+
+    empty_dataloaders.ldap_employees_loader = DataLoader(load_fn=loader, cache=False)
+
+    response = test_client.get("/LDAP/employee/converted")
+    assert response.status_code == 202
+
+
 def test_ldap_get_converted_endpoint(
     test_client: TestClient, empty_dataloaders: Dataloaders
 ) -> None:
@@ -255,6 +271,23 @@ def test_ldap_get_converted_endpoint(
 
     response = test_client.get("/LDAP/employee/foo/converted")
     assert response.status_code == 202
+
+
+def test_ldap_get_converted_endpoint_failure(
+    test_client: TestClient, empty_dataloaders: Dataloaders
+) -> None:
+    """Test the LDAP get endpoint on our app."""
+
+    async def loader(x):
+        return [
+            LdapEmployee(name="Tester", Department="QA", dn="someDN", cpr="invalid")
+        ]
+
+    empty_dataloaders.ldap_employee_loader = DataLoader(load_fn=loader, cache=False)
+
+    response = test_client.get("/LDAP/employee/foo/converted")
+
+    assert response.status_code == 404
 
 
 def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:

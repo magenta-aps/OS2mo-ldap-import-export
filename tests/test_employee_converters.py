@@ -3,6 +3,7 @@ import uuid
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 from fastramqpi.context import Context
 from ramodels.mo import Employee
 
@@ -10,6 +11,7 @@ from mo_ldap_import_export.converters import EmployeeConverter
 from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import LdapEmployee
 from mo_ldap_import_export.exceptions import CprNoNotFound
+from mo_ldap_import_export.exceptions import IncorrectMapping
 
 mapping = {
     "ldap_to_mo": {
@@ -92,6 +94,69 @@ def test_mapping_loader() -> None:
     assert mapping == expected
 
 
+def test_mapping_loader_failure() -> None:
+
+    good_mapping = {
+        "ldap_to_mo": {
+            "user_attrs": {
+                "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
+                "surname": "{{ldap.surname or ldap.sn or "
+                "ldap.name|splitlast|last or ''}}",
+                "cpr_no": "{{ldap.cpr or None}}",
+                "seniority": "{{ldap.seniority or None}}",
+                "nickname_givenname": "{{ldap.nickname_givenname or None}}",
+                "nickname_surname": "{{ldap.nickname_surname or None}}",
+            }
+        },
+        "mo_to_ldap": {
+            "user_attrs": {
+                "givenName": "{{mo.givenname}}",
+                "sn": "{{mo.surname}}",
+                "displayName": "{{mo.surname}}, {{mo.givenname}}",
+                "name": "{{mo.givenname}} {{mo.surname}}",
+                "cpr": "{{mo.cpr_no or None}}",
+                "seniority": "{{mo.seniority or None}}",
+                "nickname_givenname": "{{mo.nickname_givenname or None}}",
+                "nickname_surname": "{{mo.nickname_surname or None}}",
+            }
+        },
+    }
+
+    for bad_mapping in ({}, {"ldap_to_mo": {}}, {"mo_to_ldap": {}}):
+        with pytest.raises(IncorrectMapping) as exc_info:
+            EmployeeConverter(
+                context={
+                    "user_context": {"mapping": bad_mapping, "settings": settings_mock}
+                }
+            )
+        with pytest.raises(IncorrectMapping) as exc_info:
+            EmployeeConverter(
+                context={
+                    "user_context": {"mapping": bad_mapping, "settings": settings_mock}
+                }
+            )
+
+        converter = EmployeeConverter(
+            context={
+                "user_context": {"mapping": good_mapping, "settings": settings_mock}
+            }
+        )
+        converter.mapping = bad_mapping
+        with pytest.raises(IncorrectMapping) as exc_info:
+            converter.from_ldap(
+                LdapEmployee(
+                    dn="",
+                    name="",
+                    givenName="Tester",
+                    sn="Testersen",
+                    objectGUID="{" + str(uuid.uuid4()) + "}",
+                    cpr="0101011234",
+                )
+            )
+        with pytest.raises(IncorrectMapping):
+            converter.to_ldap(Employee(givenname="Tester", surname="Testersen"))
+
+
 def test_splitfirst() -> None:
     assert EmployeeConverter.filter_splitfirst("Test") == ["Test", ""]
     assert EmployeeConverter.filter_splitfirst("Test Testersen") == [
@@ -102,6 +167,7 @@ def test_splitfirst() -> None:
         "Test",
         "Testersen med test",
     ]
+    assert EmployeeConverter.filter_splitfirst("") == ["", ""]
 
 
 def test_splitlast() -> None:
@@ -111,6 +177,7 @@ def test_splitlast() -> None:
         "Test Testersen med",
         "test",
     ]
+    assert EmployeeConverter.filter_splitlast("") == ["", ""]
 
 
 def test_find_cpr_field() -> None:
@@ -144,3 +211,32 @@ def test_find_cpr_field() -> None:
             assert type(e) == CprNoNotFound
         else:
             assert converter.cpr_field == "employeeID"
+
+
+def test_template_lenience() -> None:
+
+    mapping = {
+        "ldap_to_mo": {
+            "user_attrs": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
+        },
+        "mo_to_ldap": {
+            "user_attrs": {
+                "givenName": "{{mo.givenname}}",
+                "sn": "{{mo.surname}}",
+                "displayName": "{{mo.surname}}, {{mo.givenname}}",
+                "name": "{{mo.givenname}} {{mo.surname}}",
+                "dn": "",
+                "employeeID": "{{mo.cpr_no or None}}",
+            }
+        },
+    }
+
+    converter = EmployeeConverter(
+        context={"user_context": {"mapping": mapping, "settings": settings_mock}}
+    )
+    converter.from_ldap(
+        LdapEmployee(
+            dn="",
+            cpr="1234567890",
+        )
+    )

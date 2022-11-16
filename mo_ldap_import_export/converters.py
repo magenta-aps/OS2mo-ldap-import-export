@@ -7,7 +7,6 @@ from typing import Any
 from typing import Dict
 
 import structlog
-import typing_extensions
 from fastramqpi.context import Context
 from jinja2 import Environment
 from jinja2 import Undefined
@@ -31,7 +30,14 @@ def find_cpr_field(mapping):
     Get the field which contains the CPR number in LDAP
     """
     logger = structlog.get_logger()
-    user_attrs_mapping = mapping["mo_to_ldap"]["user_attrs"]
+    try:
+        mo_to_ldap = mapping["mo_to_ldap"]
+    except KeyError:
+        raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
+    try:
+        user_attrs_mapping = mo_to_ldap["user_attrs"]
+    except KeyError:
+        raise IncorrectMapping("Missing 'user_attrs' in mapping 'mo_to_ldap'")
 
     # See if we can find a match for this search field/result
     search_result = "123"
@@ -53,6 +59,9 @@ def find_cpr_field(mapping):
     return cpr_field
 
 
+logger = structlog.get_logger()
+
+
 class EmployeeConverter:
     def __init__(self, context: Context):
 
@@ -60,7 +69,7 @@ class EmployeeConverter:
         self.settings = self.user_context["settings"]
         mapping = self.user_context["mapping"]
 
-        environment = Environment(undefined=LenientUndefined)
+        environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = EmployeeConverter.filter_splitlast
         environment.filters["splitfirst"] = EmployeeConverter.filter_splitfirst
         self.mapping = self._populate_mapping_with_templates(
@@ -111,11 +120,16 @@ class EmployeeConverter:
 
     def to_ldap(self, mo_object: Employee) -> LdapEmployee:
         ldap_object = {}
-        mapping = self.mapping["mo_to_ldap"]
-        if "user_attrs" in mapping:
+        try:
+            mapping = self.mapping["mo_to_ldap"]
+        except KeyError:
+            raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
+        try:
             user_attrs_mapping = mapping["user_attrs"]
-            for ldap_field_name, template in user_attrs_mapping.items():
-                ldap_object[ldap_field_name] = template.render({"mo": mo_object})
+        except KeyError:
+            raise IncorrectMapping("Missing 'user_attrs' in mapping 'mo_to_ldap'")
+        for ldap_field_name, template in user_attrs_mapping.items():
+            ldap_object[ldap_field_name] = template.render({"mo": mo_object})
 
         #  Common Name
         cn = "CN=%s %s - %s" % (
@@ -140,20 +154,18 @@ class EmployeeConverter:
             }
         )
         mo_dict = {}
-        mapping = self.mapping["ldap_to_mo"]
-        if "user_attrs" in mapping:
+        try:
+            mapping = self.mapping["ldap_to_mo"]
+        except KeyError:
+            raise IncorrectMapping("Missing mapping 'ldap_to_mo'")
+        try:
             user_attrs_mapping = mapping["user_attrs"]
-            for mo_field_name, template in user_attrs_mapping.items():
-                value = template.render({"ldap": ldap_dict}).strip()
-                if value != "None":
-                    mo_dict[mo_field_name] = value
-        else:
+        except KeyError:
             raise IncorrectMapping("Missing 'user_attrs' in mapping 'ldap_to_mo'")
+        for mo_field_name, template in user_attrs_mapping.items():
+            value = template.render({"ldap": ldap_dict}).strip()
+            if value != "None":
+                mo_dict[mo_field_name] = value
+
+        logger.info(mo_dict)
         return Employee(**mo_dict)
-
-
-class LenientUndefined(Undefined):
-    def _fail_with_undefined_error(
-        self, *args: Any, **kwargs: Any
-    ) -> typing_extensions.NoReturn:
-        pass

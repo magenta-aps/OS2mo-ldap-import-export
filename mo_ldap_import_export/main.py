@@ -12,6 +12,8 @@ import structlog
 from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi import Request
+from fastapi import Response
+from fastapi import status
 from fastramqpi.context import Context
 from fastramqpi.main import FastRAMQPI
 from ldap3 import Connection
@@ -203,7 +205,7 @@ def create_app(**kwargs: Any) -> FastAPI:
             try:
                 converted_results.append(converter.from_ldap(r))
             except ValidationError as e:
-                logger.warn("Cannot create MO Employee: %s" % str(e))
+                logger.error("Cannot create MO Employee: %s" % str(e))
         return converted_results
 
     # Get a specific person from LDAP
@@ -217,7 +219,9 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     # Get a specific person from LDAP - Converted to MO
     @app.get("/LDAP/employee/{dn}/converted", status_code=202)
-    async def convert_employee_from_LDAP(dn: str, request: Request) -> Any:
+    async def convert_employee_from_LDAP(
+        dn: str, request: Request, response: Response
+    ) -> Any:
         """Request single employee"""
         logger.info("Manually triggered LDAP request of %s" % dn)
 
@@ -226,7 +230,10 @@ def create_app(**kwargs: Any) -> FastAPI:
             return converter.from_ldap(result)
         except ValidationError as e:
             logger.warn("Cannot create MO Employee: %s" % str(e))
-            return None  # TODO: return 404? Other status?
+            response.status_code = (
+                status.HTTP_404_NOT_FOUND
+            )  # TODO: return other status?
+            return None
 
     # Get all persons from LDAP
     @app.get("/LDAP/employee", status_code=202)
