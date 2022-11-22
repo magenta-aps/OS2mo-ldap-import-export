@@ -25,7 +25,7 @@ from .config import ServerConfig
 from .config import Settings
 from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NoObjectsReturnedException
-from .ldap_classes import GenericLdapObject
+from .ldap_classes import LdapObject
 
 
 def construct_server(server_config: ServerConfig) -> Server:
@@ -305,4 +305,4 @@ def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
         else:
             ldap_dict[attribute] = value
 
-    return GenericLdapObject(**ldap_dict)
+    return LdapObject(**ldap_dict)

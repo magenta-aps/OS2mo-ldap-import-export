@@ -26,7 +26,7 @@ from .ldap import get_ldap_superiors
 from .ldap import make_ldap_object
 from .ldap import paged_search
 from .ldap import single_object_search
-from .ldap_classes import GenericLdapObject
+from .ldap_classes import LdapObject
 
 
 class Dataloaders(BaseModel):
@@ -47,9 +47,7 @@ class Dataloaders(BaseModel):
     ldap_populated_overview_loader: DataLoader
 
 
-async def load_ldap_employee(
-    keys: list[str], context: Context
-) -> list[GenericLdapObject]:
+async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapObject]:
 
     logger = structlog.get_logger()
     user_context = context["user_context"]
@@ -74,7 +72,7 @@ async def load_ldap_employee(
         }
         search_result = single_object_search(searchParameters, ldap_connection)
 
-        employee: GenericLdapObject = make_ldap_object(search_result, context)
+        employee: LdapObject = make_ldap_object(search_result, context)
 
         logger.info(f"Found {employee.dn}")
         output.append(employee)
@@ -82,9 +80,7 @@ async def load_ldap_employee(
     return output
 
 
-async def load_ldap_employees(
-    key: int, context: Context
-) -> list[list[GenericLdapObject]]:
+async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObject]]:
     """
     Returns list with all employees
     """
@@ -97,14 +93,14 @@ async def load_ldap_employees(
 
     responses = paged_search(context, searchParameters)
 
-    output: list[GenericLdapObject]
+    output: list[LdapObject]
     output = [make_ldap_object(r, context, nest=False) for r in responses]
 
     return [output]
 
 
 async def upload_ldap_employee(
-    keys: list[GenericLdapObject],
+    keys: list[LdapObject],
     context: Context,
 ):
     logger = structlog.get_logger()

@@ -21,8 +21,8 @@ from ramodels.mo.employee import Employee
 from mo_ldap_import_export.config import Settings
 from mo_ldap_import_export.dataloaders import configure_dataloaders
 from mo_ldap_import_export.dataloaders import Dataloaders
-from mo_ldap_import_export.dataloaders import GenericLdapObject
 from mo_ldap_import_export.dataloaders import get_ldap_attributes
+from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.dataloaders import make_overview_entry
 from mo_ldap_import_export.exceptions import CprNoNotFound
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
@@ -133,7 +133,7 @@ async def test_load_ldap_employee(
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_result = [GenericLdapObject(dn=dn, **ldap_attributes)]
+    expected_result = [LdapObject(dn=dn, **ldap_attributes)]
 
     ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
 
@@ -185,7 +185,7 @@ async def test_load_ldap_employees(
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_results = [GenericLdapObject(dn=dn, **ldap_attributes)]
+    expected_results = [LdapObject(dn=dn, **ldap_attributes)]
 
     # Get result from dataloader
     with patch(
@@ -205,7 +205,7 @@ async def test_modify_ldap_employee(
     ldap_attributes: dict,
 ) -> None:
 
-    employee = GenericLdapObject(
+    employee = LdapObject(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
         cpr="0101011234",
         **ldap_attributes
@@ -277,7 +277,7 @@ async def test_create_invalid_ldap_employee(
         key: value for key, value in ldap_attributes.items() if key != cpr_field
     }
 
-    employee = GenericLdapObject(
+    employee = LdapObject(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
         **ldap_attributes_without_cpr_field
     )
@@ -299,7 +299,7 @@ async def test_create_ldap_employee(
     cpr_field: str,
 ) -> None:
 
-    employee = GenericLdapObject(
+    employee = LdapObject(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev", **ldap_attributes
     )
 
