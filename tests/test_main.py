@@ -22,7 +22,7 @@ from strawberry.dataloader import DataLoader
 
 from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import Dataloaders
-from mo_ldap_import_export.ldap_classes import LdapEmployee
+from mo_ldap_import_export.ldap_classes import GenericLdapObject
 from mo_ldap_import_export.main import create_app
 from mo_ldap_import_export.main import create_fastramqpi
 from mo_ldap_import_export.main import listen_to_changes_in_employees
@@ -230,7 +230,7 @@ def test_ldap_get_all_converted_endpoint(
     async def loader(x):
         return [
             [
-                LdapEmployee(
+                GenericLdapObject(
                     name="Tester", Department="QA", dn="someDN", cpr="0101011234"
                 )
             ]
@@ -249,7 +249,11 @@ def test_ldap_get_all_converted_endpoint_failure(
 
     async def loader(x):
         return [
-            [LdapEmployee(name="Tester", Department="QA", dn="someDN", cpr="invalid")]
+            [
+                GenericLdapObject(
+                    name="Tester", Department="QA", dn="someDN", cpr="invalid"
+                )
+            ]
         ]
 
     empty_dataloaders.ldap_employees_loader = DataLoader(load_fn=loader, cache=False)
@@ -265,7 +269,9 @@ def test_ldap_get_converted_endpoint(
 
     async def loader(x):
         return [
-            LdapEmployee(name="Tester", Department="QA", dn="someDN", cpr="0101011234")
+            GenericLdapObject(
+                name="Tester", Department="QA", dn="someDN", cpr="0101011234"
+            )
         ]
 
     empty_dataloaders.ldap_employee_loader = DataLoader(load_fn=loader, cache=False)
@@ -281,7 +287,9 @@ def test_ldap_get_converted_endpoint_failure(
 
     async def loader(x):
         return [
-            LdapEmployee(name="Tester", Department="QA", dn="someDN", cpr="invalid")
+            GenericLdapObject(
+                name="Tester", Department="QA", dn="someDN", cpr="invalid"
+            )
         ]
 
     empty_dataloaders.ldap_employee_loader = DataLoader(load_fn=loader, cache=False)
