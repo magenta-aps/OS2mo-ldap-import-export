@@ -56,7 +56,6 @@ def settings(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LDAP_PASSWORD", "bar")
     monkeypatch.setenv("LDAP_SEARCH_BASE", "DC=ad,DC=addev")
     monkeypatch.setenv("LDAP_ORGANIZATIONAL_UNIT", "OU=Magenta")
-    monkeypatch.setenv("LDAP_USER_CLASS", "user")
 
     return Settings()
 
@@ -107,7 +106,6 @@ def settings_overrides() -> Iterator[dict[str, str]]:
         "LDAP_PASSWORD": "foo",
         "LDAP_SEARCH_BASE": "DC=ad,DC=addev",
         "LDAP_ORGANIZATIONAL_UNIT": "OU=Magenta",
-        "LDAP_USER_CLASS": "user",
     }
     yield overrides
 

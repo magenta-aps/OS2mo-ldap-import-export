@@ -75,7 +75,6 @@ def settings(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LDAP_PASSWORD", "bar")
     monkeypatch.setenv("LDAP_SEARCH_BASE", "DC=ad,DC=addev")
     monkeypatch.setenv("LDAP_ORGANIZATIONAL_UNIT", "OU=Magenta")
-    monkeypatch.setenv("LDAP_USER_CLASS", "user")
 
     return Settings()
 
@@ -96,6 +95,7 @@ def context(
             "gql_client": gql_client,
             "model_client": model_client,
             "cpr_field": cpr_field,
+            "user_class": "user",
         },
     }
 

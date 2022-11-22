@@ -174,6 +174,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     logger.info("Initializing converters")
     converter = EmployeeConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
+    fastramqpi.add_context(user_class=converter.user_class)
     fastramqpi.add_context(converter=converter)
 
     return fastramqpi

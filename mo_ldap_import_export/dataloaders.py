@@ -57,7 +57,7 @@ async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapObje
     settings = user_context["settings"]
 
     search_base = settings.ldap_search_base
-    user_class = settings.ldap_user_class
+    user_class = user_context["user_class"]
 
     object_class_filter = f"objectclass={user_class}"
     output = []
@@ -85,7 +85,7 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObjec
     Returns list with all employees
     """
 
-    user_class = context["user_context"]["settings"].ldap_user_class
+    user_class = context["user_context"]["user_class"]
     searchParameters = {
         "search_filter": f"(objectclass={user_class})",
         "attributes": ["*"],
@@ -106,7 +106,7 @@ async def upload_ldap_employee(
     logger = structlog.get_logger()
     user_context = context["user_context"]
     ldap_connection = user_context["ldap_connection"]
-    user_class = user_context["settings"].ldap_user_class
+    user_class = user_context["user_class"]
 
     all_attributes = get_ldap_attributes(ldap_connection, user_class)
     output = []

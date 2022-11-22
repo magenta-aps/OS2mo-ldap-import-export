@@ -19,6 +19,7 @@ mapping = {
     },
     "mo_to_ldap": {
         "user_attrs": {
+            "objectClass": "user",
             "givenName": "{{mo.givenname}}",
             "sn": "{{mo.surname}}",
             "displayName": "{{mo.surname}}, {{mo.givenname}}",
@@ -80,6 +81,7 @@ def test_mapping_loader() -> None:
         },
         "mo_to_ldap": {
             "user_attrs": {
+                "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
                 "sn": "{{mo.surname}}",
                 "displayName": "{{mo.surname}}, {{mo.givenname}}",
@@ -110,6 +112,7 @@ def test_mapping_loader_failure() -> None:
         },
         "mo_to_ldap": {
             "user_attrs": {
+                "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
                 "sn": "{{mo.surname}}",
                 "displayName": "{{mo.surname}}, {{mo.givenname}}",
@@ -186,6 +189,7 @@ def test_find_cpr_field() -> None:
     good_mapping = {
         "mo_to_ldap": {
             "user_attrs": {
+                "objectClass": "user",
                 "employeeID": "{{mo.cpr_no or None}}",
             }
         },
@@ -195,6 +199,7 @@ def test_find_cpr_field() -> None:
     bad_mapping = {
         "mo_to_ldap": {
             "user_attrs": {
+                "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
             }
         },
@@ -222,6 +227,7 @@ def test_template_lenience() -> None:
         },
         "mo_to_ldap": {
             "user_attrs": {
+                "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
                 "sn": "{{mo.surname}}",
                 "displayName": "{{mo.surname}}, {{mo.givenname}}",

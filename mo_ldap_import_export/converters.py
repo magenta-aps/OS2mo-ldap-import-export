@@ -59,6 +59,10 @@ def find_cpr_field(mapping):
     return cpr_field
 
 
+def find_object_class(mapping, mapping_key):
+    return mapping["mo_to_ldap"][mapping_key]["objectClass"].render()
+
+
 logger = structlog.get_logger()
 
 
@@ -67,7 +71,11 @@ class EmployeeConverter:
 
         self.user_context = context["user_context"]
         self.settings = self.user_context["settings"]
-        mapping = self.user_context["mapping"]
+        mapping = {
+            key: value
+            for key, value in self.user_context["mapping"].items()
+            if key != "objectClass"
+        }
 
         environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = EmployeeConverter.filter_splitlast
@@ -78,6 +86,7 @@ class EmployeeConverter:
         )
 
         self.cpr_field = find_cpr_field(mapping)
+        self.user_class = find_object_class(mapping, "user_attrs")
 
     @staticmethod
     def filter_splitfirst(text):
