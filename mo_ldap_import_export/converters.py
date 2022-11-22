@@ -35,9 +35,9 @@ def find_cpr_field(mapping):
     except KeyError:
         raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
     try:
-        user_attrs_mapping = mo_to_ldap["user_attrs"]
+        employee_attrs_mapping = mo_to_ldap["employee_attrs"]
     except KeyError:
-        raise IncorrectMapping("Missing 'user_attrs' in mapping 'mo_to_ldap'")
+        raise IncorrectMapping("Missing 'employee_attrs' in mapping 'mo_to_ldap'")
 
     # See if we can find a match for this search field/result
     search_result = "123"
@@ -45,7 +45,7 @@ def find_cpr_field(mapping):
 
     mo_dict = {search_field: search_result}
     cpr_field = None
-    for ldap_field_name, template in user_attrs_mapping.items():
+    for ldap_field_name, template in employee_attrs_mapping.items():
         value = template.render({"mo": mo_dict}).strip()
 
         if value == search_result:
@@ -86,7 +86,7 @@ class EmployeeConverter:
         )
 
         self.cpr_field = find_cpr_field(mapping)
-        self.user_class = find_object_class(mapping, "user_attrs")
+        self.user_class = find_object_class(mapping, "employee_attrs")
 
     @staticmethod
     def filter_splitfirst(text):
@@ -134,10 +134,10 @@ class EmployeeConverter:
         except KeyError:
             raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
         try:
-            user_attrs_mapping = mapping["user_attrs"]
+            employee_attrs_mapping = mapping["employee_attrs"]
         except KeyError:
-            raise IncorrectMapping("Missing 'user_attrs' in mapping 'mo_to_ldap'")
-        for ldap_field_name, template in user_attrs_mapping.items():
+            raise IncorrectMapping("Missing 'employee_attrs' in mapping 'mo_to_ldap'")
+        for ldap_field_name, template in employee_attrs_mapping.items():
             ldap_object[ldap_field_name] = template.render({"mo": mo_object})
 
         givenname = mo_object.givenname
@@ -166,10 +166,10 @@ class EmployeeConverter:
         except KeyError:
             raise IncorrectMapping("Missing mapping 'ldap_to_mo'")
         try:
-            user_attrs_mapping = mapping["user_attrs"]
+            employee_attrs_mapping = mapping["employee_attrs"]
         except KeyError:
-            raise IncorrectMapping("Missing 'user_attrs' in mapping 'ldap_to_mo'")
-        for mo_field_name, template in user_attrs_mapping.items():
+            raise IncorrectMapping("Missing 'employee_attrs' in mapping 'ldap_to_mo'")
+        for mo_field_name, template in employee_attrs_mapping.items():
             value = template.render({"ldap": ldap_dict}).strip()
             if value != "None":
                 mo_dict[mo_field_name] = value

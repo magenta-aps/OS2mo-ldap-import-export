@@ -15,10 +15,10 @@ from mo_ldap_import_export.exceptions import IncorrectMapping
 
 mapping = {
     "ldap_to_mo": {
-        "user_attrs": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
+        "employee_attrs": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
     },
     "mo_to_ldap": {
-        "user_attrs": {
+        "employee_attrs": {
             "objectClass": "user",
             "givenName": "{{mo.givenname}}",
             "sn": "{{mo.surname}}",
@@ -69,7 +69,7 @@ def test_mapping_loader() -> None:
     )
     expected = {
         "ldap_to_mo": {
-            "user_attrs": {
+            "employee_attrs": {
                 "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
                 "surname": "{{ldap.surname or ldap.sn or "
                 "ldap.name|splitlast|last or ''}}",
@@ -80,7 +80,7 @@ def test_mapping_loader() -> None:
             }
         },
         "mo_to_ldap": {
-            "user_attrs": {
+            "employee_attrs": {
                 "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
                 "sn": "{{mo.surname}}",
@@ -100,7 +100,7 @@ def test_mapping_loader_failure() -> None:
 
     good_mapping = {
         "ldap_to_mo": {
-            "user_attrs": {
+            "employee_attrs": {
                 "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
                 "surname": "{{ldap.surname or ldap.sn or "
                 "ldap.name|splitlast|last or ''}}",
@@ -111,7 +111,7 @@ def test_mapping_loader_failure() -> None:
             }
         },
         "mo_to_ldap": {
-            "user_attrs": {
+            "employee_attrs": {
                 "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
                 "sn": "{{mo.surname}}",
@@ -188,7 +188,7 @@ def test_find_cpr_field() -> None:
     # This mapping is accepted
     good_mapping = {
         "mo_to_ldap": {
-            "user_attrs": {
+            "employee_attrs": {
                 "objectClass": "user",
                 "employeeID": "{{mo.cpr_no or None}}",
             }
@@ -198,7 +198,7 @@ def test_find_cpr_field() -> None:
     # This mapping does not contain the mo.cpr_no field
     bad_mapping = {
         "mo_to_ldap": {
-            "user_attrs": {
+            "employee_attrs": {
                 "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
             }
@@ -223,10 +223,13 @@ def test_template_lenience() -> None:
 
     mapping = {
         "ldap_to_mo": {
-            "user_attrs": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
+            "employee_attrs": {
+                "givenname": "{{ldap.GivenName}}",
+                "surname": "{{ldap.sn}}",
+            }
         },
         "mo_to_ldap": {
-            "user_attrs": {
+            "employee_attrs": {
                 "objectClass": "user",
                 "givenName": "{{mo.givenname}}",
                 "sn": "{{mo.surname}}",

@@ -1,22 +1,50 @@
 {
   "ldap_to_mo": {
-    "user_attrs": {
+    "employee_attrs": {
+      // MO fields corresponding to mo 'Employee' object
       "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
       "surname": "{{ldap.surname or ldap.sn or ldap.name|splitlast|last or ''}}",
       "cpr_no": "{{ldap.employeeID or ldap.cpr or None}}",
       "seniority": "{{ldap.seniority or None}}",
       "nickname_givenname": "{{ldap.nickname_givenname or None}}",
       "nickname_surname": "{{ldap.nickname_surname or None}}"
+    },
+    "mail_address_attrs": {
+      // MO fields corresponding to mo 'Address' object
+      "name": "{{ldap.mail}}",
+      "type": "{{'address'}}"
+    },
+    "post_address_attrs": {
+      // MO fields corresponding to mo 'Address' object
+      "name": "{{ldap.postalCode, ldap.streetAddress}}",
+      "type": "{{'address'}}"
     }
   },
   "mo_to_ldap": {
-    "user_attrs": {
+    "employee_attrs": {
+      // MO fields corresponding to mo 'Employee' object
       "objectClass": "user",
+
       "givenName": "{{mo.givenname}}",
       "sn": "{{mo.surname}}",
       "displayName": "{{mo.surname}}, {{mo.givenname}}",
       "name": "{{mo.givenname}} {{mo.surname}}",
       "employeeID": "{{mo.cpr_no or None}}"
+    },
+    "mail_address_attrs": {
+      // MO fields corresponding to mo 'Address' object
+      "objectClass": "user",
+
+      "mail": "{{mo.name}}",
+      "type": "{{'address'}}"
+    },
+    "post_address_attrs": {
+      // MO fields corresponding to mo 'Address' object
+      "objectClass": "user",
+      
+      "postalCode": "{{mo.name}}",
+      "streetAddress": "{{mo.name}}",
+      "type": "{{'address'}}"
     }
   }
 }
