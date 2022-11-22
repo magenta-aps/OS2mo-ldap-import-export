@@ -46,7 +46,7 @@ def find_cpr_field(mapping):
     mo_dict = {search_field: search_result}
     cpr_field = None
     for ldap_field_name, template in employee_attrs_mapping.items():
-        value = template.render({"mo": mo_dict}).strip()
+        value = template.render({"mo_employee": mo_dict}).strip()
 
         if value == search_result:
             cpr_field = ldap_field_name
@@ -138,7 +138,7 @@ class EmployeeConverter:
         except KeyError:
             raise IncorrectMapping("Missing 'employee_attrs' in mapping 'mo_to_ldap'")
         for ldap_field_name, template in employee_attrs_mapping.items():
-            ldap_object[ldap_field_name] = template.render({"mo": mo_object})
+            ldap_object[ldap_field_name] = template.render({"mo_employee": mo_object})
 
         givenname = mo_object.givenname
         surname = mo_object.surname

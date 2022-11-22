@@ -25,26 +25,28 @@
       // MO fields corresponding to mo 'Employee' object
       "objectClass": "user",
 
-      "givenName": "{{mo.givenname}}",
-      "sn": "{{mo.surname}}",
-      "displayName": "{{mo.surname}}, {{mo.givenname}}",
-      "name": "{{mo.givenname}} {{mo.surname}}",
-      "employeeID": "{{mo.cpr_no or None}}"
+      "givenName": "{{mo_employee.givenname}}",
+      "sn": "{{mo_employee.surname}}",
+      "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+      "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
+      "employeeID": "{{mo_employee.cpr_no or None}}"
     },
     "mail_address_attrs": {
       // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
 
-      "mail": "{{mo.name}}",
-      "type": "{{'address'}}"
+      "mail": "{{mo_address.name}}",
+      "type": "{{'address'}}",
+      "employeeID": "{{mo_employee.cpr_no}}"
     },
     "post_address_attrs": {
       // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
       
-      "postalCode": "{{mo.name}}",
-      "streetAddress": "{{mo.name}}",
-      "type": "{{'address'}}"
+      "postalCode": "{{mo_address.name}}",
+      "streetAddress": "{{mo_address.name}}",
+      "type": "{{'address'}}",
+      "employeeID": "{{mo_employee.cpr_no}}"
     }
   }
 }
