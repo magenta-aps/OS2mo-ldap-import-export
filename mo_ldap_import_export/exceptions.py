@@ -27,7 +27,7 @@ class CprNoNotFound(HTTPException):
 
 class IncorrectMapping(HTTPException):
     def __init__(self, message):
-        super().__init__(status_code=404, detail=message)
+        super().__init__(status_code=400, detail=message)
         logger.exception(message)
 
 
