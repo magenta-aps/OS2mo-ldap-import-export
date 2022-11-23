@@ -12,9 +12,9 @@ import structlog
 from fastramqpi.context import Context
 from gql import gql
 from gql.client import AsyncClientSession
-from more_itertools import flatten
 from pydantic import BaseModel
 from raclients.modelclient.mo import ModelClient
+from ramodels.mo.details.address import Address
 from ramodels.mo.employee import Employee
 from strawberry.dataloader import DataLoader
 
@@ -40,9 +40,12 @@ class Dataloaders(BaseModel):
     ldap_employees_loader: DataLoader
     ldap_employee_loader: DataLoader
     ldap_employees_uploader: DataLoader
-    mo_employees_loader: DataLoader
+
     mo_employee_uploader: DataLoader
     mo_employee_loader: DataLoader
+    mo_address_loader: DataLoader
+    mo_address_uploader: DataLoader
+
     ldap_overview_loader: DataLoader
     ldap_populated_overview_loader: DataLoader
 
@@ -115,6 +118,7 @@ async def upload_ldap_employee(
     cpr_field = user_context["cpr_field"]
     for key in keys:
 
+        logger.info(f"Uploading {key}")
         parameters_to_upload = list(key.dict().keys())
 
         # Check if the cpr field is present
@@ -228,52 +232,6 @@ async def load_ldap_populated_overview(keys: list[int], context: Context):
     return [output]
 
 
-def get_mo_employee_objects_str():
-    """
-    Returns object-names-of-interest for the MO employee object
-    """
-    objects = [
-        "uuid",
-        "cpr_no",
-        "givenname",
-        "surname",
-        "nickname_givenname",
-        "nickname_surname",
-    ]
-    objects_str = ", ".join(objects)
-    return objects_str
-
-
-def format_employee_output(result):
-    output = []
-    for entry in list(flatten([r["objects"] for r in result["employees"]])):
-        output.append(Employee(**entry))
-    return output
-
-
-async def load_mo_employees(
-    key: int, graphql_session: AsyncClientSession
-) -> list[list[Employee]]:
-
-    query = gql(
-        """
-        query AllEmployees {
-          employees {
-            objects {
-              %s
-            }
-          }
-        }
-        """
-        % get_mo_employee_objects_str()
-    )
-
-    result = await graphql_session.execute(query)
-
-    # Note: Output is a list of list; The dataloader expects a single object as output
-    return [format_employee_output(result)]
-
-
 async def load_mo_employee(
     keys: list[str], graphql_session: AsyncClientSession
 ) -> list[Employee]:
@@ -284,16 +242,76 @@ async def load_mo_employee(
             query SinlgeEmployee {
               employees(uuids:"{%s}") {
                 objects {
-                  %s
+                    uuid
+                    cpr_no
+                    givenname
+                    surname
+                    nickname_givenname
+                    nickname_surname
                 }
               }
             }
             """
-            % (uuid, get_mo_employee_objects_str())
+            % uuid
         )
 
         result = await graphql_session.execute(query)
-        output.extend(format_employee_output(result))
+        entry = result["employees"][0]["objects"][0]
+        output.append(Employee(**entry))
+
+    return output
+
+
+async def load_mo_address(
+    keys: list[str], graphql_session: AsyncClientSession
+) -> list[tuple[Address, dict]]:
+    output = []
+    for uuid in keys:
+        query = gql(
+            """
+            query SingleAddress {
+              addresses(uuids: "{%s}") {
+                objects {
+                  value
+                  name
+                  uuid
+                  employee {
+                    cpr_no
+                    uuid
+                  }
+                  validity {
+                      from
+                    }
+                  address_type {
+                      name
+                      uuid}
+
+                }
+              }
+            }
+            """
+            % (uuid)
+        )
+
+        result = await graphql_session.execute(query)
+        entry = result["addresses"][0]["objects"][0]
+
+        address = Address.from_simplified_fields(
+            entry["name"],
+            entry["address_type"]["uuid"],
+            entry["validity"]["from"],
+            person_uuid=entry["employee"][0]["uuid"],
+            uuid=entry["uuid"],
+        )
+
+        # We make a dict with meta-data because ramodels Address does not support
+        # (among others) address_type names. It only supports uuids
+        address_metadata = {
+            "address_type_name": entry["address_type"]["name"],
+            "employee_cpr_no": entry["employee"][0]["cpr_no"],
+        }
+
+        output.append((address, address_metadata))
 
     return output
 
@@ -302,7 +320,13 @@ async def upload_mo_employee(
     keys: list[Employee],
     model_client: ModelClient,
 ):
-    # return await model_client.upload(keys)
+    return cast(list[Any | None], await model_client.upload(keys))
+
+
+async def upload_mo_address(
+    keys: list[Address],
+    model_client: ModelClient,
+):
     return cast(list[Any | None], await model_client.upload(keys))
 
 
@@ -317,8 +341,8 @@ def configure_dataloaders(context: Context) -> Dataloaders:
     """
 
     graphql_loader_functions: dict[str, Callable] = {
-        "mo_employees_loader": load_mo_employees,
         "mo_employee_loader": load_mo_employee,
+        "mo_address_loader": load_mo_address,
     }
 
     user_context = context["user_context"]
@@ -331,10 +355,19 @@ def configure_dataloaders(context: Context) -> Dataloaders:
     }
 
     model_client = user_context["model_client"]
-    mo_employee_uploader = DataLoader(
-        load_fn=partial(upload_mo_employee, model_client=model_client),
-        cache=False,
-    )
+
+    mo_uploader_functions: dict[str, Callable] = {
+        "mo_employee_uploader": upload_mo_employee,
+        "mo_address_uploader": upload_mo_address,
+    }
+
+    mo_uploaders: dict[str, DataLoader] = {
+        key: DataLoader(
+            load_fn=partial(value, model_client=model_client),
+            cache=False,
+        )
+        for key, value in mo_uploader_functions.items()
+    }
 
     ldap_loader_functions: dict[str, Callable] = {
         "ldap_employees_loader": load_ldap_employees,
@@ -357,8 +390,4 @@ def configure_dataloaders(context: Context) -> Dataloaders:
         for key, value in ldap_loader_functions.items()
     }
 
-    return Dataloaders(
-        **graphql_dataloaders,
-        **ldap_dataloaders,
-        mo_employee_uploader=mo_employee_uploader,
-    )
+    return Dataloaders(**graphql_dataloaders, **ldap_dataloaders, **mo_uploaders)

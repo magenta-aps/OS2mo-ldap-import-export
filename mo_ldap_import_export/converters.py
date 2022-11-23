@@ -127,29 +127,39 @@ class EmployeeConverter:
                 mapping[key] = self._populate_mapping_with_templates(value, environment)
         return mapping
 
-    def to_ldap(self, mo_object: Employee) -> LdapObject:
+    def to_ldap(self, mo_object_dict: dict, key: str) -> LdapObject:
+        """
+        mo_object_dict : dict
+            dict with mo objects to convert. for example:
+                {'mo_employee': Empoyee,
+                 'mo_address': Address}
+        """
         ldap_object = {}
         try:
             mapping = self.mapping["mo_to_ldap"]
         except KeyError:
             raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
         try:
-            employee_attrs_mapping = mapping["employee_attrs"]
+            employee_attrs_mapping = mapping[key]
         except KeyError:
-            raise IncorrectMapping("Missing 'employee_attrs' in mapping 'mo_to_ldap'")
+            raise IncorrectMapping(f"Missing '{key}' in mapping 'mo_to_ldap'")
         for ldap_field_name, template in employee_attrs_mapping.items():
-            ldap_object[ldap_field_name] = template.render({"mo_employee": mo_object})
+            rendered_item = template.render(mo_object_dict)
+            ldap_object[ldap_field_name] = rendered_item
 
-        givenname = mo_object.givenname
-        surname = mo_object.surname
-        cpr_no = mo_object.cpr_no or ""
-        ldap_organizational_unit = self.settings.ldap_organizational_unit
+        if "mo_employee" in mo_object_dict.keys():
+            mo_employee_object = mo_object_dict["mo_employee"]
 
-        cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
-        ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
-        dc = self.settings.ldap_search_base  # Domain Component
-        dn = ",".join([cn, ou, dc])  # Distinguished Name
-        ldap_object["dn"] = dn
+            givenname = mo_employee_object.givenname
+            surname = mo_employee_object.surname
+            cpr_no = mo_employee_object.cpr_no or ""
+            ldap_organizational_unit = self.settings.ldap_organizational_unit
+
+            cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
+            ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
+            dc = self.settings.ldap_search_base  # Domain Component
+            dn = ",".join([cn, ou, dc])  # Distinguished Name
+            ldap_object["dn"] = dn
 
         return LdapObject(**ldap_object)
 

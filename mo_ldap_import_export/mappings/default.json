@@ -35,7 +35,7 @@
       // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
 
-      "mail": "{{mo_address.name}}",
+      "mail": "{{mo_address.value}}",
       "type": "{{'address'}}",
       "employeeID": "{{mo_employee.cpr_no}}"
     },
@@ -43,8 +43,8 @@
       // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
       
-      "postalCode": "{{mo_address.name}}",
-      "streetAddress": "{{mo_address.name}}",
+      "postalCode": "{{mo_address.value}}",
+      "streetAddress": "{{mo_address.value}}",
       "type": "{{'address'}}",
       "employeeID": "{{mo_employee.cpr_no}}"
     }

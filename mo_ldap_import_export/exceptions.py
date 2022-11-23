@@ -29,3 +29,9 @@ class IncorrectMapping(HTTPException):
     def __init__(self, message):
         super().__init__(status_code=404, detail=message)
         logger.exception(message)
+
+
+class NotSupportedException(HTTPException):
+    def __init__(self, message):
+        super().__init__(status_code=404, detail=message)
+        logger.exception(message)

@@ -12,6 +12,7 @@ Created on Mon Oct 24 09:37:25 2022
 """
 import json
 import random
+import time
 
 import pandas as pd
 import requests  # type: ignore
@@ -108,15 +109,16 @@ print(f"Successfully edited department to '{new_department}' in LDAP")
 print("")
 
 
-# Get all users from MO
-r = requests.get("http://0.0.0.0:8000/MO/employee")
+# Get a user from MO
+uuid = "78f32222-9e78-471e-9c19-049d2613e34f"
+r = requests.get(f"http://0.0.0.0:8000/MO/employee/{uuid}")
 print("Found a user from MO:")
-mo_user = r.json()[-12]
-print(mo_user)
+mo_user = r.json()
+pretty_print(mo_user)
 print("")
 
 
-# Modify a user in MO (Which should also trigger an LDAP user create/modify)
+# Modify this user in MO (Which should also trigger an LDAP user create/modify)
 mo_employee_to_post = mo_user
 random_int = random.randint(0, 10_000)
 nickname_givenname = f"Man who can do {random_int} push ups"
@@ -181,6 +183,41 @@ print("Converted all user from LDAP:")
 df = pd.DataFrame(r.json())
 print(df)
 print("")
+
+# %% Modify an address in MO and check if it was also modified in AD
+# Request an email address
+uuid = "00513f7c-5aed-466a-966d-35537025d72d"
+r = requests.get(f"http://0.0.0.0:8000/MO/address/{uuid}")
+
+print("Here is an address:")
+pretty_print(r.json()[0])
+address_to_post = r.json()[0]
+meta_data = r.json()[1]
+
+person_uuid = address_to_post["person"]["uuid"]
+url = f"http://localhost:5000/medarbejder/{person_uuid}#medarbejder"
+
+print(f"It belongs to {url}")
+
+random_int = random.randint(0, 10_000)
+address_to_post["value"] = f"foo_{random_int}@hotmail.com"
+
+# Modify this address
+r = requests.post("http://0.0.0.0:8000/MO/address", json=address_to_post)
+
+# Check that it is also modified in LDAP
+cpr = meta_data["employee_cpr_no"]
+
+while True:
+    person_from_ldap = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}").json()
+    try:
+        assert person_from_ldap["mail"] == address_to_post["value"]
+        break
+    except AssertionError:
+        time.sleep(1)
+        continue
+
+print("mail address succesfully modified in LDAP")
 
 # %% Finish
 print("Success")

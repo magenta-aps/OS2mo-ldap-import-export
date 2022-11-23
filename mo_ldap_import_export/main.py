@@ -21,14 +21,18 @@ from ldap3 import Connection
 from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
+from ramodels.mo.details.address import Address
 from ramodels.mo.employee import Employee
 from ramqp.mo import MORouter
+from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
+from ramqp.mo.models import RequestType
 
 from .config import Settings
 from .converters import EmployeeConverter
 from .converters import read_mapping_json
 from .dataloaders import configure_dataloaders
+from .exceptions import NotSupportedException
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
@@ -46,27 +50,60 @@ help(RequestType)
 """
 
 
-@amqp_router.register("employee.employee.*")
+@amqp_router.register("employee.*.*")
 async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
+
     user_context = context["user_context"]
-    logger.info("[MO] Change registered in the employee model")
+    converter = user_context["converter"]
     logger.info(f"Payload: {payload}")
 
-    # Get MO employee
+    # TODO: Add support for deleting users / fields from LDAP
+    if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
+        raise NotSupportedException("Not supported")
+
+    mo_address_loader = user_context["dataloaders"].mo_address_loader
     mo_employee_loader = user_context["dataloaders"].mo_employee_loader
+
+    # Get MO employee
     changed_employee: Employee = await mo_employee_loader.load(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
-    # Convert to LDAP
-    logger.info("Converting MO Employee object to LDAP object")
-    converter = user_context["converter"]
-    ldap_employee = converter.to_ldap(changed_employee)
+    mo_object_dict = {"mo_employee": changed_employee}
 
-    # Upload to LDAP
-    logger.info(f"Uploading {ldap_employee} to LDAP")
-    await user_context["dataloaders"].ldap_employees_uploader.load(ldap_employee)
+    if kwargs["mo_routing_key"].object_type == ObjectType.EMPLOYEE:
+        logger.info("[MO] Change registered in the employee model")
+
+        # Convert to LDAP
+        ldap_employee = converter.to_ldap(mo_object_dict, "employee_attrs")
+
+        # Upload to LDAP
+        await user_context["dataloaders"].ldap_employees_uploader.load(ldap_employee)
+
+    elif kwargs["mo_routing_key"].object_type == ObjectType.ADDRESS:
+        logger.info("[MO] Change registered in the address model")
+
+        # Get MO address
+        changed_address, meta_info = await mo_address_loader.load(payload.object_uuid)
+        address_type = meta_info["address_type_name"]
+
+        logger.info(f"Obtained address type = {address_type}")
+
+        if address_type == "Email":
+            attr_string = "mail_address_attrs"
+        elif address_type == "Postadresse":
+            attr_string = "post_address_attrs"
+        else:
+            return None
+
+        # Convert to LDAP
+        mo_object_dict["mo_address"] = changed_address
+        ldap_address = converter.to_ldap(mo_object_dict, attr_string)
+
+        # Upload to LDAP - note that we use the employees uploader because address is a
+        # part of the employee model in LDAP
+        await user_context["dataloaders"].ldap_employees_uploader.load(ldap_address)
 
 
 @asynccontextmanager
@@ -262,21 +299,28 @@ def create_app(**kwargs: Any) -> FastAPI:
 
         await dataloaders.ldap_employees_uploader.load(employee)
 
-    # Get all persons from MO
-    @app.get("/MO/employee", status_code=202)
-    async def load_all_employees_from_MO() -> Any:
-        """Request all persons from MO"""
-        logger.info("Manually triggered MO request of all employees")
-
-        result = await dataloaders.mo_employees_loader.load(1)
-        return result
-
     # Post a person to MO
     @app.post("/MO/employee")
     async def post_employee_to_MO(employee: Employee) -> Any:
-        logger.info(f"Posting {employee} to MO")
+        logger.info(f"Posting employee={employee} to MO")
 
         await dataloaders.mo_employee_uploader.load(employee)
+
+    # Post an address to MO
+    @app.post("/MO/address")
+    async def post_address_to_MO(address: Address) -> Any:
+        logger.info(f"Posting address={address} to MO")
+
+        await dataloaders.mo_address_uploader.load(address)
+
+    # Get a speficic address from MO
+    @app.get("/MO/address/{uuid}", status_code=202)
+    async def load_address_from_MO(uuid: str, request: Request) -> Any:
+        """Request single address"""
+        logger.info(f"Manually triggered MO address request of {uuid}")
+
+        result = await dataloaders.mo_address_loader.load(uuid)
+        return result
 
     # Get a speficic person from MO
     @app.get("/MO/employee/{uuid}", status_code=202)
