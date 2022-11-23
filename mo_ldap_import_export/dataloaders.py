@@ -381,8 +381,6 @@ def configure_dataloaders(context: Context) -> Dataloaders:
         key: DataLoader(
             load_fn=partial(
                 value,
-                # ldap_connection=ldap_connection,
-                # search_base=settings.ldap_search_base,
                 context=context,
             ),
             cache=False,
