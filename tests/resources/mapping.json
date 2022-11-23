@@ -13,14 +13,14 @@
   "mo_to_ldap": {
     "employee_attrs": {
       "objectClass": "user",
-      "givenName": "{{mo.givenname}}",
-      "sn": "{{mo.surname}}",
-      "displayName": "{{mo.surname}}, {{mo.givenname}}",
-      "name": "{{mo.givenname}} {{mo.surname}}",
-      "cpr": "{{mo.cpr_no or None}}",
-      "seniority": "{{mo.seniority or None}}",
-      "nickname_givenname": "{{mo.nickname_givenname or None}}",
-      "nickname_surname": "{{mo.nickname_surname or None}}"
+      "givenName": "{{mo_employee.givenname}}",
+      "sn": "{{mo_employee.surname}}",
+      "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+      "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
+      "cpr": "{{mo_employee.cpr_no or None}}",
+      "seniority": "{{mo_employee.seniority or None}}",
+      "nickname_givenname": "{{mo_employee.nickname_givenname or None}}",
+      "nickname_surname": "{{mo_employee.nickname_surname or None}}"
     }
   }
 }

@@ -340,36 +340,6 @@ async def test_create_ldap_employee(
     assert output == [[good_response] * len(parameters_to_upload)]
 
 
-async def test_load_mo_employees(
-    dataloaders: Dataloaders, gql_client: AsyncMock
-) -> None:
-
-    cpr_nos = ["1407711900", "0910443755", "1904433310"]
-    uuids = [uuid4() for i in range(3)]
-
-    gql_client.execute.return_value = {
-        "employees": [
-            {"objects": [{"cpr_no": cpr_nos[0], "uuid": uuids[0]}]},
-            {
-                "objects": [
-                    {"cpr_no": cpr_nos[1], "uuid": uuids[1]},
-                    {"cpr_no": cpr_nos[2], "uuid": uuids[2]},
-                ]
-            },
-        ]
-    }
-
-    expected_results = []
-    for cpr_no, uuid in zip(cpr_nos, uuids):
-        expected_results.append(Employee(**{"cpr_no": cpr_no, "uuid": uuid}))
-
-    output = await asyncio.gather(
-        dataloaders.mo_employees_loader.load(0),
-    )
-
-    assert output == [expected_results]
-
-
 async def test_load_mo_employee(
     dataloaders: Dataloaders, gql_client: AsyncMock
 ) -> None:

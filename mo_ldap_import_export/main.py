@@ -76,6 +76,7 @@ async def listen_to_changes_in_employees(
         logger.info("[MO] Change registered in the employee model")
 
         # Convert to LDAP
+        # TODO: Find employee_attrs from json dict?
         ldap_employee = converter.to_ldap(mo_object_dict, "employee_attrs")
 
         # Upload to LDAP
@@ -90,6 +91,7 @@ async def listen_to_changes_in_employees(
 
         logger.info(f"Obtained address type = {address_type}")
 
+        # TODO: Find attr_strings from json dict?
         if address_type == "Email":
             attr_string = "mail_address_attrs"
         elif address_type == "Postadresse":

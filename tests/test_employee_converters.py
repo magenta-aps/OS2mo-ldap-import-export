@@ -20,12 +20,12 @@ mapping = {
     "mo_to_ldap": {
         "employee_attrs": {
             "objectClass": "user",
-            "givenName": "{{mo.givenname}}",
-            "sn": "{{mo.surname}}",
-            "displayName": "{{mo.surname}}, {{mo.givenname}}",
-            "name": "{{mo.givenname}} {{mo.surname}}",
+            "givenName": "{{mo_employee.givenname}}",
+            "sn": "{{mo_employee.surname}}",
+            "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+            "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
             "dn": "",
-            "employeeID": "{{mo.cpr_no or None}}",
+            "employeeID": "{{mo_employee.cpr_no or None}}",
         }
     },
 }
@@ -55,9 +55,8 @@ def test_ldap_to_mo() -> None:
 
 def test_mo_to_ldap() -> None:
     converter = EmployeeConverter(context)
-    ldap_object: Any = converter.to_ldap(
-        Employee(givenname="Tester", surname="Testersen")
-    )
+    obj_dict = {"mo_employee": Employee(givenname="Tester", surname="Testersen")}
+    ldap_object: Any = converter.to_ldap(obj_dict, "employee_attrs")
     assert ldap_object.givenName == "Tester"
     assert ldap_object.sn == "Testersen"
     assert ldap_object.name == "Tester Testersen"
@@ -82,14 +81,14 @@ def test_mapping_loader() -> None:
         "mo_to_ldap": {
             "employee_attrs": {
                 "objectClass": "user",
-                "givenName": "{{mo.givenname}}",
-                "sn": "{{mo.surname}}",
-                "displayName": "{{mo.surname}}, {{mo.givenname}}",
-                "name": "{{mo.givenname}} {{mo.surname}}",
-                "cpr": "{{mo.cpr_no or None}}",
-                "seniority": "{{mo.seniority or None}}",
-                "nickname_givenname": "{{mo.nickname_givenname or None}}",
-                "nickname_surname": "{{mo.nickname_surname or None}}",
+                "givenName": "{{mo_employee.givenname}}",
+                "sn": "{{mo_employee.surname}}",
+                "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+                "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
+                "cpr": "{{mo_employee.cpr_no or None}}",
+                "seniority": "{{mo_employee.seniority or None}}",
+                "nickname_givenname": "{{mo_employee.nickname_givenname or None}}",
+                "nickname_surname": "{{mo_employee.nickname_surname or None}}",
             }
         },
     }
@@ -113,14 +112,14 @@ def test_mapping_loader_failure() -> None:
         "mo_to_ldap": {
             "employee_attrs": {
                 "objectClass": "user",
-                "givenName": "{{mo.givenname}}",
-                "sn": "{{mo.surname}}",
-                "displayName": "{{mo.surname}}, {{mo.givenname}}",
-                "name": "{{mo.givenname}} {{mo.surname}}",
-                "cpr": "{{mo.cpr_no or None}}",
-                "seniority": "{{mo.seniority or None}}",
-                "nickname_givenname": "{{mo.nickname_givenname or None}}",
-                "nickname_surname": "{{mo.nickname_surname or None}}",
+                "givenName": "{{mo_employee.givenname}}",
+                "sn": "{{mo_employee.surname}}",
+                "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+                "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
+                "cpr": "{{mo_employee.cpr_no or None}}",
+                "seniority": "{{mo_employee.seniority or None}}",
+                "nickname_givenname": "{{mo_employee.nickname_givenname or None}}",
+                "nickname_surname": "{{mo_employee.nickname_surname or None}}",
             }
         },
     }
@@ -157,7 +156,10 @@ def test_mapping_loader_failure() -> None:
                 )
             )
         with pytest.raises(IncorrectMapping):
-            converter.to_ldap(Employee(givenname="Tester", surname="Testersen"))
+            obj_dict = {
+                "mo_employee": Employee(givenname="Tester", surname="Testersen")
+            }
+            converter.to_ldap(obj_dict, "employee_attrs")
 
 
 def test_splitfirst() -> None:
@@ -190,17 +192,17 @@ def test_find_cpr_field() -> None:
         "mo_to_ldap": {
             "employee_attrs": {
                 "objectClass": "user",
-                "employeeID": "{{mo.cpr_no or None}}",
+                "employeeID": "{{mo_employee.cpr_no or None}}",
             }
         },
     }
 
-    # This mapping does not contain the mo.cpr_no field
+    # This mapping does not contain the mo_employee.cpr_no field
     bad_mapping = {
         "mo_to_ldap": {
             "employee_attrs": {
                 "objectClass": "user",
-                "givenName": "{{mo.givenname}}",
+                "givenName": "{{mo_employee.givenname}}",
             }
         },
     }
@@ -231,12 +233,12 @@ def test_template_lenience() -> None:
         "mo_to_ldap": {
             "employee_attrs": {
                 "objectClass": "user",
-                "givenName": "{{mo.givenname}}",
-                "sn": "{{mo.surname}}",
-                "displayName": "{{mo.surname}}, {{mo.givenname}}",
-                "name": "{{mo.givenname}} {{mo.surname}}",
+                "givenName": "{{mo_employee.givenname}}",
+                "sn": "{{mo_employee.surname}}",
+                "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+                "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
                 "dn": "",
-                "employeeID": "{{mo.cpr_no or None}}",
+                "employeeID": "{{mo_employee.cpr_no or None}}",
             }
         },
     }

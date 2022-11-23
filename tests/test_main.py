@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastramqpi.main import FastRAMQPI
 from ramodels.mo.employee import Employee
+from ramqp.mo.models import MORoutingKey
 from strawberry.dataloader import DataLoader
 
 from mo_ldap_import_export.converters import read_mapping_json
@@ -297,13 +298,6 @@ def test_ldap_post_ldap_employee_endpoint(test_client: TestClient) -> None:
     assert response.status_code == 200
 
 
-def test_mo_get_all_employees_endpoint(test_client: TestClient) -> None:
-    """Test the MO get-all endpoint on our app."""
-
-    response = test_client.get("/MO/employee")
-    assert response.status_code == 202
-
-
 def test_mo_get_employee_endpoint(test_client: TestClient) -> None:
     """Test the MO get-all endpoint on our app."""
 
@@ -379,8 +373,10 @@ async def test_listen_to_changes_in_employees() -> None:
     settings.ldap_organizational_unit = "OU=foo"
     settings.ldap_search_base = "DC=bar"
 
+    mo_routing_key = MORoutingKey.build("employee.employee.create")
+
     output = await asyncio.gather(
-        listen_to_changes_in_employees(context, payload),
+        listen_to_changes_in_employees(context, payload, mo_routing_key=mo_routing_key),
     )
 
     assert output == [None]

@@ -133,6 +133,11 @@ class EmployeeConverter:
             dict with mo objects to convert. for example:
                 {'mo_employee': Empoyee,
                  'mo_address': Address}
+
+        key : str
+            Key to look for in the mapping dict. For example:
+                - employee_attrs
+                - mail_address_attrs
         """
         ldap_object = {}
         try:
