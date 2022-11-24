@@ -20,6 +20,7 @@ from ramodels.mo.employee import Employee
 
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
+from .exceptions import NotSupportedException
 from .ldap_classes import LdapObject
 from .utils import delete_keys_from_dict
 from .utils import import_class
@@ -216,6 +217,10 @@ class LdapConverter:
             dc = self.settings.ldap_search_base  # Domain Component
             dn = ",".join([cn, ou, dc])  # Distinguished Name
             ldap_object["dn"] = dn
+        else:
+            raise NotSupportedException(
+                "Only employee-related objects are supported by to_ldap"
+            )
 
         return LdapObject(**ldap_object)
 
