@@ -80,12 +80,20 @@ def settings(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
+def converter() -> MagicMock:
+    converter_mock = MagicMock()
+    converter_mock.find_object_class.return_value = "user"
+    return converter_mock
+
+
+@pytest.fixture
 def context(
     ldap_connection: MagicMock,
     gql_client: AsyncMock,
     model_client: AsyncMock,
     settings: Settings,
     cpr_field: str,
+    converter: MagicMock,
 ) -> Context:
 
     return {
@@ -95,7 +103,7 @@ def context(
             "gql_client": gql_client,
             "model_client": model_client,
             "cpr_field": cpr_field,
-            "user_class": "user",
+            "converter": converter,
         },
     }
 
@@ -257,7 +265,7 @@ async def test_modify_ldap_employee(
         "mo_ldap_import_export.dataloaders.load_ldap_employee", return_value=[employee]
     ):
         output = await asyncio.gather(
-            dataloaders.ldap_employees_uploader.load(employee),
+            dataloaders.ldap_object_uploader.load((employee, "user")),
         )
 
     assert output == [
@@ -285,7 +293,7 @@ async def test_create_invalid_ldap_employee(
     # Get result from dataloader
     try:
         await asyncio.gather(
-            dataloaders.ldap_employees_uploader.load(employee),
+            dataloaders.ldap_object_uploader.load((employee, "user")),
         )
     except CprNoNotFound as e:
         assert e.status_code == 404
@@ -334,7 +342,7 @@ async def test_create_ldap_employee(
 
     # Get result from dataloader
     output = await asyncio.gather(
-        dataloaders.ldap_employees_uploader.load(employee),
+        dataloaders.ldap_object_uploader.load((employee, "user")),
     )
 
     assert output == [[good_response] * len(parameters_to_upload)]

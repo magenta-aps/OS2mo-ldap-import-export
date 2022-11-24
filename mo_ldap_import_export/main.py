@@ -80,7 +80,11 @@ async def listen_to_changes_in_employees(
         ldap_employee = converter.to_ldap(mo_object_dict, "employee_attrs")
 
         # Upload to LDAP
-        await user_context["dataloaders"].ldap_employees_uploader.load(ldap_employee)
+        object_class = converter.find_object_class("employee_attrs")
+
+        await user_context["dataloaders"].ldap_object_uploader.load(
+            (ldap_employee, object_class)
+        )
 
     elif kwargs["mo_routing_key"].object_type == ObjectType.ADDRESS:
         logger.info("[MO] Change registered in the address model")
@@ -105,7 +109,10 @@ async def listen_to_changes_in_employees(
 
         # Upload to LDAP - note that we use the employees uploader because address is a
         # part of the employee model in LDAP
-        await user_context["dataloaders"].ldap_employees_uploader.load(ldap_address)
+        object_class = converter.find_object_class(attr_string)
+        await user_context["dataloaders"].ldap_object_uploader.load(
+            (ldap_address, object_class)
+        )
 
 
 @asynccontextmanager
@@ -213,7 +220,6 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     logger.info("Initializing converters")
     converter = EmployeeConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
-    fastramqpi.add_context(user_class=converter.user_class)
     fastramqpi.add_context(converter=converter)
 
     return fastramqpi
@@ -299,7 +305,8 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_employee_to_LDAP(employee: LdapObject) -> Any:
         logger.info(f"Posting {employee} to LDAP")
 
-        await dataloaders.ldap_employees_uploader.load(employee)
+        object_class = converter.find_object_class("employee_attrs")
+        await dataloaders.ldap_object_uploader.load((employee, object_class))
 
     # Post a person to MO
     @app.post("/MO/employee")

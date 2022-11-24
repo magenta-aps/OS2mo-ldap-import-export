@@ -345,7 +345,7 @@ async def test_listen_to_changes_in_employees() -> None:
     dataloader_mock = MagicMock()
     dataloader_mock.mo_employee_loader = DataLoader(load_fn=employee_fn, cache=False)
 
-    dataloader_mock.ldap_employees_uploader = DataLoader(load_fn=empty_fn, cache=False)
+    dataloader_mock.ldap_object_uploader = DataLoader(load_fn=empty_fn, cache=False)
 
     settings_mock = MagicMock()
     settings_mock.ldap_organizational_unit = "foo"

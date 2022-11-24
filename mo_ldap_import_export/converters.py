@@ -59,21 +59,15 @@ def find_cpr_field(mapping):
     return cpr_field
 
 
-def find_object_class(mapping, mapping_key):
-    return mapping["mo_to_ldap"][mapping_key]["objectClass"].render()
-
-
-logger = structlog.get_logger()
-
-
 class EmployeeConverter:
     def __init__(self, context: Context):
 
         self.user_context = context["user_context"]
         self.settings = self.user_context["settings"]
+        self.raw_mapping = self.user_context["mapping"]
         mapping = {
             key: value
-            for key, value in self.user_context["mapping"].items()
+            for key, value in self.raw_mapping.items()
             if key != "objectClass"
         }
 
@@ -86,7 +80,14 @@ class EmployeeConverter:
         )
 
         self.cpr_field = find_cpr_field(mapping)
-        self.user_class = find_object_class(mapping, "employee_attrs")
+
+    def find_object_class(self, mapping_key):
+
+        mapping = self.raw_mapping["mo_to_ldap"]
+        if mapping_key not in mapping.keys():
+            raise IncorrectMapping(f"{mapping_key} not found in mo_to_ldap json dict")
+        else:
+            return mapping[mapping_key]["objectClass"].render()
 
     @staticmethod
     def filter_splitfirst(text):
@@ -176,6 +177,7 @@ class EmployeeConverter:
             }
         )
         mo_dict = {}
+        logger = structlog.get_logger()
         try:
             mapping = self.mapping["ldap_to_mo"]
         except KeyError:

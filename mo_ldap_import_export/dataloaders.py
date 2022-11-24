@@ -39,7 +39,7 @@ class Dataloaders(BaseModel):
 
     ldap_employees_loader: DataLoader
     ldap_employee_loader: DataLoader
-    ldap_employees_uploader: DataLoader
+    ldap_object_uploader: DataLoader
 
     mo_employee_uploader: DataLoader
     mo_employee_loader: DataLoader
@@ -60,7 +60,8 @@ async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapObje
     settings = user_context["settings"]
 
     search_base = settings.ldap_search_base
-    user_class = user_context["user_class"]
+    converter = user_context["converter"]
+    user_class = converter.find_object_class("employee_attrs")
 
     object_class_filter = f"objectclass={user_class}"
     output = []
@@ -88,7 +89,10 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObjec
     Returns list with all employees
     """
 
-    user_class = context["user_context"]["user_class"]
+    user_context = context["user_context"]
+    converter = user_context["converter"]
+    user_class = converter.find_object_class("employee_attrs")
+
     searchParameters = {
         "search_filter": f"(objectclass={user_class})",
         "attributes": ["*"],
@@ -102,24 +106,28 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObjec
     return [output]
 
 
-async def upload_ldap_employee(
-    keys: list[LdapObject],
+async def upload_ldap_object(
+    keys: list[tuple[LdapObject, str]],
     context: Context,
 ):
+    """
+    keys are a list of tuples of (ldap_object, ldap_object_class).
+    """
     logger = structlog.get_logger()
     user_context = context["user_context"]
     ldap_connection = user_context["ldap_connection"]
-    user_class = user_context["user_class"]
-
-    all_attributes = get_ldap_attributes(ldap_connection, user_class)
     output = []
     success = 0
     failed = 0
     cpr_field = user_context["cpr_field"]
     for key in keys:
 
-        logger.info(f"Uploading {key}")
-        parameters_to_upload = list(key.dict().keys())
+        object_to_upload = key[0]
+        object_class = key[1]
+        all_attributes = get_ldap_attributes(ldap_connection, object_class)
+
+        logger.info(f"Uploading {object_to_upload}")
+        parameters_to_upload = list(object_to_upload.dict().keys())
 
         # Check if the cpr field is present
         if cpr_field not in parameters_to_upload:
@@ -127,7 +135,7 @@ async def upload_ldap_employee(
 
         try:
             existing_employee = await load_ldap_employee(
-                [key.dict()[cpr_field]],
+                [object_to_upload.dict()[cpr_field]],
                 context=context,
             )
             dn = existing_employee[0].dn
@@ -138,13 +146,13 @@ async def upload_ldap_employee(
             # Note: it is possible that the employee exists, but that the CPR no.
             # attribute is not set. In that case this function will just set the cpr no.
             # attribute in LDAP.
-            dn = key.dn
+            dn = object_to_upload.dn
 
         parameters_to_upload = [
             p for p in parameters_to_upload if p != "dn" and p in all_attributes
         ]
         results = []
-        parameters = key.dict()
+        parameters = object_to_upload.dict()
 
         for parameter_to_upload in parameters_to_upload:
             value = parameters[parameter_to_upload]
@@ -158,7 +166,7 @@ async def upload_ldap_employee(
             # If the user does not exist, create him/her/hir
             if response["description"] == "noSuchObject":
                 logger.info(f"Creating {dn}")
-                ldap_connection.add(dn, user_class)
+                ldap_connection.add(dn, object_class)
                 ldap_connection.modify(dn, changes)
                 response = ldap_connection.result
 
@@ -272,7 +280,6 @@ async def load_mo_address(
             query SingleAddress {
               addresses(uuids: "{%s}") {
                 objects {
-                  value
                   name
                   uuid
                   employee {
@@ -372,7 +379,7 @@ def configure_dataloaders(context: Context) -> Dataloaders:
     ldap_loader_functions: dict[str, Callable] = {
         "ldap_employees_loader": load_ldap_employees,
         "ldap_employee_loader": load_ldap_employee,
-        "ldap_employees_uploader": upload_ldap_employee,
+        "ldap_object_uploader": upload_ldap_object,
         "ldap_overview_loader": load_ldap_overview,
         "ldap_populated_overview_loader": load_ldap_populated_overview,
     }
