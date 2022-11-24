@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 from typing import Dict
 
@@ -65,6 +67,7 @@ class LdapConverter:
         self.user_context = context["user_context"]
         self.settings = self.user_context["settings"]
         self.raw_mapping = self.user_context["mapping"]
+        self.dataloaders = self.user_context["dataloaders"]
         mapping = {
             key: value
             for key, value in self.raw_mapping.items()
@@ -88,6 +91,28 @@ class LdapConverter:
             raise IncorrectMapping(f"{mapping_key} not found in mo_to_ldap json dict")
         else:
             return mapping[mapping_key]["objectClass"].render()
+
+    @asynccontextmanager
+    async def check_mapping(self) -> AsyncIterator[None]:
+        logger = structlog.get_logger()
+        logger.info("[json check] Checking json file")
+        mo_to_ldap_keys = list(self.mapping["mo_to_ldap"].keys())
+        ldap_to_mo_keys = list(self.mapping["ldap_to_mo"].keys())
+        attr_keys = list(set(mo_to_ldap_keys + ldap_to_mo_keys))
+
+        mo_address_types = await self.dataloaders.mo_address_type_loader.load(0)
+        accepted_attr_keys = ["Employee"] + mo_address_types
+
+        # 1. Check to make sure that all keys are valid
+        logger.info(f"[json check] Accepted keys: {accepted_attr_keys}")
+        logger.info(f"[json check] Detected keys: {attr_keys}")
+
+        for key in attr_keys:
+            if key not in accepted_attr_keys:
+                raise Exception(f"{key} is not a valid key")
+        logger.info("[json check] Keys OK")
+
+        yield
 
     @staticmethod
     def filter_splitfirst(text):

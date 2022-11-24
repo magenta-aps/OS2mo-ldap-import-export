@@ -44,6 +44,7 @@ class Dataloaders(BaseModel):
     mo_employee_uploader: DataLoader
     mo_employee_loader: DataLoader
     mo_address_loader: DataLoader
+    mo_address_type_loader: DataLoader
     mo_address_uploader: DataLoader
 
     ldap_overview_loader: DataLoader
@@ -270,6 +271,27 @@ async def load_mo_employee(
     return output
 
 
+async def load_mo_address_types(
+    key: int, graphql_session: AsyncClientSession
+) -> list[list[str]]:
+    query = gql(
+        """
+        query AddressTypes {
+          facets(user_keys: "employee_address_type") {
+            classes {
+              name
+            }
+          }
+        }
+        """
+    )
+
+    result = await graphql_session.execute(query)
+
+    output = [d["name"] for d in result["facets"][0]["classes"]]
+    return [output]
+
+
 async def load_mo_address(
     keys: list[str], graphql_session: AsyncClientSession
 ) -> list[tuple[Address, dict]]:
@@ -350,6 +372,7 @@ def configure_dataloaders(context: Context) -> Dataloaders:
     graphql_loader_functions: dict[str, Callable] = {
         "mo_employee_loader": load_mo_employee,
         "mo_address_loader": load_mo_address,
+        "mo_address_type_loader": load_mo_address_types,
     }
 
     user_context = context["user_context"]

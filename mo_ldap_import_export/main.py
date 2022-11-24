@@ -37,6 +37,8 @@ from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
 
+# from .converters import check_mapping
+
 logger = structlog.get_logger()
 fastapi_router = APIRouter()
 amqp_router = MORouter()
@@ -212,6 +214,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     converter = LdapConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
     fastramqpi.add_context(converter=converter)
+    fastramqpi.add_lifespan_manager(converter.check_mapping(), 2500)
 
     return fastramqpi
 

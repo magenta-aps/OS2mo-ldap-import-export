@@ -34,7 +34,15 @@ settings_mock = MagicMock()
 settings_mock.ldap_organizational_unit = "foo"
 settings_mock.ldap_search_base = "bar"
 
-context: Context = {"user_context": {"mapping": mapping, "settings": settings_mock}}
+dataloader_mock = MagicMock()
+
+context: Context = {
+    "user_context": {
+        "mapping": mapping,
+        "settings": settings_mock,
+        "dataloaders": dataloader_mock,
+    }
+}
 
 
 def test_ldap_to_mo() -> None:
@@ -123,26 +131,30 @@ def test_mapping_loader_failure() -> None:
             }
         },
     }
+    good_context: Context = {
+        "user_context": {
+            "mapping": good_mapping,
+            "settings": settings_mock,
+            "dataloaders": dataloader_mock,
+        }
+    }
 
     for bad_mapping in ({}, {"ldap_to_mo": {}}, {"mo_to_ldap": {}}):
-        with pytest.raises(IncorrectMapping):
-            LdapConverter(
-                context={
-                    "user_context": {"mapping": bad_mapping, "settings": settings_mock}
-                }
-            )
-        with pytest.raises(IncorrectMapping):
-            LdapConverter(
-                context={
-                    "user_context": {"mapping": bad_mapping, "settings": settings_mock}
-                }
-            )
 
-        converter = LdapConverter(
-            context={
-                "user_context": {"mapping": good_mapping, "settings": settings_mock}
+        bad_context: Context = {
+            "user_context": {
+                "mapping": bad_mapping,
+                "settings": settings_mock,
+                "dataloaders": dataloader_mock,
             }
-        )
+        }
+
+        with pytest.raises(IncorrectMapping):
+            LdapConverter(context=bad_context)
+        with pytest.raises(IncorrectMapping):
+            LdapConverter(context=bad_context)
+
+        converter = LdapConverter(context=good_context)
         converter.mapping = bad_mapping
         with pytest.raises(IncorrectMapping):
             converter.from_ldap(
@@ -209,9 +221,7 @@ def test_find_cpr_field() -> None:
 
     # Test both cases
     for mapping in good_mapping, bad_mapping:
-        context: Context = {
-            "user_context": {"mapping": mapping, "settings": settings_mock}
-        }
+        # context: Context = context
         try:
             converter = LdapConverter(context)
         except Exception as e:
@@ -244,7 +254,13 @@ def test_template_lenience() -> None:
     }
 
     converter = LdapConverter(
-        context={"user_context": {"mapping": mapping, "settings": settings_mock}}
+        context={
+            "user_context": {
+                "mapping": mapping,
+                "settings": settings_mock,
+                "dataloaders": dataloader_mock,
+            }
+        }
     )
     converter.from_ldap(
         LdapObject(
