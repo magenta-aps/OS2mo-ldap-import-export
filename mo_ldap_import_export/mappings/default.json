@@ -1,6 +1,6 @@
 {
   "ldap_to_mo": {
-    "employee_attrs": {
+    "Employee": {
       // MO fields corresponding to mo 'Employee' object
       "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
       "surname": "{{ldap.surname or ldap.sn or ldap.name|splitlast|last or ''}}",
@@ -9,19 +9,21 @@
       "nickname_givenname": "{{ldap.nickname_givenname or None}}",
       "nickname_surname": "{{ldap.nickname_surname or None}}"
     },
-    "mail_address_attrs": {
+    // Note: This needs to be a valid MO address type name*
+    "Email": {
       // MO fields corresponding to mo 'Address' object
       "name": "{{ldap.mail}}",
       "type": "{{'address'}}"
     },
-    "post_address_attrs": {
+    // Note: This needs to be a valid MO address type name*
+    "Postadresse": {
       // MO fields corresponding to mo 'Address' object
       "name": "{{ldap.postalCode, ldap.streetAddress}}",
       "type": "{{'address'}}"
     }
   },
   "mo_to_ldap": {
-    "employee_attrs": {
+    "Employee": {
       // MO fields corresponding to mo 'Employee' object
       "objectClass": "user",
 
@@ -31,7 +33,8 @@
       "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
       "employeeID": "{{mo_employee.cpr_no or None}}"
     },
-    "mail_address_attrs": {
+    // Note: This needs to be a valid MO address type name*
+    "Email": {
       // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
 
@@ -39,10 +42,11 @@
       "type": "{{'address'}}",
       "employeeID": "{{mo_employee.cpr_no}}"
     },
-    "post_address_attrs": {
+    // Note: This needs to be a valid MO address type name*
+    "Postadresse": {
       // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
-      
+
       "postalCode": "{{mo_address.value}}",
       "streetAddress": "{{mo_address.value}}",
       "type": "{{'address'}}",
@@ -50,3 +54,6 @@
     }
   }
 }
+
+// *Valid address type names can be obtained by making a new address and folding out the
+// 'Addressetype' listbox

@@ -15,10 +15,10 @@ from mo_ldap_import_export.exceptions import IncorrectMapping
 
 mapping = {
     "ldap_to_mo": {
-        "employee_attrs": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
+        "Employee": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
     },
     "mo_to_ldap": {
-        "employee_attrs": {
+        "Employee": {
             "objectClass": "user",
             "givenName": "{{mo_employee.givenname}}",
             "sn": "{{mo_employee.surname}}",
@@ -56,7 +56,7 @@ def test_ldap_to_mo() -> None:
 def test_mo_to_ldap() -> None:
     converter = LdapConverter(context)
     obj_dict = {"mo_employee": Employee(givenname="Tester", surname="Testersen")}
-    ldap_object: Any = converter.to_ldap(obj_dict, "employee_attrs")
+    ldap_object: Any = converter.to_ldap(obj_dict, "Employee")
     assert ldap_object.givenName == "Tester"
     assert ldap_object.sn == "Testersen"
     assert ldap_object.name == "Tester Testersen"
@@ -68,7 +68,7 @@ def test_mapping_loader() -> None:
     )
     expected = {
         "ldap_to_mo": {
-            "employee_attrs": {
+            "Employee": {
                 "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
                 "surname": "{{ldap.surname or ldap.sn or "
                 "ldap.name|splitlast|last or ''}}",
@@ -79,7 +79,7 @@ def test_mapping_loader() -> None:
             }
         },
         "mo_to_ldap": {
-            "employee_attrs": {
+            "Employee": {
                 "objectClass": "user",
                 "givenName": "{{mo_employee.givenname}}",
                 "sn": "{{mo_employee.surname}}",
@@ -99,7 +99,7 @@ def test_mapping_loader_failure() -> None:
 
     good_mapping = {
         "ldap_to_mo": {
-            "employee_attrs": {
+            "Employee": {
                 "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
                 "surname": "{{ldap.surname or ldap.sn or "
                 "ldap.name|splitlast|last or ''}}",
@@ -110,7 +110,7 @@ def test_mapping_loader_failure() -> None:
             }
         },
         "mo_to_ldap": {
-            "employee_attrs": {
+            "Employee": {
                 "objectClass": "user",
                 "givenName": "{{mo_employee.givenname}}",
                 "sn": "{{mo_employee.surname}}",
@@ -159,7 +159,7 @@ def test_mapping_loader_failure() -> None:
             obj_dict = {
                 "mo_employee": Employee(givenname="Tester", surname="Testersen")
             }
-            converter.to_ldap(obj_dict, "employee_attrs")
+            converter.to_ldap(obj_dict, "Employee")
 
 
 def test_splitfirst() -> None:
@@ -190,7 +190,7 @@ def test_find_cpr_field() -> None:
     # This mapping is accepted
     good_mapping = {
         "mo_to_ldap": {
-            "employee_attrs": {
+            "Employee": {
                 "objectClass": "user",
                 "employeeID": "{{mo_employee.cpr_no or None}}",
             }
@@ -200,7 +200,7 @@ def test_find_cpr_field() -> None:
     # This mapping does not contain the mo_employee.cpr_no field
     bad_mapping = {
         "mo_to_ldap": {
-            "employee_attrs": {
+            "Employee": {
                 "objectClass": "user",
                 "givenName": "{{mo_employee.givenname}}",
             }
@@ -225,13 +225,13 @@ def test_template_lenience() -> None:
 
     mapping = {
         "ldap_to_mo": {
-            "employee_attrs": {
+            "Employee": {
                 "givenname": "{{ldap.GivenName}}",
                 "surname": "{{ldap.sn}}",
             }
         },
         "mo_to_ldap": {
-            "employee_attrs": {
+            "Employee": {
                 "objectClass": "user",
                 "givenName": "{{mo_employee.givenname}}",
                 "sn": "{{mo_employee.surname}}",

@@ -1,7 +1,7 @@
 {
   // Comments are written like this
   "ldap_to_mo": {
-    "employee_attrs": {
+    "Employee": {
       "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
       "surname": "{{ldap.surname or ldap.sn or ldap.name|splitlast|last or ''}}",
       "cpr_no": "{{ldap.cpr or None}}",
@@ -11,7 +11,7 @@
     }
   },
   "mo_to_ldap": {
-    "employee_attrs": {
+    "Employee": {
       "objectClass": "user",
       "givenName": "{{mo_employee.givenname}}",
       "sn": "{{mo_employee.surname}}",

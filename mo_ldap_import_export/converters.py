@@ -35,9 +35,9 @@ def find_cpr_field(mapping):
     except KeyError:
         raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
     try:
-        employee_attrs_mapping = mo_to_ldap["employee_attrs"]
+        Employee_mapping = mo_to_ldap["Employee"]
     except KeyError:
-        raise IncorrectMapping("Missing 'employee_attrs' in mapping 'mo_to_ldap'")
+        raise IncorrectMapping("Missing 'Employee' in mapping 'mo_to_ldap'")
 
     # See if we can find a match for this search field/result
     search_result = "123"
@@ -45,7 +45,7 @@ def find_cpr_field(mapping):
 
     mo_dict = {search_field: search_result}
     cpr_field = None
-    for ldap_field_name, template in employee_attrs_mapping.items():
+    for ldap_field_name, template in Employee_mapping.items():
         value = template.render({"mo_employee": mo_dict}).strip()
 
         if value == search_result:
@@ -137,7 +137,7 @@ class LdapConverter:
 
         key : str
             Key to look for in the mapping dict. For example:
-                - employee_attrs
+                - Employee
                 - mail_address_attrs
         """
         ldap_object = {}
@@ -146,10 +146,10 @@ class LdapConverter:
         except KeyError:
             raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
         try:
-            employee_attrs_mapping = mapping[key]
+            Employee_mapping = mapping[key]
         except KeyError:
             raise IncorrectMapping(f"Missing '{key}' in mapping 'mo_to_ldap'")
-        for ldap_field_name, template in employee_attrs_mapping.items():
+        for ldap_field_name, template in Employee_mapping.items():
             rendered_item = template.render(mo_object_dict)
             ldap_object[ldap_field_name] = rendered_item
 
@@ -183,10 +183,10 @@ class LdapConverter:
         except KeyError:
             raise IncorrectMapping("Missing mapping 'ldap_to_mo'")
         try:
-            employee_attrs_mapping = mapping["employee_attrs"]
+            Employee_mapping = mapping["Employee"]
         except KeyError:
-            raise IncorrectMapping("Missing 'employee_attrs' in mapping 'ldap_to_mo'")
-        for mo_field_name, template in employee_attrs_mapping.items():
+            raise IncorrectMapping("Missing 'Employee' in mapping 'ldap_to_mo'")
+        for mo_field_name, template in Employee_mapping.items():
             value = template.render({"ldap": ldap_dict}).strip()
             if value != "None":
                 mo_dict[mo_field_name] = value

@@ -76,11 +76,11 @@ async def listen_to_changes_in_employees(
         logger.info("[MO] Change registered in the employee model")
 
         # Convert to LDAP
-        # TODO: Find employee_attrs from json dict?
-        ldap_employee = converter.to_ldap(mo_object_dict, "employee_attrs")
+        # TODO: Find Employee from json dict?
+        ldap_employee = converter.to_ldap(mo_object_dict, "Employee")
 
         # Upload to LDAP
-        object_class = converter.find_object_class("employee_attrs")
+        object_class = converter.find_object_class("Employee")
 
         await user_context["dataloaders"].ldap_object_uploader.load(
             (ldap_employee, object_class)
@@ -95,22 +95,12 @@ async def listen_to_changes_in_employees(
 
         logger.info(f"Obtained address type = {address_type}")
 
-        # TODO: Find attr_strings from json dict?
-        if address_type == "Email":
-            attr_string = "mail_address_attrs"
-        elif address_type == "Postadresse":
-            attr_string = "post_address_attrs"
-        else:
-            raise RejectMessage(
-                "Only address type 'Email' and 'Postadresse' are supported"
-            )
-
         # Convert to LDAP
         mo_object_dict["mo_address"] = changed_address
-        ldap_address = converter.to_ldap(mo_object_dict, attr_string)
+        ldap_address = converter.to_ldap(mo_object_dict, address_type)
 
         # Upload to LDAP
-        object_class = converter.find_object_class(attr_string)
+        object_class = converter.find_object_class(address_type)
         await user_context["dataloaders"].ldap_object_uploader.load(
             (ldap_address, object_class)
         )
@@ -306,7 +296,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_employee_to_LDAP(employee: LdapObject) -> Any:
         logger.info(f"Posting {employee} to LDAP")
 
-        object_class = converter.find_object_class("employee_attrs")
+        object_class = converter.find_object_class("Employee")
         await dataloaders.ldap_object_uploader.load((employee, object_class))
 
     # Post a person to MO
