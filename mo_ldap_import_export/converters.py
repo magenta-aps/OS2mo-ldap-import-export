@@ -1,6 +1,9 @@
-# -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText: 2019-2020 Magenta ApS
+#
+# SPDX-License-Identifier: MPL-2.0
 from __future__ import annotations
 
+import copy
 import json
 import re
 from collections.abc import AsyncIterator
@@ -18,6 +21,8 @@ from ramodels.mo.employee import Employee
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
 from .ldap_classes import LdapObject
+from .utils import delete_keys_from_dict
+from .utils import import_class
 
 
 def read_mapping_json(filename: str) -> Any:
@@ -68,11 +73,10 @@ class LdapConverter:
         self.settings = self.user_context["settings"]
         self.raw_mapping = self.user_context["mapping"]
         self.dataloaders = self.user_context["dataloaders"]
-        mapping = {
-            key: value
-            for key, value in self.raw_mapping.items()
-            if key != "objectClass"
-        }
+
+        mapping = delete_keys_from_dict(
+            copy.deepcopy(self.raw_mapping), ["objectClass"]
+        )
 
         environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = LdapConverter.filter_splitlast
@@ -84,13 +88,18 @@ class LdapConverter:
 
         self.cpr_field = find_cpr_field(mapping)
 
-    def find_object_class(self, mapping_key):
-
-        mapping = self.raw_mapping["mo_to_ldap"]
+    def find_object_class(self, mapping_key, conv):
+        mapping = self.raw_mapping[conv]
         if mapping_key not in mapping.keys():
-            raise IncorrectMapping(f"{mapping_key} not found in mo_to_ldap json dict")
+            raise IncorrectMapping(f"{mapping_key} not found in {conv} json dict")
         else:
-            return mapping[mapping_key]["objectClass"].render()
+            return mapping[mapping_key]["objectClass"]
+
+    def find_ldap_object_class(self, mapping_key):
+        return self.find_object_class(mapping_key, "mo_to_ldap")
+
+    def find_mo_object_class(self, mapping_key):
+        return self.find_object_class(mapping_key, "ldap_to_mo")
 
     @asynccontextmanager
     async def check_mapping(self) -> AsyncIterator[None]:
@@ -109,8 +118,24 @@ class LdapConverter:
 
         for key in attr_keys:
             if key not in accepted_attr_keys:
-                raise Exception(f"{key} is not a valid key")
+                raise IncorrectMapping(f"{key} is not a valid key")
         logger.info("[json check] Keys OK")
+
+        # 2. check that the MO address attributes match the specified class
+        for key in ldap_to_mo_keys:
+            mo_class_str = self.find_mo_object_class(key)
+            mo_class = import_class(mo_class_str)
+            logger.info(f"[json check] checking {mo_class}")
+            accepted_attrs = list(mo_class.schema()["properties"].keys())
+            attrs = list(self.mapping["ldap_to_mo"][key].keys())
+            logger.info(f"[json check] Accepted attributes: {accepted_attrs}")
+            logger.info(f"[json check] Detected attributes: {attrs}")
+
+            for attr in attrs:
+                if attr not in accepted_attrs:
+                    raise IncorrectMapping(f"attribute '{attr}' not allowed")
+
+        logger.info("[json check] Attributes OK")
 
         yield
 

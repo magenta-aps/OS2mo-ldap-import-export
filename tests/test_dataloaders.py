@@ -82,7 +82,7 @@ def settings(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 def converter() -> MagicMock:
     converter_mock = MagicMock()
-    converter_mock.find_object_class.return_value = "user"
+    converter_mock.find_ldap_object_class.return_value = "user"
     return converter_mock
 
 

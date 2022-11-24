@@ -62,7 +62,7 @@ async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapObje
 
     search_base = settings.ldap_search_base
     converter = user_context["converter"]
-    user_class = converter.find_object_class("Employee")
+    user_class = converter.find_ldap_object_class("Employee")
 
     object_class_filter = f"objectclass={user_class}"
     output = []
@@ -92,7 +92,7 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObjec
 
     user_context = context["user_context"]
     converter = user_context["converter"]
-    user_class = converter.find_object_class("Employee")
+    user_class = converter.find_ldap_object_class("Employee")
 
     searchParameters = {
         "search_filter": f"(objectclass={user_class})",

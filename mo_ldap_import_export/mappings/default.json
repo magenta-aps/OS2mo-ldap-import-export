@@ -1,7 +1,7 @@
 {
   "ldap_to_mo": {
     "Employee": {
-      // MO fields corresponding to mo 'Employee' object
+      "objectClass": "ramodels.mo.employee.Employee",
       "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
       "surname": "{{ldap.surname or ldap.sn or ldap.name|splitlast|last or ''}}",
       "cpr_no": "{{ldap.employeeID or ldap.cpr or None}}",
@@ -11,22 +11,20 @@
     },
     // Note: This needs to be a valid MO address type name*
     "Email": {
-      // MO fields corresponding to mo 'Address' object
-      "name": "{{ldap.mail}}",
+      "objectClass": "ramodels.mo.details.address.Address",
+      "value": "{{ldap.mail}}",
       "type": "{{'address'}}"
     },
     // Note: This needs to be a valid MO address type name*
     "Postadresse": {
-      // MO fields corresponding to mo 'Address' object
-      "name": "{{ldap.postalCode, ldap.streetAddress}}",
+      "objectClass": "ramodels.mo.details.address.Address",
+      "value": "{{ldap.postalCode, ldap.streetAddress}}",
       "type": "{{'address'}}"
     }
   },
   "mo_to_ldap": {
     "Employee": {
-      // MO fields corresponding to mo 'Employee' object
       "objectClass": "user",
-
       "givenName": "{{mo_employee.givenname}}",
       "sn": "{{mo_employee.surname}}",
       "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
@@ -35,18 +33,14 @@
     },
     // Note: This needs to be a valid MO address type name*
     "Email": {
-      // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
-
       "mail": "{{mo_address.value}}",
       "type": "{{'address'}}",
       "employeeID": "{{mo_employee.cpr_no}}"
     },
     // Note: This needs to be a valid MO address type name*
     "Postadresse": {
-      // MO fields corresponding to mo 'Address' object
       "objectClass": "user",
-
       "postalCode": "{{mo_address.value}}",
       "streetAddress": "{{mo_address.value}}",
       "type": "{{'address'}}",

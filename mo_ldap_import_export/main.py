@@ -82,7 +82,7 @@ async def listen_to_changes_in_employees(
         ldap_employee = converter.to_ldap(mo_object_dict, "Employee")
 
         # Upload to LDAP
-        object_class = converter.find_object_class("Employee")
+        object_class = converter.find_ldap_object_class("Employee")
 
         await user_context["dataloaders"].ldap_object_uploader.load(
             (ldap_employee, object_class)
@@ -102,7 +102,7 @@ async def listen_to_changes_in_employees(
         ldap_address = converter.to_ldap(mo_object_dict, address_type)
 
         # Upload to LDAP
-        object_class = converter.find_object_class(address_type)
+        object_class = converter.find_ldap_object_class(address_type)
         await user_context["dataloaders"].ldap_object_uploader.load(
             (ldap_address, object_class)
         )
@@ -299,7 +299,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_employee_to_LDAP(employee: LdapObject) -> Any:
         logger.info(f"Posting {employee} to LDAP")
 
-        object_class = converter.find_object_class("Employee")
+        object_class = converter.find_ldap_object_class("Employee")
         await dataloaders.ldap_object_uploader.load((employee, object_class))
 
     # Post a person to MO
