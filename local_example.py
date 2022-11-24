@@ -208,16 +208,23 @@ r = requests.post("http://0.0.0.0:8000/MO/address", json=address_to_post)
 # Check that it is also modified in LDAP
 cpr = meta_data["employee_cpr_no"]
 
+n = 0
 while True:
     person_from_ldap = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}").json()
     try:
         assert person_from_ldap["mail"] == address_to_post["value"]
+        print("mail address succesfully modified in LDAP")
         break
     except AssertionError:
         time.sleep(1)
-        continue
 
-print("mail address succesfully modified in LDAP")
+        if n < 5:
+            n += 1
+            continue
+        else:
+            break
+            print("mail address was not modified in LDAP")
+
 
 # %% Finish
 print("Success")

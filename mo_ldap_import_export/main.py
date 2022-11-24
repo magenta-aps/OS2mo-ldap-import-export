@@ -27,12 +27,12 @@ from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
 from ramqp.mo.models import RequestType
+from ramqp.utils import RejectMessage
 
 from .config import Settings
 from .converters import EmployeeConverter
 from .converters import read_mapping_json
 from .dataloaders import configure_dataloaders
-from .exceptions import NotSupportedException
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
@@ -61,7 +61,7 @@ async def listen_to_changes_in_employees(
 
     # TODO: Add support for deleting users / fields from LDAP
     if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
-        raise NotSupportedException("Not supported")
+        raise RejectMessage("Not supported")
 
     mo_address_loader = user_context["dataloaders"].mo_address_loader
     mo_employee_loader = user_context["dataloaders"].mo_employee_loader
@@ -101,14 +101,15 @@ async def listen_to_changes_in_employees(
         elif address_type == "Postadresse":
             attr_string = "post_address_attrs"
         else:
-            return None
+            raise RejectMessage(
+                "Only address type 'Email' and 'Postadresse' are supported"
+            )
 
         # Convert to LDAP
         mo_object_dict["mo_address"] = changed_address
         ldap_address = converter.to_ldap(mo_object_dict, attr_string)
 
-        # Upload to LDAP - note that we use the employees uploader because address is a
-        # part of the employee model in LDAP
+        # Upload to LDAP
         object_class = converter.find_object_class(attr_string)
         await user_context["dataloaders"].ldap_object_uploader.load(
             (ldap_address, object_class)
