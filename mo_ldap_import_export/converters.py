@@ -59,7 +59,7 @@ def find_cpr_field(mapping):
     return cpr_field
 
 
-class EmployeeConverter:
+class LdapConverter:
     def __init__(self, context: Context):
 
         self.user_context = context["user_context"]
@@ -72,8 +72,8 @@ class EmployeeConverter:
         }
 
         environment = Environment(undefined=Undefined)
-        environment.filters["splitlast"] = EmployeeConverter.filter_splitlast
-        environment.filters["splitfirst"] = EmployeeConverter.filter_splitfirst
+        environment.filters["splitlast"] = LdapConverter.filter_splitlast
+        environment.filters["splitfirst"] = LdapConverter.filter_splitfirst
         self.mapping = self._populate_mapping_with_templates(
             mapping,
             environment,

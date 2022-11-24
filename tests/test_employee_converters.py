@@ -7,7 +7,7 @@ import pytest
 from fastramqpi.context import Context
 from ramodels.mo import Employee
 
-from mo_ldap_import_export.converters import EmployeeConverter
+from mo_ldap_import_export.converters import LdapConverter
 from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.exceptions import CprNoNotFound
@@ -38,7 +38,7 @@ context: Context = {"user_context": {"mapping": mapping, "settings": settings_mo
 
 
 def test_ldap_to_mo() -> None:
-    converter = EmployeeConverter(context)
+    converter = LdapConverter(context)
     employee = converter.from_ldap(
         LdapObject(
             dn="",
@@ -54,7 +54,7 @@ def test_ldap_to_mo() -> None:
 
 
 def test_mo_to_ldap() -> None:
-    converter = EmployeeConverter(context)
+    converter = LdapConverter(context)
     obj_dict = {"mo_employee": Employee(givenname="Tester", surname="Testersen")}
     ldap_object: Any = converter.to_ldap(obj_dict, "employee_attrs")
     assert ldap_object.givenName == "Tester"
@@ -126,19 +126,19 @@ def test_mapping_loader_failure() -> None:
 
     for bad_mapping in ({}, {"ldap_to_mo": {}}, {"mo_to_ldap": {}}):
         with pytest.raises(IncorrectMapping):
-            EmployeeConverter(
+            LdapConverter(
                 context={
                     "user_context": {"mapping": bad_mapping, "settings": settings_mock}
                 }
             )
         with pytest.raises(IncorrectMapping):
-            EmployeeConverter(
+            LdapConverter(
                 context={
                     "user_context": {"mapping": bad_mapping, "settings": settings_mock}
                 }
             )
 
-        converter = EmployeeConverter(
+        converter = LdapConverter(
             context={
                 "user_context": {"mapping": good_mapping, "settings": settings_mock}
             }
@@ -163,26 +163,26 @@ def test_mapping_loader_failure() -> None:
 
 
 def test_splitfirst() -> None:
-    assert EmployeeConverter.filter_splitfirst("Test") == ["Test", ""]
-    assert EmployeeConverter.filter_splitfirst("Test Testersen") == [
+    assert LdapConverter.filter_splitfirst("Test") == ["Test", ""]
+    assert LdapConverter.filter_splitfirst("Test Testersen") == [
         "Test",
         "Testersen",
     ]
-    assert EmployeeConverter.filter_splitfirst("Test Testersen med test") == [
+    assert LdapConverter.filter_splitfirst("Test Testersen med test") == [
         "Test",
         "Testersen med test",
     ]
-    assert EmployeeConverter.filter_splitfirst("") == ["", ""]
+    assert LdapConverter.filter_splitfirst("") == ["", ""]
 
 
 def test_splitlast() -> None:
-    assert EmployeeConverter.filter_splitlast("Test") == ["", "Test"]
-    assert EmployeeConverter.filter_splitlast("Test Testersen") == ["Test", "Testersen"]
-    assert EmployeeConverter.filter_splitlast("Test Testersen med test") == [
+    assert LdapConverter.filter_splitlast("Test") == ["", "Test"]
+    assert LdapConverter.filter_splitlast("Test Testersen") == ["Test", "Testersen"]
+    assert LdapConverter.filter_splitlast("Test Testersen med test") == [
         "Test Testersen med",
         "test",
     ]
-    assert EmployeeConverter.filter_splitlast("") == ["", ""]
+    assert LdapConverter.filter_splitlast("") == ["", ""]
 
 
 def test_find_cpr_field() -> None:
@@ -213,7 +213,7 @@ def test_find_cpr_field() -> None:
             "user_context": {"mapping": mapping, "settings": settings_mock}
         }
         try:
-            converter = EmployeeConverter(context)
+            converter = LdapConverter(context)
         except Exception as e:
             assert type(e) == CprNoNotFound
             assert e.status_code == 404
@@ -243,7 +243,7 @@ def test_template_lenience() -> None:
         },
     }
 
-    converter = EmployeeConverter(
+    converter = LdapConverter(
         context={"user_context": {"mapping": mapping, "settings": settings_mock}}
     )
     converter.from_ldap(

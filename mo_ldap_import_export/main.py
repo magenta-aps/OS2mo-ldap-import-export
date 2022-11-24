@@ -30,7 +30,7 @@ from ramqp.mo.models import RequestType
 from ramqp.utils import RejectMessage
 
 from .config import Settings
-from .converters import EmployeeConverter
+from .converters import LdapConverter
 from .converters import read_mapping_json
 from .dataloaders import configure_dataloaders
 from .ldap import configure_ldap_connection
@@ -219,7 +219,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(mapping=read_mapping_json(mappings_file))
 
     logger.info("Initializing converters")
-    converter = EmployeeConverter(context)
+    converter = LdapConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
     fastramqpi.add_context(converter=converter)
 
