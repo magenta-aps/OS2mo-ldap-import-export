@@ -9,13 +9,13 @@
       "nickname_givenname": "{{ldap.nickname_givenname or None}}",
       "nickname_surname": "{{ldap.nickname_surname or None}}"
     },
-    // Note: This needs to be a valid MO address type name*
+    // Note: This key needs to be a valid MO address type name*
     "Email": {
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ldap.mail}}",
       "type": "{{'address'}}"
     },
-    // Note: This needs to be a valid MO address type name*
+    // Note: This key needs to be a valid MO address type name*
     "Postadresse": {
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ldap.postalCode, ldap.streetAddress}}",
@@ -31,14 +31,14 @@
       "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
       "employeeID": "{{mo_employee.cpr_no or None}}"
     },
-    // Note: This needs to be a valid MO address type name*
+    // Note: This key needs to be a valid MO address type name*
     "Email": {
       "objectClass": "user",
       "mail": "{{mo_address.value}}",
       "type": "{{'address'}}",
       "employeeID": "{{mo_employee.cpr_no}}"
     },
-    // Note: This needs to be a valid MO address type name*
+    // Note: This key needs to be a valid MO address type name*
     "Postadresse": {
       "objectClass": "user",
       "postalCode": "{{mo_address.value}}",
