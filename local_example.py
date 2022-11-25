@@ -62,8 +62,8 @@ def pretty_print(d):
 
 
 # %% Get all users from LDAP
-r = requests.get("http://0.0.0.0:8000/LDAP/employee")
-print("Found all user from LDAP:")
+r = requests.get("http://0.0.0.0:8000/LDAP/Employee")
+print("Found all users from LDAP:")
 df = pd.DataFrame(r.json())
 print(df)
 print("")
@@ -71,22 +71,29 @@ print("")
 # Get a single user from LDAP
 ad_user = r.json()[300]
 cpr = ad_user["employeeID"]
-r2 = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}")
+r2 = requests.get(f"http://0.0.0.0:8000/LDAP/Employee/{cpr}")
 print("Here is a single user:")
 ad_user_detailed = r2.json()
 pretty_print(ad_user_detailed)
 
 # Get his manager from LDAP
 manager_cpr = ad_user_detailed["manager"]["employeeID"]
-r3 = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{manager_cpr}")
+r3 = requests.get(f"http://0.0.0.0:8000/LDAP/Employee/{manager_cpr}")
 print("Here is his manager:")
 pretty_print(r3.json())
 
+# Get his mail address
+r4 = requests.get(f"http://0.0.0.0:8000/LDAP/Email/{cpr}")
+print("Here is his mail address:")
+ad_user_detailed = r4.json()
+pretty_print(ad_user_detailed)
+
 # Get a user from LDAP (Converted to MO)
-r4 = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}/converted")
-print("Here is the same user, MO style:")
-pretty_print(r4.json())
-print("")
+for json_key in ["Employee", "Email", "Postadresse"]:
+    r5 = requests.get(f"http://0.0.0.0:8000/LDAP/{json_key}/{cpr}/converted")
+    print(f"Here is the {json_key}, MO style:")
+    pretty_print(r5.json())
+    print("")
 
 # %% Modify a user in LDAP
 random_int = random.randint(0, 10_000)
@@ -98,20 +105,20 @@ ldap_person_to_post = {
     "department": new_department,
     "employeeID": "1212125556",
 }
-requests.post("http://0.0.0.0:8000/LDAP/employee", json=ldap_person_to_post)
+requests.post("http://0.0.0.0:8000/LDAP/Employee", json=ldap_person_to_post)
 
 
 # Get the users again - validate that the user is modified
 cpr = ldap_person_to_post["employeeID"]
-r = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}")
+r = requests.get(f"http://0.0.0.0:8000/LDAP/Employee/{cpr}")
 assert r.json()["department"] == new_department
 print(f"Successfully edited department to '{new_department}' in LDAP")
 print("")
 
 
 # Get a user from MO
-uuid = "78f32222-9e78-471e-9c19-049d2613e34f"
-r = requests.get(f"http://0.0.0.0:8000/MO/employee/{uuid}")
+uuid = "9af20c47-0d81-410e-8789-f28dadc5cee3"
+r = requests.get(f"http://0.0.0.0:8000/MO/Employee/{uuid}")
 print("Found a user from MO:")
 mo_user = r.json()
 pretty_print(mo_user)
@@ -127,18 +134,18 @@ random_int = random.randint(0, 10_000)
 mo_employee_to_post["surname"] = f"Hansen_{random_int}"
 mo_employee_to_post["givenname"] = "Hans"
 
-requests.post("http://0.0.0.0:8000/MO/employee", json=mo_employee_to_post)
+requests.post("http://0.0.0.0:8000/MO/Employee", json=mo_employee_to_post)
 
 # Load the user and check if the nickname was changed appropriately
 uuid = mo_employee_to_post["uuid"]
-r = requests.get(f"http://0.0.0.0:8000/MO/employee/{uuid}")
+r = requests.get(f"http://0.0.0.0:8000/MO/Employee/{uuid}")
 assert r.json()["surname"] == mo_employee_to_post["surname"]
 assert r.json()["nickname_givenname"] == nickname_givenname
 print(f"Successfully edited nickname_givenname to '{nickname_givenname}' in MO")
 
 # Check that the user is now also in LDAP, and that his name is correct
 cpr = mo_employee_to_post["cpr_no"]
-r = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}")
+r = requests.get(f"http://0.0.0.0:8000/LDAP/Employee/{cpr}")
 assert r.json()["givenName"] == mo_employee_to_post["givenname"]
 assert r.json()["sn"] == mo_employee_to_post["surname"]
 print("Validated that the changes are reflected in LDAP")
@@ -150,7 +157,7 @@ url = "http://localhost:5000/medarbejder/{uuid}#medarbejder"
 print(f"see:\n{url}\nto validate that the nickname/name was appropriately changed")
 
 # %% get an overview of all information in LDAP
-r = requests.get("http://0.0.0.0:8000/LDAP/overview")
+r = requests.get("http://0.0.0.0:8000/LDAP_overview")
 overview = r.json()
 print("Here is an overview of the classes in the LDAP structure:")
 print("[")
@@ -167,7 +174,7 @@ for p in list(overview["user"]["attributes"])[:10]:
 print("...]")
 
 # %% And an overview which only contains fields that actually contain data:
-r = requests.get("http://0.0.0.0:8000/LDAP/overview/populated")
+r = requests.get("http://0.0.0.0:8000/LDAP_overview/populated")
 populated_overview = r.json()
 
 print("And here are the fields that actually contain data for a user:")
@@ -176,13 +183,17 @@ pretty_print(populated_overview["user"])
 print("Here are all the fields that actually contain data:")
 pretty_print(populated_overview)
 
+number_of_user_attributes = len(overview["user"]["attributes"])
+number_of_populated_user_attributes = len(populated_overview["user"]["attributes"])
+assert number_of_user_attributes != number_of_populated_user_attributes
 
 # %% Get all converted users from LDAP
-r = requests.get("http://0.0.0.0:8000/LDAP/employee/converted")
-print("Converted all user from LDAP:")
-df = pd.DataFrame(r.json())
-print(df)
-print("")
+for json_key in ["Employee", "Email", "Postadresse"]:
+    r = requests.get(f"http://0.0.0.0:8000/LDAP/{json_key}/converted")
+    print(f"Converted all {json_key}s from LDAP:")
+    df = pd.DataFrame(r.json())
+    print(df)
+    print("")
 
 # %% Modify an address in MO and check if it was also modified in AD
 # Request an email address
@@ -210,7 +221,7 @@ cpr = meta_data["employee_cpr_no"]
 
 n = 0
 while True:
-    person_from_ldap = requests.get(f"http://0.0.0.0:8000/LDAP/employee/{cpr}").json()
+    person_from_ldap = requests.get(f"http://0.0.0.0:8000/LDAP/Email/{cpr}").json()
     try:
         assert person_from_ldap["mail"] == address_to_post["value"]
         print("mail address succesfully modified in LDAP")

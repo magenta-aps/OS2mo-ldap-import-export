@@ -28,6 +28,9 @@ from .ldap import paged_search
 from .ldap import single_object_search
 from .ldap_classes import LdapObject
 
+json_key = str
+cpr_no = str
+
 
 class Dataloaders(BaseModel):
     """Collection of program dataloaders."""
@@ -37,8 +40,8 @@ class Dataloaders(BaseModel):
 
         arbitrary_types_allowed = True
 
-    ldap_employees_loader: DataLoader
-    ldap_employee_loader: DataLoader
+    ldap_objects_loader: DataLoader
+    ldap_object_loader: DataLoader
     ldap_object_uploader: DataLoader
 
     mo_employee_uploader: DataLoader
@@ -51,8 +54,16 @@ class Dataloaders(BaseModel):
     ldap_populated_overview_loader: DataLoader
 
 
-async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapObject]:
+async def load_ldap_cpr_object(
+    keys: list[tuple[cpr_no, json_key]], context: Context
+) -> list[LdapObject]:
+    """
+    Loads an ldap object which can be found using a cpr number lookup
 
+    Accepted json_keys are:
+        - Employee
+        - a MO address type name
+    """
     logger = structlog.get_logger()
     user_context = context["user_context"]
 
@@ -62,41 +73,47 @@ async def load_ldap_employee(keys: list[str], context: Context) -> list[LdapObje
 
     search_base = settings.ldap_search_base
     converter = user_context["converter"]
-    user_class = converter.find_ldap_object_class("Employee")
 
-    object_class_filter = f"objectclass={user_class}"
     output = []
 
-    for cpr in keys:
+    for cpr, json_key in keys:
+        object_class = converter.find_ldap_object_class(json_key)
+        attributes = converter.get_ldap_attributes(json_key)
+
+        object_class_filter = f"objectclass={object_class}"
         cpr_filter = f"{cpr_field}={cpr}"
 
         searchParameters = {
             "search_base": search_base,
             "search_filter": f"(&({object_class_filter})({cpr_filter}))",
-            "attributes": ["*"],
+            "attributes": attributes,
         }
         search_result = single_object_search(searchParameters, ldap_connection)
 
-        employee: LdapObject = make_ldap_object(search_result, context)
+        ldap_object: LdapObject = make_ldap_object(search_result, context)
 
-        logger.info(f"Found {employee.dn}")
-        output.append(employee)
+        logger.info(f"Found {ldap_object.dn}")
+        output.append(ldap_object)
 
     return output
 
 
-async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObject]]:
+async def load_ldap_objects(
+    keys: list[json_key], context: Context
+) -> list[list[LdapObject]]:
     """
     Returns list with all employees
     """
 
     user_context = context["user_context"]
     converter = user_context["converter"]
-    user_class = converter.find_ldap_object_class("Employee")
+    json_key = keys[0]
+    user_class = converter.find_ldap_object_class(json_key)
+    attributes = converter.get_ldap_attributes(json_key)
 
     searchParameters = {
         "search_filter": f"(objectclass={user_class})",
-        "attributes": ["*"],
+        "attributes": attributes,
     }
 
     responses = paged_search(context, searchParameters)
@@ -108,23 +125,24 @@ async def load_ldap_employees(key: int, context: Context) -> list[list[LdapObjec
 
 
 async def upload_ldap_object(
-    keys: list[tuple[LdapObject, str]],
+    keys: list[tuple[LdapObject, json_key]],
     context: Context,
 ):
     """
-    keys are a list of tuples of (ldap_object, ldap_object_class).
+    Accepted json_keys are:
+        - Employee
+        - a MO address type name
     """
     logger = structlog.get_logger()
     user_context = context["user_context"]
     ldap_connection = user_context["ldap_connection"]
+    converter = user_context["converter"]
     output = []
     success = 0
     failed = 0
     cpr_field = user_context["cpr_field"]
-    for key in keys:
-
-        object_to_upload = key[0]
-        object_class = key[1]
+    for object_to_upload, json_key in keys:
+        object_class = converter.find_ldap_object_class(json_key)
         all_attributes = get_ldap_attributes(ldap_connection, object_class)
 
         logger.info(f"Uploading {object_to_upload}")
@@ -135,11 +153,10 @@ async def upload_ldap_object(
             raise CprNoNotFound(f"cpr field '{cpr_field}' not found in ldap object")
 
         try:
-            existing_employee = await load_ldap_employee(
-                [object_to_upload.dict()[cpr_field]],
-                context=context,
+            existing_object = await load_ldap_cpr_object(
+                [(object_to_upload.dict()[cpr_field], json_key)], context=context
             )
-            dn = existing_employee[0].dn
+            dn = existing_object[0].dn
             logger.info(f"Found existing employee: {dn}")
         except NoObjectsReturnedException as e:
             logger.info(f"Could not find existing employee: {e}")
@@ -221,18 +238,17 @@ async def load_ldap_populated_overview(keys: list[int], context: Context):
     for ldap_class in overview.keys():
         searchParameters = {
             "search_filter": f"(objectclass={ldap_class})",
-            "attributes": overview[ldap_class]["attributes"],
+            "attributes": ["*"],
         }
 
         responses = paged_search(context, searchParameters)
 
         populated_attributes = []
-        for attribute in overview[ldap_class]["attributes"]:
-            values = [r["attributes"][attribute] for r in responses]
-            values = [v for v in values if v not in nan_values]
-
-            if len(values) > 0:
-                populated_attributes.append(attribute)
+        for response in responses:
+            for attribute, value in response["attributes"].items():
+                if value not in nan_values:
+                    populated_attributes.append(attribute)
+        populated_attributes = list(set(populated_attributes))
 
         if len(populated_attributes) > 0:
             superiors = overview[ldap_class]["superiors"]
@@ -273,13 +289,14 @@ async def load_mo_employee(
 
 async def load_mo_address_types(
     key: int, graphql_session: AsyncClientSession
-) -> list[list[str]]:
+) -> list[dict]:
     query = gql(
         """
         query AddressTypes {
           facets(user_keys: "employee_address_type") {
             classes {
               name
+              uuid
             }
           }
         }
@@ -288,7 +305,7 @@ async def load_mo_address_types(
 
     result = await graphql_session.execute(query)
 
-    output = [d["name"] for d in result["facets"][0]["classes"]]
+    output = {d["uuid"]: d["name"] for d in result["facets"][0]["classes"]}
     return [output]
 
 
@@ -400,8 +417,8 @@ def configure_dataloaders(context: Context) -> Dataloaders:
     }
 
     ldap_loader_functions: dict[str, Callable] = {
-        "ldap_employees_loader": load_ldap_employees,
-        "ldap_employee_loader": load_ldap_employee,
+        "ldap_objects_loader": load_ldap_objects,
+        "ldap_object_loader": load_ldap_cpr_object,
         "ldap_object_uploader": upload_ldap_object,
         "ldap_overview_loader": load_ldap_overview,
         "ldap_populated_overview_loader": load_ldap_populated_overview,

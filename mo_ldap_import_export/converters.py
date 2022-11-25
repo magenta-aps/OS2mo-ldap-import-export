@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import re
 from collections.abc import AsyncIterator
@@ -16,7 +17,6 @@ from fastramqpi.context import Context
 from jinja2 import Environment
 from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
-from ramodels.mo.employee import Employee
 
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
@@ -82,6 +82,7 @@ class LdapConverter:
         environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = LdapConverter.filter_splitlast
         environment.filters["splitfirst"] = LdapConverter.filter_splitfirst
+        environment.filters["strftime"] = LdapConverter.filter_strftime
         self.mapping = self._populate_mapping_with_templates(
             mapping,
             environment,
@@ -89,52 +90,82 @@ class LdapConverter:
 
         self.cpr_field = find_cpr_field(mapping)
 
-    def find_object_class(self, mapping_key, conv):
+    def find_object_class(self, json_key, conv):
         mapping = self.raw_mapping[conv]
-        if mapping_key not in mapping.keys():
-            raise IncorrectMapping(f"{mapping_key} not found in {conv} json dict")
+        if json_key not in mapping.keys():
+            raise IncorrectMapping(f"{json_key} not found in {conv} json dict")
         else:
-            return mapping[mapping_key]["objectClass"]
+            return mapping[json_key]["objectClass"]
 
-    def find_ldap_object_class(self, mapping_key):
-        return self.find_object_class(mapping_key, "mo_to_ldap")
+    def find_ldap_object_class(self, json_key):
+        return self.find_object_class(json_key, "mo_to_ldap")
 
-    def find_mo_object_class(self, mapping_key):
-        return self.find_object_class(mapping_key, "ldap_to_mo")
+    def find_mo_object_class(self, json_key):
+        return self.find_object_class(json_key, "ldap_to_mo")
+
+    def import_mo_object_class(self, json_key):
+        return import_class(self.find_mo_object_class(json_key))
+
+    def get_ldap_attributes(self, json_key):
+        return list(self.mapping["mo_to_ldap"][json_key].keys())
+
+    def get_mo_attributes(self, json_key):
+        return list(self.mapping["ldap_to_mo"][json_key].keys())
+
+    def check_attributes(self, detected_attributes, accepted_attributes):
+        for attr in detected_attributes:
+            if attr not in accepted_attributes:
+                raise IncorrectMapping(
+                    (
+                        f"attribute '{attr}' not allowed."
+                        f" Allowed attributes are {accepted_attributes}"
+                    )
+                )
 
     @asynccontextmanager
     async def check_mapping(self) -> AsyncIterator[None]:
         logger = structlog.get_logger()
         logger.info("[json check] Checking json file")
-        mo_to_ldap_keys = list(self.mapping["mo_to_ldap"].keys())
-        ldap_to_mo_keys = list(self.mapping["ldap_to_mo"].keys())
-        attr_keys = list(set(mo_to_ldap_keys + ldap_to_mo_keys))
+        mo_to_ldap_json_keys = list(self.mapping["mo_to_ldap"].keys())
+        ldap_to_mo_json_keys = list(self.mapping["ldap_to_mo"].keys())
+        json_keys = list(set(mo_to_ldap_json_keys + ldap_to_mo_json_keys))
 
-        mo_address_types = await self.dataloaders.mo_address_type_loader.load(0)
-        accepted_attr_keys = ["Employee"] + mo_address_types
+        mo_address_type_dict = await self.dataloaders.mo_address_type_loader.load(0)
+        mo_address_types = list(mo_address_type_dict.values())
+
+        accepted_json_keys = ["Employee"] + mo_address_types
 
         # 1. Check to make sure that all keys are valid
-        logger.info(f"[json check] Accepted keys: {accepted_attr_keys}")
-        logger.info(f"[json check] Detected keys: {attr_keys}")
+        logger.info(f"[json check] Accepted keys: {accepted_json_keys}")
+        logger.info(f"[json check] Detected keys: {json_keys}")
 
-        for key in attr_keys:
-            if key not in accepted_attr_keys:
+        for key in json_keys:
+            if key not in accepted_json_keys:
                 raise IncorrectMapping(f"{key} is not a valid key")
         logger.info("[json check] Keys OK")
 
         # 2. check that the MO address attributes match the specified class
-        for key in ldap_to_mo_keys:
-            mo_class_str = self.find_mo_object_class(key)
-            mo_class = import_class(mo_class_str)
-            logger.info(f"[json check] checking {mo_class}")
-            accepted_attrs = list(mo_class.schema()["properties"].keys())
-            attrs = list(self.mapping["ldap_to_mo"][key].keys())
-            logger.info(f"[json check] Accepted attributes: {accepted_attrs}")
-            logger.info(f"[json check] Detected attributes: {attrs}")
+        for json_key in ldap_to_mo_json_keys:
+            logger.info(f"[json check] checking ldap_to_mo[{json_key}]")
 
-            for attr in attrs:
-                if attr not in accepted_attrs:
-                    raise IncorrectMapping(f"attribute '{attr}' not allowed")
+            mo_class = self.import_mo_object_class(json_key)
+
+            accepted_attributes = list(mo_class.schema()["properties"].keys())
+            detected_attributes = self.get_mo_attributes(json_key)
+
+            self.check_attributes(detected_attributes, accepted_attributes)
+
+        # 3. check that the LDAP attributes match what is available in LDAP
+        overview = await self.dataloaders.ldap_overview_loader.load(0)
+        for json_key in mo_to_ldap_json_keys:
+            logger.info(f"[json check] checking mo_to_ldap[{json_key}]")
+
+            object_class = self.find_ldap_object_class(json_key)
+
+            accepted_attributes = overview[object_class]["attributes"]
+            detected_attributes = self.get_ldap_attributes(json_key)
+
+            self.check_attributes(detected_attributes, accepted_attributes)
 
         logger.info("[json check] Attributes OK")
 
@@ -153,6 +184,26 @@ class LdapConverter:
                 s = text.split(" ", 1)
                 return s if len(s) > 1 else (s + [""])
         return ["", ""]
+
+    @staticmethod
+    def nonejoin(*args):
+
+        items_to_join = [a for a in args if a]
+        return ", ".join(items_to_join)
+
+    @staticmethod
+    def str_to_dict(text):
+        """
+        Converts a string to a dictionary
+        """
+        return json.loads(text.replace("'", '"'))
+
+    @staticmethod
+    def filter_strftime(datetime_object):
+        """
+        Converts a string to a datestring with today's date
+        """
+        return datetime_object.strftime("%Y-%m-%dT%H:%M:%S")
 
     @staticmethod
     def filter_splitlast(text):
@@ -175,21 +226,24 @@ class LdapConverter:
         for key, value in mapping.items():
             if type(value) == str:
                 mapping[key] = environment.from_string(value)
+                mapping[key].globals["now"] = datetime.datetime.utcnow
+                mapping[key].globals["nonejoin"] = self.nonejoin
+
             elif type(value) == dict:
                 mapping[key] = self._populate_mapping_with_templates(value, environment)
         return mapping
 
-    def to_ldap(self, mo_object_dict: dict, key: str) -> LdapObject:
+    def to_ldap(self, mo_object_dict: dict, json_key: str) -> LdapObject:
         """
         mo_object_dict : dict
             dict with mo objects to convert. for example:
                 {'mo_employee': Empoyee,
                  'mo_address': Address}
 
-        key : str
+        json_key : str
             Key to look for in the mapping dict. For example:
                 - Employee
-                - mail_address_attrs
+                - mail_address_attributes
         """
         ldap_object = {}
         try:
@@ -197,10 +251,10 @@ class LdapConverter:
         except KeyError:
             raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
         try:
-            Employee_mapping = mapping[key]
+            object_mapping = mapping[json_key]
         except KeyError:
-            raise IncorrectMapping(f"Missing '{key}' in mapping 'mo_to_ldap'")
-        for ldap_field_name, template in Employee_mapping.items():
+            raise IncorrectMapping(f"Missing '{json_key}' in mapping 'mo_to_ldap'")
+        for ldap_field_name, template in object_mapping.items():
             rendered_item = template.render(mo_object_dict)
             ldap_object[ldap_field_name] = rendered_item
 
@@ -219,12 +273,12 @@ class LdapConverter:
             ldap_object["dn"] = dn
         else:
             raise NotSupportedException(
-                "Only employee-related objects are supported by to_ldap"
+                "Only cpr-indexed objects are supported by to_ldap"
             )
 
         return LdapObject(**ldap_object)
 
-    def from_ldap(self, ldap_object: LdapObject) -> Employee:
+    def from_ldap(self, ldap_object: LdapObject, json_key: str) -> Any:
         ldap_dict = CaseInsensitiveDict(
             {
                 key: value[0] if type(value) == list and len(value) == 1 else value
@@ -232,19 +286,26 @@ class LdapConverter:
             }
         )
         mo_dict = {}
-        logger = structlog.get_logger()
         try:
             mapping = self.mapping["ldap_to_mo"]
         except KeyError:
             raise IncorrectMapping("Missing mapping 'ldap_to_mo'")
         try:
-            Employee_mapping = mapping["Employee"]
+            object_mapping = mapping[json_key]
         except KeyError:
-            raise IncorrectMapping("Missing 'Employee' in mapping 'ldap_to_mo'")
-        for mo_field_name, template in Employee_mapping.items():
+            raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
+        for mo_field_name, template in object_mapping.items():
+
             value = template.render({"ldap": ldap_dict}).strip()
-            if value != "None":
+
+            # TODO: Is it possible to render a dictionary directly?
+            #       Instead of converting from a string
+            if "{" in value and ":" in value and "}" in value:
+                value = self.str_to_dict(value)
+
+            if (value != "None") and value:
                 mo_dict[mo_field_name] = value
 
-        logger.info(mo_dict)
-        return Employee(**mo_dict)
+        mo_class: Any = self.import_mo_object_class(json_key)
+
+        return mo_class(**mo_dict)
