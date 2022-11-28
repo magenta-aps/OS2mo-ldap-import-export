@@ -115,11 +115,11 @@ class LdapConverter:
         return list(self.mapping["ldap_to_mo"][json_key].keys())
 
     def check_attributes(self, detected_attributes, accepted_attributes):
-        for attr in detected_attributes:
-            if attr not in accepted_attributes:
+        for attribute in detected_attributes:
+            if attribute not in accepted_attributes:
                 raise IncorrectMapping(
                     (
-                        f"attribute '{attr}' not allowed."
+                        f"attribute '{attribute}' not allowed."
                         f" Allowed attributes are {accepted_attributes}"
                     )
                 )
@@ -159,6 +159,17 @@ class LdapConverter:
 
             accepted_attributes = list(mo_class.schema()["properties"].keys())
             detected_attributes = self.get_mo_attributes(json_key)
+            if "required" in mo_class.schema().keys():
+                required_attributes = mo_class.schema()["required"]
+                for attribute in required_attributes:
+                    if attribute not in detected_attributes:
+                        raise IncorrectMapping(
+                            (
+                                f"attribute '{attribute}' is mandatory. "
+                                f"The following attributes are mandatory: "
+                                f"{required_attributes}"
+                            )
+                        )
 
             self.check_attributes(detected_attributes, accepted_attributes)
 
