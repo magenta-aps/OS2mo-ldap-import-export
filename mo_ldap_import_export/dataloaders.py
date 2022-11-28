@@ -12,6 +12,7 @@ import structlog
 from fastramqpi.context import Context
 from gql import gql
 from gql.client import AsyncClientSession
+from gql.client import SyncClientSession
 from pydantic import BaseModel
 from raclients.modelclient.mo import ModelClient
 from ramodels.mo.details.address import Address
@@ -47,7 +48,6 @@ class Dataloaders(BaseModel):
     mo_employee_uploader: DataLoader
     mo_employee_loader: DataLoader
     mo_address_loader: DataLoader
-    mo_address_type_loader: DataLoader
     mo_address_uploader: DataLoader
 
     ldap_overview_loader: DataLoader
@@ -287,9 +287,7 @@ async def load_mo_employee(
     return output
 
 
-async def load_mo_address_types(
-    key: int, graphql_session: AsyncClientSession
-) -> list[dict]:
+def load_mo_address_types(user_context) -> dict:
     query = gql(
         """
         query AddressTypes {
@@ -303,10 +301,11 @@ async def load_mo_address_types(
         """
     )
 
-    result = await graphql_session.execute(query)
+    graphql_session: SyncClientSession = user_context["gql_client_sync"]
+    result = graphql_session.execute(query)
 
     output = {d["uuid"]: d["name"] for d in result["facets"][0]["classes"]}
-    return [output]
+    return output
 
 
 async def load_mo_address(
@@ -389,7 +388,6 @@ def configure_dataloaders(context: Context) -> Dataloaders:
     graphql_loader_functions: dict[str, Callable] = {
         "mo_employee_loader": load_mo_employee,
         "mo_address_loader": load_mo_address,
-        "mo_address_type_loader": load_mo_address_types,
     }
 
     user_context = context["user_context"]

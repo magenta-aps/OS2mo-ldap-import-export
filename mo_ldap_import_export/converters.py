@@ -18,6 +18,7 @@ from jinja2 import Environment
 from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
 
+from .dataloaders import load_mo_address_types
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
 from .exceptions import NotSupportedException
@@ -122,6 +123,14 @@ class LdapConverter:
                     )
                 )
 
+    def get_accepted_json_keys(self) -> list[str]:
+
+        mo_address_type_dict = load_mo_address_types(self.user_context)
+        mo_address_types = list(mo_address_type_dict.values())
+
+        accepted_json_keys = ["Employee"] + mo_address_types
+        return accepted_json_keys
+
     @asynccontextmanager
     async def check_mapping(self) -> AsyncIterator[None]:
         logger = structlog.get_logger()
@@ -130,10 +139,7 @@ class LdapConverter:
         ldap_to_mo_json_keys = list(self.mapping["ldap_to_mo"].keys())
         json_keys = list(set(mo_to_ldap_json_keys + ldap_to_mo_json_keys))
 
-        mo_address_type_dict = await self.dataloaders.mo_address_type_loader.load(0)
-        mo_address_types = list(mo_address_type_dict.values())
-
-        accepted_json_keys = ["Employee"] + mo_address_types
+        accepted_json_keys = self.get_accepted_json_keys()
 
         # 1. Check to make sure that all keys are valid
         logger.info(f"[json check] Accepted keys: {accepted_json_keys}")

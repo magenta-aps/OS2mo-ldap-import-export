@@ -6,6 +6,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
+from typing import Literal
 from typing import Tuple
 
 import structlog
@@ -33,11 +34,10 @@ from .config import Settings
 from .converters import LdapConverter
 from .converters import read_mapping_json
 from .dataloaders import configure_dataloaders
+from .dataloaders import load_mo_address_types
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
-
-# from .converters import check_mapping
 
 logger = structlog.get_logger()
 fastapi_router = APIRouter()
@@ -129,7 +129,7 @@ async def seed_dataloaders(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
     yield
 
 
-def construct_gql_client(settings: Settings):
+def construct_gql_client(settings: Settings, sync=False):
     return PersistentGraphQLClient(
         url=settings.mo_url + "/graphql/v2",
         client_id=settings.client_id,
@@ -138,6 +138,7 @@ def construct_gql_client(settings: Settings):
         auth_realm=settings.auth_realm,
         execute_timeout=settings.graphql_timeout,
         httpx_client_kwargs={"timeout": settings.graphql_timeout},
+        sync=sync,
     )
 
 
@@ -153,7 +154,7 @@ def construct_model_client(settings: Settings):
 
 def construct_clients(
     settings: Settings,
-) -> Tuple[PersistentGraphQLClient, ModelClient]:
+) -> Tuple[PersistentGraphQLClient, PersistentGraphQLClient, ModelClient]:
     """Construct clients froms settings.
 
     Args:
@@ -163,8 +164,9 @@ def construct_clients(
         Tuple with PersistentGraphQLClient and ModelClient.
     """
     gql_client = construct_gql_client(settings)
+    gql_client_sync = construct_gql_client(settings, sync=True)
     model_client = construct_model_client(settings)
-    return gql_client, model_client
+    return gql_client, gql_client_sync, model_client
 
 
 def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
@@ -185,9 +187,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     amqpsystem.router.registry.update(amqp_router.registry)
 
     logger.info("Setting up clients")
-    gql_client, model_client = construct_clients(settings)
+    gql_client, gql_client_sync, model_client = construct_clients(settings)
     fastramqpi.add_context(model_client=model_client)
     fastramqpi.add_context(gql_client=gql_client)
+    fastramqpi.add_context(gql_client_sync=gql_client_sync)
 
     logger.info("Configuring LDAP connection")
     ldap_connection = configure_ldap_connection(settings)
@@ -234,13 +237,18 @@ def create_app(**kwargs: Any) -> FastAPI:
     app = fastramqpi.get_app()
     app.include_router(fastapi_router)
 
-    user_context = fastramqpi._context["user_context"]
+    context = fastramqpi._context
+    user_context = context["user_context"]
     dataloaders = user_context["dataloaders"]
     converter = user_context["converter"]
 
+    accepted_json_keys = tuple(converter.get_accepted_json_keys())
+
     # Get all objects from LDAP - Converted to MO
     @app.get("/LDAP/{json_key}/converted", status_code=202)
-    async def convert_all_org_persons_from_ldap(json_key: str) -> Any:
+    async def convert_all_org_persons_from_ldap(
+        json_key: Literal[accepted_json_keys],  # type: ignore
+    ) -> Any:
         """Request all organizational persons, converted to MO"""
         logger.info("Manually triggered LDAP request of all organizational persons")
 
@@ -255,7 +263,11 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     # Get a specific cpr-indexed object from LDAP
     @app.get("/LDAP/{json_key}/{cpr}", status_code=202)
-    async def load_object_from_LDAP(json_key: str, cpr: str, request: Request) -> Any:
+    async def load_object_from_LDAP(
+        json_key: Literal[accepted_json_keys],  # type: ignore
+        cpr: str,
+        request: Request,
+    ) -> Any:
         """Request single ldap object"""
         logger.info(f"Manually triggered LDAP request of {cpr}")
 
@@ -265,7 +277,10 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get a specific cpr-indexed object from LDAP - Converted to MO
     @app.get("/LDAP/{json_key}/{cpr}/converted", status_code=202)
     async def convert_object_from_LDAP(
-        json_key: str, cpr: str, request: Request, response: Response
+        json_key: Literal[accepted_json_keys],  # type: ignore
+        cpr: str,
+        request: Request,
+        response: Response,
     ) -> Any:
         """Request single ldap object and convert it to a MO object"""
         logger.info(f"Manually triggered LDAP request of {cpr}")
@@ -282,7 +297,9 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     # Get all objects from LDAP
     @app.get("/LDAP/{json_key}", status_code=202)
-    async def load_all_objects_from_LDAP(json_key: str) -> Any:
+    async def load_all_objects_from_LDAP(
+        json_key: Literal[accepted_json_keys],  # type: ignore
+    ) -> Any:
         """Request all ldap objects"""
         logger.info(f"Manually triggered LDAP request of all {json_key} objects")
 
@@ -292,7 +309,9 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     # Modify a person in LDAP
     @app.post("/LDAP/{json_key}")
-    async def post_object_to_LDAP(json_key: str, ldap_object: LdapObject) -> Any:
+    async def post_object_to_LDAP(
+        json_key: Literal[accepted_json_keys], ldap_object: LdapObject  # type: ignore
+    ) -> Any:
         logger.info(f"Posting {ldap_object} to LDAP")
 
         await dataloaders.ldap_object_uploader.load((ldap_object, json_key))
@@ -351,7 +370,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     @app.get("/MO/address_types", status_code=202)
     async def load_address_types_from_MO() -> Any:
         """Request all address types from MO"""
-        result = await dataloaders.mo_address_type_loader.load(1)
+        result = load_mo_address_types(user_context)
         return result
 
     return app
