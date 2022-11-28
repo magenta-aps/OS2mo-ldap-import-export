@@ -57,14 +57,14 @@ async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
 
+    # TODO: Add support for deleting users / fields from LDAP
+    if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
+        raise RejectMessage("Not supported")
+
     user_context = context["user_context"]
     dataloader = DataLoader(context)
     converter = user_context["converter"]
     logger.info(f"Payload: {payload}")
-
-    # TODO: Add support for deleting users / fields from LDAP
-    if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
-        raise RejectMessage("Not supported")
 
     # Get MO employee
     changed_employee: Employee = await dataloader.load_mo_employee(payload.uuid)

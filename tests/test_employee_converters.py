@@ -15,7 +15,11 @@ from mo_ldap_import_export.exceptions import IncorrectMapping
 
 mapping = {
     "ldap_to_mo": {
-        "Employee": {"givenname": "{{ldap.GivenName}}", "surname": "{{ldap.sn}}"}
+        "Employee": {
+            "objectClass": "ramodels.mo.employee.Employee",
+            "givenname": "{{ldap.GivenName}}",
+            "surname": "{{ldap.sn}}",
+        }
     },
     "mo_to_ldap": {
         "Employee": {
@@ -55,7 +59,8 @@ def test_ldap_to_mo() -> None:
             sn="Testersen",
             objectGUID="{" + str(uuid.uuid4()) + "}",
             cpr="0101011234",
-        )
+        ),
+        "Employee",
     )
     assert employee.givenname == "Tester"
     assert employee.surname == "Testersen"
@@ -77,6 +82,7 @@ def test_mapping_loader() -> None:
     expected = {
         "ldap_to_mo": {
             "Employee": {
+                "objectClass": "ramodels.mo.employee.Employee",
                 "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
                 "surname": "{{ldap.surname or ldap.sn or "
                 "ldap.name|splitlast|last or ''}}",
@@ -108,6 +114,7 @@ def test_mapping_loader_failure() -> None:
     good_mapping = {
         "ldap_to_mo": {
             "Employee": {
+                "objectClass": "ramodels.mo.employee.Employee",
                 "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
                 "surname": "{{ldap.surname or ldap.sn or "
                 "ldap.name|splitlast|last or ''}}",
@@ -165,7 +172,8 @@ def test_mapping_loader_failure() -> None:
                     sn="Testersen",
                     objectGUID="{" + str(uuid.uuid4()) + "}",
                     cpr="0101011234",
-                )
+                ),
+                "Employee",
             )
         with pytest.raises(IncorrectMapping):
             obj_dict = {
@@ -236,6 +244,7 @@ def test_template_lenience() -> None:
     mapping = {
         "ldap_to_mo": {
             "Employee": {
+                "objectClass": "ramodels.mo.employee.Employee",
                 "givenname": "{{ldap.GivenName}}",
                 "surname": "{{ldap.sn}}",
             }
@@ -266,5 +275,6 @@ def test_template_lenience() -> None:
         LdapObject(
             dn="",
             cpr="1234567890",
-        )
+        ),
+        "Employee",
     )
