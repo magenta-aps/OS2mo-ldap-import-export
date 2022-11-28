@@ -18,7 +18,7 @@ from jinja2 import Environment
 from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
 
-from .dataloaders import load_mo_address_types
+from .dataloaders import DataLoader
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
 from .exceptions import NotSupportedException
@@ -71,10 +71,11 @@ def find_cpr_field(mapping):
 class LdapConverter:
     def __init__(self, context: Context):
 
+        self.context = context
         self.user_context = context["user_context"]
         self.settings = self.user_context["settings"]
         self.raw_mapping = self.user_context["mapping"]
-        self.dataloaders = self.user_context["dataloaders"]
+        self.dataloader = DataLoader(context)
 
         mapping = delete_keys_from_dict(
             copy.deepcopy(self.raw_mapping), ["objectClass"]
@@ -125,7 +126,7 @@ class LdapConverter:
 
     def get_accepted_json_keys(self) -> list[str]:
 
-        mo_address_type_dict = load_mo_address_types(self.user_context)
+        mo_address_type_dict = self.dataloader.load_mo_address_types()
         mo_address_types = list(mo_address_type_dict.values())
 
         accepted_json_keys = ["Employee"] + mo_address_types
@@ -162,7 +163,7 @@ class LdapConverter:
             self.check_attributes(detected_attributes, accepted_attributes)
 
         # 3. check that the LDAP attributes match what is available in LDAP
-        overview = await self.dataloaders.ldap_overview_loader.load(0)
+        overview = await self.dataloader.load_ldap_overview()
         for json_key in mo_to_ldap_json_keys:
             logger.info(f"[json check] checking mo_to_ldap[{json_key}]")
 

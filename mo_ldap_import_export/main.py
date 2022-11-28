@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 from typing import Literal
 from typing import Tuple
+from uuid import UUID
 
 import structlog
 from fastapi import APIRouter
@@ -33,8 +34,7 @@ from ramqp.utils import RejectMessage
 from .config import Settings
 from .converters import LdapConverter
 from .converters import read_mapping_json
-from .dataloaders import configure_dataloaders
-from .dataloaders import load_mo_address_types
+from .dataloaders import DataLoader
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
@@ -58,6 +58,7 @@ async def listen_to_changes_in_employees(
 ) -> None:
 
     user_context = context["user_context"]
+    dataloader = DataLoader(context)
     converter = user_context["converter"]
     logger.info(f"Payload: {payload}")
 
@@ -65,14 +66,11 @@ async def listen_to_changes_in_employees(
     if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
         raise RejectMessage("Not supported")
 
-    mo_address_loader = user_context["dataloaders"].mo_address_loader
-    mo_employee_loader = user_context["dataloaders"].mo_employee_loader
-
     # Get MO employee
-    changed_employee: Employee = await mo_employee_loader.load(payload.uuid)
+    changed_employee: Employee = await dataloader.load_mo_employee(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
-    mo_object_dict = {"mo_employee": changed_employee}
+    mo_object_dict: dict[str, Any] = {"mo_employee": changed_employee}
 
     if kwargs["mo_routing_key"].object_type == ObjectType.EMPLOYEE:
         logger.info("[MO] Change registered in the employee model")
@@ -81,15 +79,15 @@ async def listen_to_changes_in_employees(
         ldap_employee = converter.to_ldap(mo_object_dict, "Employee")
 
         # Upload to LDAP
-        await user_context["dataloaders"].ldap_object_uploader.load(
-            (ldap_employee, "Employee")
-        )
+        await dataloader.upload_ldap_object(ldap_employee, "Employee")
 
     elif kwargs["mo_routing_key"].object_type == ObjectType.ADDRESS:
         logger.info("[MO] Change registered in the address model")
 
         # Get MO address
-        changed_address, meta_info = await mo_address_loader.load(payload.object_uuid)
+        changed_address, meta_info = await dataloader.load_mo_address(
+            payload.object_uuid
+        )
         address_type = meta_info["address_type_name"]
 
         logger.info(f"Obtained address type = {address_type}")
@@ -99,9 +97,7 @@ async def listen_to_changes_in_employees(
         ldap_address = converter.to_ldap(mo_object_dict, address_type)
 
         # Upload to LDAP
-        await user_context["dataloaders"].ldap_object_uploader.load(
-            (ldap_address, address_type)
-        )
+        await dataloader.upload_ldap_object(ldap_address, address_type)
 
 
 @asynccontextmanager
@@ -113,20 +109,6 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
     """
     with ldap_connection:
         yield
-
-
-@asynccontextmanager
-async def seed_dataloaders(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    """Seed dataloaders during FastRAMQPI lifespan.
-
-    Yields:
-        None
-    """
-    logger.info("Seeding dataloaders")
-    context = fastramqpi.get_context()
-    dataloaders = configure_dataloaders(context)
-    fastramqpi.add_context(dataloaders=dataloaders)
-    yield
 
 
 def construct_gql_client(settings: Settings, sync=False):
@@ -197,12 +179,6 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(ldap_connection=ldap_connection)
     fastramqpi.add_healthcheck(name="LDAPConnection", healthcheck=ldap_healthcheck)
     fastramqpi.add_lifespan_manager(open_ldap_connection(ldap_connection), 1500)
-    fastramqpi.add_lifespan_manager(seed_dataloaders(fastramqpi), 2000)
-
-    logger.info("Configuring Dataloaders")
-    context = fastramqpi.get_context()
-    dataloaders = configure_dataloaders(context)
-    fastramqpi.add_context(dataloaders=dataloaders)
 
     logger.info("Loading mapping file")
     mappings_folder = os.path.join(os.path.dirname(__file__), "mappings")
@@ -210,6 +186,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(mapping=read_mapping_json(mappings_file))
 
     logger.info("Initializing converters")
+    context = fastramqpi.get_context()
     converter = LdapConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
     fastramqpi.add_context(converter=converter)
@@ -239,8 +216,8 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     context = fastramqpi._context
     user_context = context["user_context"]
-    dataloaders = user_context["dataloaders"]
     converter = user_context["converter"]
+    dataloader = DataLoader(context)
 
     accepted_json_keys = tuple(converter.get_accepted_json_keys())
 
@@ -252,7 +229,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request all organizational persons, converted to MO"""
         logger.info("Manually triggered LDAP request of all organizational persons")
 
-        result = await dataloaders.ldap_objects_loader.load(json_key)
+        result = await dataloader.load_ldap_objects(json_key)
         converted_results = []
         for r in result:
             try:
@@ -271,7 +248,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request single ldap object"""
         logger.info(f"Manually triggered LDAP request of {cpr}")
 
-        result = await dataloaders.ldap_object_loader.load((cpr, json_key))
+        result = await dataloader.load_ldap_cpr_object(cpr, json_key)
         return encode_result(result)
 
     # Get a specific cpr-indexed object from LDAP - Converted to MO
@@ -285,7 +262,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request single ldap object and convert it to a MO object"""
         logger.info(f"Manually triggered LDAP request of {cpr}")
 
-        result = await dataloaders.ldap_object_loader.load((cpr, json_key))
+        result = await dataloader.load_ldap_cpr_object(cpr, json_key)
         try:
             return converter.from_ldap(result, json_key)
         except ValidationError as e:
@@ -303,7 +280,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request all ldap objects"""
         logger.info(f"Manually triggered LDAP request of all {json_key} objects")
 
-        result = await dataloaders.ldap_objects_loader.load(json_key)
+        result = await dataloader.load_ldap_objects(json_key)
 
         return encode_result(result)
 
@@ -314,38 +291,38 @@ def create_app(**kwargs: Any) -> FastAPI:
     ) -> Any:
         logger.info(f"Posting {ldap_object} to LDAP")
 
-        await dataloaders.ldap_object_uploader.load((ldap_object, json_key))
+        await dataloader.upload_ldap_object(ldap_object, json_key)
 
     # Post a person to MO
     @app.post("/MO/Employee")
     async def post_employee_to_MO(employee: Employee) -> Any:
         logger.info(f"Posting employee={employee} to MO")
 
-        await dataloaders.mo_employee_uploader.load(employee)
+        await dataloader.upload_mo_employees([employee])
 
     # Post an address to MO
     @app.post("/MO/address")
     async def post_address_to_MO(address: Address) -> Any:
         logger.info(f"Posting address={address} to MO")
 
-        await dataloaders.mo_address_uploader.load(address)
+        await dataloader.upload_mo_addresses([address])
 
     # Get a speficic address from MO
     @app.get("/MO/address/{uuid}", status_code=202)
-    async def load_address_from_MO(uuid: str, request: Request) -> Any:
+    async def load_address_from_MO(uuid: UUID, request: Request) -> Any:
         """Request single address"""
         logger.info(f"Manually triggered MO address request of {uuid}")
 
-        result = await dataloaders.mo_address_loader.load(uuid)
+        result = await dataloader.load_mo_address(uuid)
         return result
 
     # Get a speficic person from MO
     @app.get("/MO/Employee/{uuid}", status_code=202)
-    async def load_employee_from_MO(uuid: str, request: Request) -> Any:
+    async def load_employee_from_MO(uuid: UUID, request: Request) -> Any:
         """Request single employee"""
         logger.info(f"Manually triggered MO request of {uuid}")
 
-        result = await dataloaders.mo_employee_loader.load(uuid)
+        result = await dataloader.load_mo_employee(uuid)
         return result
 
     # Get LDAP overview
@@ -354,7 +331,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request an overview of the LDAP structure"""
         logger.info("Manually triggered LDAP request of overview")
 
-        result = await dataloaders.ldap_overview_loader.load(1)
+        result = await dataloader.load_ldap_overview()
         return result
 
     # Get populated LDAP overview
@@ -363,14 +340,14 @@ def create_app(**kwargs: Any) -> FastAPI:
         """Request a populated overview of the LDAP structure"""
         logger.info("Manually triggered LDAP request of populated overview")
 
-        result = await dataloaders.ldap_populated_overview_loader.load(1)
+        result = await dataloader.load_ldap_populated_overview()
         return result
 
     # Get MO address types
     @app.get("/MO/address_types", status_code=202)
     async def load_address_types_from_MO() -> Any:
         """Request all address types from MO"""
-        result = load_mo_address_types(user_context)
+        result = dataloader.load_mo_address_types()
         return result
 
     return app
