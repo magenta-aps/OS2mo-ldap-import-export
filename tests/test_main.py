@@ -27,8 +27,6 @@ from mo_ldap_import_export.main import create_fastramqpi
 from mo_ldap_import_export.main import listen_to_changes_in_employees
 from mo_ldap_import_export.main import open_ldap_connection
 
-# from mo_ldap_import_export.dataloaders import Dataloaders
-
 
 @pytest.fixture
 def settings_overrides() -> Iterator[dict[str, str]]:
