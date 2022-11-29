@@ -311,11 +311,18 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
     converted_ldap_object = LdapObject(dn="Foo")
     converter_mock.to_ldap.return_value = converted_ldap_object
 
+    address_type_name = "A Very difficult kind of address"
+    dataloader.load_mo_address.return_value = (
+        "foo",
+        {"address_type_name": address_type_name},
+    )
+
     context = {
         "user_context": {
             "settings": settings_mock,
             "mapping": mapping,
             "converter": converter_mock,
+            "dataloader": dataloader,
         }
     }
     payload = MagicMock()
@@ -325,40 +332,26 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
     settings.ldap_organizational_unit = "OU=foo"
     settings.ldap_search_base = "DC=bar"
 
-    address_type_name = "A Very difficult kind of address"
-    dataloader.load_mo_address.return_value = (
-        "foo",
-        {"address_type_name": address_type_name},
+    # Simulate a created employee
+    mo_routing_key = MORoutingKey.build("employee.employee.create")
+    await asyncio.gather(
+        listen_to_changes_in_employees(context, payload, mo_routing_key=mo_routing_key),
     )
+    assert dataloader.load_mo_employee.called
+    assert converter_mock.to_ldap.called
+    assert dataloader.upload_ldap_object.called
+    dataloader.upload_ldap_object.assert_called_with(converted_ldap_object, "Employee")
+    assert not dataloader.load_mo_address.called
 
-    with patch("mo_ldap_import_export.main.DataLoader", return_value=dataloader):
-
-        # Simulate a created employee
-        mo_routing_key = MORoutingKey.build("employee.employee.create")
-        await asyncio.gather(
-            listen_to_changes_in_employees(
-                context, payload, mo_routing_key=mo_routing_key
-            ),
-        )
-        assert dataloader.load_mo_employee.called
-        assert converter_mock.to_ldap.called
-        assert dataloader.upload_ldap_object.called
-        dataloader.upload_ldap_object.assert_called_with(
-            converted_ldap_object, "Employee"
-        )
-        assert not dataloader.load_mo_address.called
-
-        # Simulate a created address
-        mo_routing_key = MORoutingKey.build("employee.address.create")
-        await asyncio.gather(
-            listen_to_changes_in_employees(
-                context, payload, mo_routing_key=mo_routing_key
-            ),
-        )
-        assert dataloader.load_mo_address.called
-        dataloader.upload_ldap_object.assert_called_with(
-            converted_ldap_object, address_type_name
-        )
+    # Simulate a created address
+    mo_routing_key = MORoutingKey.build("employee.address.create")
+    await asyncio.gather(
+        listen_to_changes_in_employees(context, payload, mo_routing_key=mo_routing_key),
+    )
+    assert dataloader.load_mo_address.called
+    dataloader.upload_ldap_object.assert_called_with(
+        converted_ldap_object, address_type_name
+    )
 
 
 def test_ldap_get_overview_endpoint(test_client: TestClient) -> None:

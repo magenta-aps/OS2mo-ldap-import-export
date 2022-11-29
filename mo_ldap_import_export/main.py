@@ -62,7 +62,7 @@ async def listen_to_changes_in_employees(
         raise RejectMessage("Not supported")
 
     user_context = context["user_context"]
-    dataloader = DataLoader(context)
+    dataloader = user_context["dataloader"]
     converter = user_context["converter"]
     logger.info(f"Payload: {payload}")
 
@@ -192,6 +192,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(converter=converter)
     fastramqpi.add_lifespan_manager(converter.check_mapping(), 2500)
 
+    logger.info("Initializing dataloader")
+    dataloader = DataLoader(context)
+    fastramqpi.add_context(dataloader=dataloader)
+
     return fastramqpi
 
 
@@ -217,7 +221,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     context = fastramqpi._context
     user_context = context["user_context"]
     converter = user_context["converter"]
-    dataloader = DataLoader(context)
+    dataloader = user_context["dataloader"]
 
     accepted_json_keys = tuple(converter.get_accepted_json_keys())
 
