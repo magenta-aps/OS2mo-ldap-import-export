@@ -198,7 +198,7 @@ for json_key in ["Employee", "Email", "Postadresse"]:
 # %% Modify an address in MO and check if it was also modified in AD
 # Request an email address
 uuid = "00513f7c-5aed-466a-966d-35537025d72d"
-r = requests.get(f"http://0.0.0.0:8000/MO/address/{uuid}")
+r = requests.get(f"http://0.0.0.0:8000/MO/Address/{uuid}")
 
 print("Here is an address:")
 pretty_print(r.json()[0])
@@ -214,7 +214,7 @@ random_int = random.randint(0, 10_000)
 address_to_post["value"] = f"foo_{random_int}@hotmail.com"
 
 # Modify this address
-r = requests.post("http://0.0.0.0:8000/MO/address", json=address_to_post)
+r = requests.post("http://0.0.0.0:8000/MO/Email", json=address_to_post)
 
 # Check that it is also modified in LDAP
 cpr = meta_data["employee_cpr_no"]

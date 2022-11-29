@@ -23,8 +23,6 @@ from ldap3 import Connection
 from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
-from ramodels.mo.details.address import Address
-from ramodels.mo.employee import Employee
 from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
@@ -57,6 +55,8 @@ async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
 
+    logger.info("[MO] Registered change in the employee model")
+
     # TODO: Add support for deleting users / fields from LDAP
     if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
         raise RejectMessage("Not supported")
@@ -67,13 +67,13 @@ async def listen_to_changes_in_employees(
     logger.info(f"Payload: {payload}")
 
     # Get MO employee
-    changed_employee: Employee = await dataloader.load_mo_employee(payload.uuid)
+    changed_employee = await dataloader.load_mo_employee(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
     mo_object_dict: dict[str, Any] = {"mo_employee": changed_employee}
 
     if kwargs["mo_routing_key"].object_type == ObjectType.EMPLOYEE:
-        logger.info("[MO] Change registered in the employee model")
+        logger.info("[MO] Change registered in the employee object type")
 
         # Convert to LDAP
         ldap_employee = converter.to_ldap(mo_object_dict, "Employee")
@@ -82,7 +82,7 @@ async def listen_to_changes_in_employees(
         await dataloader.upload_ldap_object(ldap_employee, "Employee")
 
     elif kwargs["mo_routing_key"].object_type == ObjectType.ADDRESS:
-        logger.info("[MO] Change registered in the address model")
+        logger.info("[MO] Change registered in the address object type")
 
         # Get MO address
         changed_address, meta_info = await dataloader.load_mo_address(
@@ -222,7 +222,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     accepted_json_keys = tuple(converter.get_accepted_json_keys())
 
     # Get all objects from LDAP - Converted to MO
-    @app.get("/LDAP/{json_key}/converted", status_code=202)
+    @app.get("/LDAP/{json_key}/converted", status_code=202, tags=["LDAP"])
     async def convert_all_org_persons_from_ldap(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
@@ -239,7 +239,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return converted_results
 
     # Get a specific cpr-indexed object from LDAP
-    @app.get("/LDAP/{json_key}/{cpr}", status_code=202)
+    @app.get("/LDAP/{json_key}/{cpr}", status_code=202, tags=["LDAP"])
     async def load_object_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
         cpr: str,
@@ -252,7 +252,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return encode_result(result)
 
     # Get a specific cpr-indexed object from LDAP - Converted to MO
-    @app.get("/LDAP/{json_key}/{cpr}/converted", status_code=202)
+    @app.get("/LDAP/{json_key}/{cpr}/converted", status_code=202, tags=["LDAP"])
     async def convert_object_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
         cpr: str,
@@ -273,7 +273,7 @@ def create_app(**kwargs: Any) -> FastAPI:
             return None
 
     # Get all objects from LDAP
-    @app.get("/LDAP/{json_key}", status_code=202)
+    @app.get("/LDAP/{json_key}", status_code=202, tags=["LDAP"])
     async def load_all_objects_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
@@ -285,7 +285,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return encode_result(result)
 
     # Modify a person in LDAP
-    @app.post("/LDAP/{json_key}")
+    @app.post("/LDAP/{json_key}", tags=["LDAP"])
     async def post_object_to_LDAP(
         json_key: Literal[accepted_json_keys], ldap_object: LdapObject  # type: ignore
     ) -> Any:
@@ -293,22 +293,19 @@ def create_app(**kwargs: Any) -> FastAPI:
 
         await dataloader.upload_ldap_object(ldap_object, json_key)
 
-    # Post a person to MO
-    @app.post("/MO/Employee")
-    async def post_employee_to_MO(employee: Employee) -> Any:
-        logger.info(f"Posting employee={employee} to MO")
+    # Post an object to MO
+    @app.post("/MO/{json_key}", tags=["MO"])
+    async def post_object_to_MO(
+        json_key: Literal[accepted_json_keys], mo_object_json: dict  # type: ignore
+    ) -> None:
 
-        await dataloader.upload_mo_objects([employee])
+        mo_object = converter.import_mo_object_class(json_key)
+        logger.info(f"Posting {mo_object} = {mo_object_json} to MO")
 
-    # Post an address to MO
-    @app.post("/MO/address")
-    async def post_address_to_MO(address: Address) -> Any:
-        logger.info(f"Posting address={address} to MO")
-
-        await dataloader.upload_mo_objects([address])
+        await dataloader.upload_mo_objects([mo_object(**mo_object_json)])
 
     # Get a speficic address from MO
-    @app.get("/MO/address/{uuid}", status_code=202)
+    @app.get("/MO/Address/{uuid}", status_code=202, tags=["MO"])
     async def load_address_from_MO(uuid: UUID, request: Request) -> Any:
         """Request single address"""
         logger.info(f"Manually triggered MO address request of {uuid}")
@@ -317,7 +314,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return result
 
     # Get a speficic person from MO
-    @app.get("/MO/Employee/{uuid}", status_code=202)
+    @app.get("/MO/Employee/{uuid}", status_code=202, tags=["MO"])
     async def load_employee_from_MO(uuid: UUID, request: Request) -> Any:
         """Request single employee"""
         logger.info(f"Manually triggered MO request of {uuid}")
@@ -326,7 +323,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return result
 
     # Get LDAP overview
-    @app.get("/LDAP_overview", status_code=202)
+    @app.get("/LDAP_overview", status_code=202, tags=["LDAP"])
     async def load_overview_from_LDAP() -> Any:
         """Request an overview of the LDAP structure"""
         logger.info("Manually triggered LDAP request of overview")
@@ -335,7 +332,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return result
 
     # Get populated LDAP overview
-    @app.get("/LDAP_overview/populated", status_code=202)
+    @app.get("/LDAP_overview/populated", status_code=202, tags=["LDAP"])
     async def load_populated_overview_from_LDAP() -> Any:
         """Request a populated overview of the LDAP structure"""
         logger.info("Manually triggered LDAP request of populated overview")
@@ -344,7 +341,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return result
 
     # Get MO address types
-    @app.get("/MO/address_types", status_code=202)
+    @app.get("/MO/address_types", status_code=202, tags=["MO"])
     async def load_address_types_from_MO() -> Any:
         """Request all address types from MO"""
         result = dataloader.load_mo_address_types()
