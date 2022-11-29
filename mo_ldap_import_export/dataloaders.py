@@ -278,9 +278,9 @@ class DataLoader:
             query SingleAddress {
               addresses(uuids: "{%s}") {
                 objects {
-                  name
+                  value: name
                   uuid
-                  employee {
+                  person: employee {
                     cpr_no
                     uuid
                   }
@@ -301,10 +301,10 @@ class DataLoader:
         entry = result["addresses"][0]["objects"][0]
 
         address = Address.from_simplified_fields(
-            entry["name"],
+            entry["value"],
             entry["address_type"]["uuid"],
             entry["validity"]["from"],
-            person_uuid=entry["employee"][0]["uuid"],
+            person_uuid=entry["person"][0]["uuid"],
             uuid=entry["uuid"],
         )
 
@@ -312,7 +312,7 @@ class DataLoader:
         # (among others) address_type names. It only supports uuids
         address_metadata = {
             "address_type_name": entry["address_type"]["name"],
-            "employee_cpr_no": entry["employee"][0]["cpr_no"],
+            "employee_cpr_no": entry["person"][0]["cpr_no"],
         }
 
         return (address, address_metadata)
