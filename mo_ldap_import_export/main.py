@@ -226,8 +226,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def convert_all_org_persons_from_ldap(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
-        """Request all organizational persons, converted to MO"""
-        logger.info("Manually triggered LDAP request of all organizational persons")
 
         result = await dataloader.load_ldap_objects(json_key)
         converted_results = []
@@ -245,8 +243,6 @@ def create_app(**kwargs: Any) -> FastAPI:
         cpr: str,
         request: Request,
     ) -> Any:
-        """Request single ldap object"""
-        logger.info(f"Manually triggered LDAP request of {cpr}")
 
         result = await dataloader.load_ldap_cpr_object(cpr, json_key)
         return encode_result(result)
@@ -259,8 +255,6 @@ def create_app(**kwargs: Any) -> FastAPI:
         request: Request,
         response: Response,
     ) -> Any:
-        """Request single ldap object and convert it to a MO object"""
-        logger.info(f"Manually triggered LDAP request of {cpr}")
 
         result = await dataloader.load_ldap_cpr_object(cpr, json_key)
         try:
@@ -277,11 +271,8 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def load_all_objects_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
-        """Request all ldap objects"""
-        logger.info(f"Manually triggered LDAP request of all {json_key} objects")
 
         result = await dataloader.load_ldap_objects(json_key)
-
         return encode_result(result)
 
     # Modify a person in LDAP
@@ -289,7 +280,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_object_to_LDAP(
         json_key: Literal[accepted_json_keys], ldap_object: LdapObject  # type: ignore
     ) -> Any:
-        logger.info(f"Posting {ldap_object} to LDAP")
 
         await dataloader.upload_ldap_object(ldap_object, json_key)
 
@@ -301,14 +291,11 @@ def create_app(**kwargs: Any) -> FastAPI:
 
         mo_object = converter.import_mo_object_class(json_key)
         logger.info(f"Posting {mo_object} = {mo_object_json} to MO")
-
         await dataloader.upload_mo_objects([mo_object(**mo_object_json)])
 
     # Get a speficic address from MO
     @app.get("/MO/Address/{uuid}", status_code=202, tags=["MO"])
     async def load_address_from_MO(uuid: UUID, request: Request) -> Any:
-        """Request single address"""
-        logger.info(f"Manually triggered MO address request of {uuid}")
 
         result = await dataloader.load_mo_address(uuid)
         return result
@@ -316,8 +303,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get a speficic person from MO
     @app.get("/MO/Employee/{uuid}", status_code=202, tags=["MO"])
     async def load_employee_from_MO(uuid: UUID, request: Request) -> Any:
-        """Request single employee"""
-        logger.info(f"Manually triggered MO request of {uuid}")
 
         result = await dataloader.load_mo_employee(uuid)
         return result
@@ -325,8 +310,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get LDAP overview
     @app.get("/LDAP_overview", status_code=202, tags=["LDAP"])
     async def load_overview_from_LDAP() -> Any:
-        """Request an overview of the LDAP structure"""
-        logger.info("Manually triggered LDAP request of overview")
 
         result = await dataloader.load_ldap_overview()
         return result
@@ -334,8 +317,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get populated LDAP overview
     @app.get("/LDAP_overview/populated", status_code=202, tags=["LDAP"])
     async def load_populated_overview_from_LDAP() -> Any:
-        """Request a populated overview of the LDAP structure"""
-        logger.info("Manually triggered LDAP request of populated overview")
 
         result = await dataloader.load_ldap_populated_overview()
         return result
@@ -343,7 +324,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get MO address types
     @app.get("/MO/address_types", status_code=202, tags=["MO"])
     async def load_address_types_from_MO() -> Any:
-        """Request all address types from MO"""
+
         result = dataloader.load_mo_address_types()
         return result
 
