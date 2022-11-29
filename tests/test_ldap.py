@@ -22,6 +22,8 @@ from more_itertools import collapse
 
 from .test_dataloaders import mock_ldap_response
 from mo_ldap_import_export.config import Settings
+from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
+from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.ldap import configure_ldap_connection
 from mo_ldap_import_export.ldap import construct_server
 from mo_ldap_import_export.ldap import get_client_strategy
@@ -30,6 +32,7 @@ from mo_ldap_import_export.ldap import is_dn
 from mo_ldap_import_export.ldap import ldap_healthcheck
 from mo_ldap_import_export.ldap import make_ldap_object
 from mo_ldap_import_export.ldap import paged_search
+from mo_ldap_import_export.ldap import single_object_search
 from mo_ldap_import_export.ldap_classes import LdapObject
 
 
@@ -339,3 +342,22 @@ async def test_invalid_paged_search(
     output = paged_search(context, searchParameters)
 
     assert output == []
+
+
+async def test_single_object_search(ldap_connection: MagicMock):
+
+    search_entry = {"type": "searchResEntry"}
+
+    ldap_connection.response = [search_entry]
+    output = single_object_search({}, ldap_connection)
+
+    assert output == search_entry
+    ldap_connection.response = [search_entry]
+
+    with pytest.raises(MultipleObjectsReturnedException):
+        ldap_connection.response = [search_entry] * 2
+        output = single_object_search({}, ldap_connection)
+
+    with pytest.raises(NoObjectsReturnedException):
+        ldap_connection.response = [search_entry] * 0
+        output = single_object_search({}, ldap_connection)
