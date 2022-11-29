@@ -317,14 +317,14 @@ class DataLoader:
 
         return (address, address_metadata)
 
-    async def upload_mo_employees(self, employees: list[Employee]):
+    async def upload_mo_objects(self, objects: list[Any]):
+        """
+        Uploads a mo object.
+            - If an Employee object is supplied, the employee is updated/created
+            - If an Address object is supplied, the address is updated/created
+            - And so on...
+        """
         context = self.context
 
         model_client = context["user_context"]["model_client"]
-        return cast(list[Any | None], await model_client.upload(employees))
-
-    async def upload_mo_addresses(self, addresses: list[Address]):
-        context = self.context
-
-        model_client = context["user_context"]["model_client"]
-        return cast(list[Any | None], await model_client.upload(addresses))
+        return cast(list[Any | None], await model_client.upload(objects))

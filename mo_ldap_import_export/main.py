@@ -298,14 +298,14 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_employee_to_MO(employee: Employee) -> Any:
         logger.info(f"Posting employee={employee} to MO")
 
-        await dataloader.upload_mo_employees([employee])
+        await dataloader.upload_mo_objects([employee])
 
     # Post an address to MO
     @app.post("/MO/address")
     async def post_address_to_MO(address: Address) -> Any:
         logger.info(f"Posting address={address} to MO")
 
-        await dataloader.upload_mo_addresses([address])
+        await dataloader.upload_mo_objects([address])
 
     # Get a speficic address from MO
     @app.get("/MO/address/{uuid}", status_code=202)
