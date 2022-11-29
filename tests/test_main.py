@@ -17,6 +17,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastramqpi.main import FastRAMQPI
+from ramodels.mo.employee import Employee
 from ramqp.mo.models import MORoutingKey
 from ramqp.utils import RejectMessage
 
@@ -93,7 +94,9 @@ def dataloader() -> AsyncMock:
     dataloader.load_ldap_populated_overview.return_value = "foo"
     dataloader.load_ldap_overview.return_value = "foo"
     dataloader.load_ldap_cpr_object.return_value = "foo"
-    dataloader.load_ldap_objects.return_value = "foo"
+    dataloader.load_ldap_objects.return_value = [
+        LdapObject(name="Tester", Department="QA", dn="someDN", cpr="0101012002")
+    ]
     dataloader.load_mo_employee.return_value = "foo"
 
     return dataloader
@@ -217,23 +220,6 @@ def test_ldap_get_all_endpoint(test_client: TestClient) -> None:
 def test_ldap_get_all_converted_endpoint(test_client: TestClient) -> None:
     """Test the LDAP get-all endpoint on our app."""
 
-    async def loader(x):
-        return [
-            [LdapObject(name="Tester", Department="QA", dn="someDN", cpr="0101011234")]
-        ]
-
-    response = test_client.get("/LDAP/Employee/converted")
-    assert response.status_code == 202
-
-
-def test_ldap_get_all_converted_endpoint_failure(test_client: TestClient) -> None:
-    """Test the LDAP get-all endpoint on our app."""
-
-    async def loader(x):
-        return [
-            [LdapObject(name="Tester", Department="QA", dn="someDN", cpr="invalid")]
-        ]
-
     response = test_client.get("/LDAP/Employee/converted")
     assert response.status_code == 202
 
@@ -242,11 +228,6 @@ def test_ldap_get_converted_endpoint(
     test_client: TestClient,
 ) -> None:
     """Test the LDAP get endpoint on our app."""
-
-    async def loader(x):
-        return [
-            LdapObject(name="Tester", Department="QA", dn="someDN", cpr="0101011234")
-        ]
 
     response = test_client.get("/LDAP/Employee/foo/converted")
     assert response.status_code == 202
@@ -397,3 +378,15 @@ async def test_listen_to_changes_in_employees_not_supported() -> None:
                 context, payload, mo_routing_key=mo_routing_key
             ),
         )
+
+
+def test_ldap_get_all_converted_endpoint_failure(
+    test_client: TestClient, converter: MagicMock
+) -> None:
+    def from_ldap(ldap_object, json_key):
+        return Employee(**ldap_object.dict())
+
+    converter.from_ldap = from_ldap
+    with patch("mo_ldap_import_export.main.LdapConverter", return_value=converter):
+        response = test_client.get("/LDAP/Employee/converted")
+    assert response.status_code == 202
