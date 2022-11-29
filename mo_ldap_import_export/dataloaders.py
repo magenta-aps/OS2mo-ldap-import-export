@@ -68,7 +68,7 @@ class DataLoader:
 
     async def load_ldap_objects(self, json_key: str) -> list[LdapObject]:
         """
-        Returns list with all employees
+        Returns list with desired ldap objects
         """
         context = self.context
 
