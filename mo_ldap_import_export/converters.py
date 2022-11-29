@@ -92,10 +92,10 @@ class LdapConverter:
 
         self.cpr_field = find_cpr_field(mapping)
 
-    def find_object_class(self, json_key, conv):
-        mapping = self.raw_mapping[conv]
+    def find_object_class(self, json_key, conversion):
+        mapping = self.raw_mapping[conversion]
         if json_key not in mapping.keys():
-            raise IncorrectMapping(f"{json_key} not found in {conv} json dict")
+            raise IncorrectMapping(f"{json_key} not found in {conversion} json dict")
         else:
             return mapping[json_key]["objectClass"]
 
