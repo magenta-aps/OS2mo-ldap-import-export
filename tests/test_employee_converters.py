@@ -228,15 +228,13 @@ def test_find_cpr_field() -> None:
     }
 
     # Test both cases
-    for mapping in good_mapping, bad_mapping:
-        # context: Context = context
-        try:
-            converter = LdapConverter(context)
-        except Exception as e:
-            assert type(e) == CprNoNotFound
-            assert e.status_code == 404
-        else:
-            assert converter.cpr_field == "employeeID"
+    context["user_context"]["mapping"] = good_mapping
+    converter = LdapConverter(context)
+    assert converter.cpr_field == "employeeID"
+
+    with pytest.raises(CprNoNotFound):
+        context["user_context"]["mapping"] = bad_mapping
+        converter = LdapConverter(context)
 
 
 def test_template_lenience() -> None:
