@@ -88,16 +88,27 @@ def gql_client() -> Iterator[AsyncMock]:
 
 
 @pytest.fixture
-def dataloader() -> AsyncMock:
+def sync_dataloader() -> MagicMock:
+
+    dataloader = MagicMock()
+    return dataloader
+
+
+@pytest.fixture
+def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
+
+    test_ldap_object = LdapObject(
+        name="Tester", Department="QA", dn="someDN", cpr="0101012002"
+    )
 
     dataloader = AsyncMock()
     dataloader.load_ldap_populated_overview.return_value = "foo"
     dataloader.load_ldap_overview.return_value = "foo"
-    dataloader.load_ldap_cpr_object.return_value = "foo"
-    dataloader.load_ldap_objects.return_value = [
-        LdapObject(name="Tester", Department="QA", dn="someDN", cpr="0101012002")
-    ]
+    dataloader.load_ldap_cpr_object.return_value = test_ldap_object
+    dataloader.load_ldap_objects.return_value = [test_ldap_object] * 3
     dataloader.load_mo_employee.return_value = "foo"
+    dataloader.load_mo_address.return_value = "foo"
+    dataloader.load_mo_address_types = sync_dataloader
 
     return dataloader
 
@@ -384,9 +395,24 @@ def test_ldap_get_all_converted_endpoint_failure(
     test_client: TestClient, converter: MagicMock
 ) -> None:
     def from_ldap(ldap_object, json_key):
+        # This will raise a validationError because the ldap_object is not converted
         return Employee(**ldap_object.dict())
 
     converter.from_ldap = from_ldap
     with patch("mo_ldap_import_export.main.LdapConverter", return_value=converter):
-        response = test_client.get("/LDAP/Employee/converted")
+        response1 = test_client.get("/LDAP/Employee/converted")
+        response2 = test_client.get("/LDAP/Employee/foo/converted")
+
+    assert response1.status_code == 202
+    assert response2.status_code == 404
+
+
+def test_load_address_from_MO_endpoint(test_client: TestClient):
+    uuid = uuid4()
+    response = test_client.get(f"/MO/Address/{uuid}")
+    assert response.status_code == 202
+
+
+def test_load_address_types_from_MO_endpoint(test_client: TestClient):
+    response = test_client.get("/MO/Address_types")
     assert response.status_code == 202

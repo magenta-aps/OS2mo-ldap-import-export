@@ -322,7 +322,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return result
 
     # Get MO address types
-    @app.get("/MO/address_types", status_code=202, tags=["MO"])
+    @app.get("/MO/Address_types", status_code=202, tags=["MO"])
     async def load_address_types_from_MO() -> Any:
 
         result = dataloader.load_mo_address_types()
