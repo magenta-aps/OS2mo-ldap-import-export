@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 from fastramqpi.context import Context
+from ramodels.mo.details.address import Address
 from ramodels.mo.employee import Employee
 
 from mo_ldap_import_export.config import Settings
@@ -53,6 +54,11 @@ def gql_client() -> Iterator[AsyncMock]:
 
 
 @pytest.fixture
+def gql_client_sync() -> Iterator[MagicMock]:
+    yield MagicMock()
+
+
+@pytest.fixture
 def model_client() -> Iterator[AsyncMock]:
     yield AsyncMock()
 
@@ -86,6 +92,7 @@ def context(
     settings: Settings,
     cpr_field: str,
     converter: MagicMock,
+    gql_client_sync: MagicMock,
 ) -> Context:
 
     return {
@@ -96,6 +103,7 @@ def context(
             "model_client": model_client,
             "cpr_field": cpr_field,
             "converter": converter,
+            "gql_client_sync": gql_client_sync,
         },
     }
 
@@ -403,3 +411,59 @@ async def test_get_populated_overview(dataloader: DataLoader):
     assert output == {
         "object1": {"attributes": ["attr1"], "superiors": ["sup1", "sup2"]}
     }
+
+
+async def test_load_mo_address_types(
+    dataloader: DataLoader, gql_client_sync: MagicMock
+) -> None:
+
+    uuid = uuid4()
+    name = "Email"
+
+    gql_client_sync.execute.return_value = {
+        "facets": [
+            {"classes": [{"uuid": uuid, "name": name}]},
+        ]
+    }
+
+    expected_result = {uuid: name}
+    output = dataloader.load_mo_address_types()
+    assert output == expected_result
+
+
+async def test_load_mo_address(dataloader: DataLoader, gql_client: AsyncMock) -> None:
+
+    uuid = uuid4()
+
+    address_dict: dict = {
+        "value": "foo@bar.dk",
+        "uuid": uuid,
+        "address_type": {"uuid": uuid},
+        "validity": {"from": "2021-01-01 01:00"},
+        "person": {"uuid": uuid},
+    }
+
+    # Note that 'Address' requires 'person' to be a dict
+    expected_result = Address(**address_dict.copy())
+
+    # While graphQL returns it as a list with length 1
+    address_dict["person"] = [{"cpr_no": "0101012002", "uuid": uuid}]
+    address_dict["address_type"]["name"] = "address"
+
+    gql_client.execute.return_value = {
+        "addresses": [
+            {"objects": [address_dict]},
+        ]
+    }
+
+    output = await asyncio.gather(
+        dataloader.load_mo_address(uuid),
+    )
+
+    address_metadata = {
+        "address_type_name": address_dict["address_type"]["name"],
+        "employee_cpr_no": address_dict["person"][0]["cpr_no"],
+    }
+
+    assert output[0][0] == expected_result
+    assert output[0][1] == address_metadata
