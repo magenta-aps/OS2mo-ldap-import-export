@@ -7,8 +7,6 @@ import copy
 import datetime
 import json
 import re
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from typing import Any
 from typing import Dict
 
@@ -91,6 +89,8 @@ class LdapConverter:
 
         self.cpr_field = find_cpr_field(mapping)
 
+        self.check_mapping()
+
     def find_object_class(self, json_key, conversion):
         mapping = self.raw_mapping[conversion]
         if json_key not in mapping.keys():
@@ -131,8 +131,7 @@ class LdapConverter:
         accepted_json_keys = ["Employee"] + mo_address_types
         return accepted_json_keys
 
-    @asynccontextmanager
-    async def check_mapping(self) -> AsyncIterator[None]:
+    def check_mapping(self):
         logger = structlog.get_logger()
         logger.info("[json check] Checking json file")
         mo_to_ldap_json_keys = list(self.mapping["mo_to_ldap"].keys())
@@ -173,7 +172,7 @@ class LdapConverter:
             self.check_attributes(detected_attributes, accepted_attributes)
 
         # 3. check that the LDAP attributes match what is available in LDAP
-        overview = await self.dataloader.load_ldap_overview()
+        overview = self.dataloader.load_ldap_overview()
         for json_key in mo_to_ldap_json_keys:
             logger.info(f"[json check] checking mo_to_ldap[{json_key}]")
 
@@ -185,8 +184,6 @@ class LdapConverter:
             self.check_attributes(detected_attributes, accepted_attributes)
 
         logger.info("[json check] Attributes OK")
-
-        yield
 
     @staticmethod
     def filter_splitfirst(text):

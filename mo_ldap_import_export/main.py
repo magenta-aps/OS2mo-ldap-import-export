@@ -195,7 +195,6 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     converter = LdapConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
     fastramqpi.add_context(converter=converter)
-    fastramqpi.add_lifespan_manager(converter.check_mapping(), 2500)
 
     return fastramqpi
 
@@ -316,14 +315,14 @@ def create_app(**kwargs: Any) -> FastAPI:
     @app.get("/LDAP_overview", status_code=202, tags=["LDAP"])
     async def load_overview_from_LDAP() -> Any:
 
-        result = await dataloader.load_ldap_overview()
+        result = dataloader.load_ldap_overview()
         return result
 
     # Get populated LDAP overview
     @app.get("/LDAP_overview/populated", status_code=202, tags=["LDAP"])
     async def load_populated_overview_from_LDAP() -> Any:
 
-        result = await dataloader.load_ldap_populated_overview()
+        result = dataloader.load_ldap_populated_overview()
         return result
 
     # Get MO address types

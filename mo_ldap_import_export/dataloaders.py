@@ -172,7 +172,7 @@ class DataLoader:
             "superiors": superiors,
         }
 
-    async def load_ldap_overview(self):
+    def load_ldap_overview(self):
         context = self.context
         user_context = context["user_context"]
         ldap_connection = user_context["ldap_connection"]
@@ -188,7 +188,7 @@ class DataLoader:
 
         return output
 
-    async def load_ldap_populated_overview(self):
+    def load_ldap_populated_overview(self):
         """
         Like load_ldap_overview but only returns fields which actually contain data
         """
@@ -196,7 +196,7 @@ class DataLoader:
         context = self.context
 
         output = {}
-        overview = await self.load_ldap_overview()
+        overview = self.load_ldap_overview()
 
         for ldap_class in overview.keys():
             searchParameters = {
