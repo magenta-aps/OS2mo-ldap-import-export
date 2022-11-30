@@ -18,7 +18,6 @@ from jinja2 import Environment
 from jinja2 import Undefined
 from ldap3.utils.ciDict import CaseInsensitiveDict
 
-from .dataloaders import DataLoader
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
 from .exceptions import NotSupportedException
@@ -75,7 +74,7 @@ class LdapConverter:
         self.user_context = context["user_context"]
         self.settings = self.user_context["settings"]
         self.raw_mapping = self.user_context["mapping"]
-        self.dataloader = DataLoader(context)
+        self.dataloader = self.user_context["dataloader"]
 
         mapping = delete_keys_from_dict(
             copy.deepcopy(self.raw_mapping), ["objectClass"]

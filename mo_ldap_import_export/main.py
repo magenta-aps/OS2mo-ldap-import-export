@@ -185,16 +185,17 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     mappings_file = os.path.join(mappings_folder, "default.json")
     fastramqpi.add_context(mapping=read_mapping_json(mappings_file))
 
+    logger.info("Initializing dataloader")
+    context = fastramqpi.get_context()
+    dataloader = DataLoader(context)
+    fastramqpi.add_context(dataloader=dataloader)
+
     logger.info("Initializing converters")
     context = fastramqpi.get_context()
     converter = LdapConverter(context)
     fastramqpi.add_context(cpr_field=converter.cpr_field)
     fastramqpi.add_context(converter=converter)
     fastramqpi.add_lifespan_manager(converter.check_mapping(), 2500)
-
-    logger.info("Initializing dataloader")
-    dataloader = DataLoader(context)
-    fastramqpi.add_context(dataloader=dataloader)
 
     return fastramqpi
 
