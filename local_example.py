@@ -173,6 +173,28 @@ for p in list(overview["user"]["attributes"])[:10]:
     print(p)
 print("...]")
 
+print("Here is the attribute type info for the 'department' field:")
+overview["user"]["attribute_types"]["department"]
+
+print("")
+print("Here are the 'user' attributes which can contain multiple values:")
+
+single_value_dict = {
+    key: overview["user"]["attribute_types"][key]["single_value"]
+    for key in overview["user"]["attribute_types"].keys()
+}
+
+multi_value_attributes = []
+for key, value in single_value_dict.items():
+    if not value:
+        multi_value_attributes.append(key)
+
+print("[")
+for p in sorted(multi_value_attributes):
+    print(p)
+print("]")
+
+
 # %% And an overview which only contains fields that actually contain data:
 r = requests.get("http://0.0.0.0:8000/LDAP_overview/populated")
 populated_overview = r.json()

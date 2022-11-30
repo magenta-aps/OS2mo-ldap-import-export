@@ -304,3 +304,7 @@ def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
             ldap_dict[attribute] = value
 
     return LdapObject(**ldap_dict)
+
+
+def get_attribute_types(ldap_connection):
+    return ldap_connection.server.schema.attribute_types

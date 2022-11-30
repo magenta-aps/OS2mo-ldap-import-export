@@ -16,6 +16,7 @@ from ramodels.mo.employee import Employee
 
 from .exceptions import CprNoNotFound
 from .exceptions import NoObjectsReturnedException
+from .ldap import get_attribute_types
 from .ldap import get_ldap_attributes
 from .ldap import get_ldap_schema
 from .ldap import get_ldap_superiors
@@ -28,6 +29,9 @@ from .ldap_classes import LdapObject
 class DataLoader:
     def __init__(self, context):
         self.context = context
+        self.user_context = context["user_context"]
+        self.ldap_connection = self.user_context["ldap_connection"]
+        self.attribute_types = get_attribute_types(self.ldap_connection)
 
     async def load_ldap_cpr_object(self, cpr_no: str, json_key: str) -> LdapObject:
         """
@@ -89,11 +93,7 @@ class DataLoader:
 
         return output
 
-    async def upload_ldap_object(
-        self,
-        object_to_upload,
-        json_key,
-    ):
+    async def upload_ldap_object(self, object_to_upload, json_key):
         """
         Accepted json_keys are:
             - 'Employee'
@@ -141,7 +141,12 @@ class DataLoader:
         for parameter_to_upload in parameters_to_upload:
             value = parameters[parameter_to_upload]
             value_to_upload = [] if value is None else [value]
-            changes = {parameter_to_upload: [("MODIFY_REPLACE", value_to_upload)]}
+
+            single_value = self.attribute_types[parameter_to_upload].single_value
+            if single_value:
+                changes = {parameter_to_upload: [("MODIFY_REPLACE", value_to_upload)]}
+            else:
+                changes = {parameter_to_upload: [("MODIFY_ADD", value_to_upload)]}
 
             logger.info(f"Uploading the following changes: {changes}")
             ldap_connection.modify(dn, changes)
@@ -170,6 +175,7 @@ class DataLoader:
         return {
             "attributes": attributes,
             "superiors": superiors,
+            "attribute_types": {a: self.attribute_types[a] for a in attributes},
         }
 
     def load_ldap_overview(self):
