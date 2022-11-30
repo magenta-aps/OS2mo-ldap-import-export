@@ -56,15 +56,18 @@ async def listen_to_changes_in_employees(
 ) -> None:
 
     logger.info("[MO] Registered change in the employee model")
+    logger.info(f"Payload: {payload}")
 
     # TODO: Add support for deleting users / fields from LDAP
     if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
+        # Note: Deleting an object is not straightforward, because MO specifies a future
+        # date, on which the object is to be deleted. We would need a job which runs
+        # daily and checks for users/addresses/etc... that need to be deleted
         raise RejectMessage("Not supported")
 
     user_context = context["user_context"]
     dataloader = user_context["dataloader"]
     converter = user_context["converter"]
-    logger.info(f"Payload: {payload}")
 
     # Get MO employee
     changed_employee = await dataloader.load_mo_employee(payload.uuid)
