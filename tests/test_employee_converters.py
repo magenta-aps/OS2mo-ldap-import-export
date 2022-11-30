@@ -2,7 +2,6 @@ import copy
 import os.path
 import uuid
 from typing import Any
-from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
 import pytest
@@ -44,12 +43,20 @@ def context() -> Context:
     settings_mock.ldap_organizational_unit = "foo"
     settings_mock.ldap_search_base = "bar"
 
-    dataloader = AsyncMock()
+    dataloader = MagicMock()
     mo_address_types = {"uuid1": "Email", "uuid2": "Post"}
 
     load_mo_address_types = MagicMock()
     load_mo_address_types.return_value = mo_address_types
     dataloader.load_mo_address_types = load_mo_address_types
+
+    overview = {
+        "user": {
+            "attributes": ["givenName", "sn", "displayName", "name", "dn", "employeeID"]
+        }
+    }
+
+    dataloader.load_ldap_overview.return_value = overview
 
     context: Context = {
         "user_context": {
@@ -123,36 +130,7 @@ def test_mapping_loader() -> None:
 
 def test_mapping_loader_failure(context: Context) -> None:
 
-    good_mapping = {
-        "ldap_to_mo": {
-            "Employee": {
-                "objectClass": "ramodels.mo.employee.Employee",
-                "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
-                "surname": "{{ldap.surname or ldap.sn or "
-                "ldap.name|splitlast|last or ''}}",
-                "cpr_no": "{{ldap.cpr or None}}",
-                "seniority": "{{ldap.seniority or None}}",
-                "nickname_givenname": "{{ldap.nickname_givenname or None}}",
-                "nickname_surname": "{{ldap.nickname_surname or None}}",
-            }
-        },
-        "mo_to_ldap": {
-            "Employee": {
-                "objectClass": "user",
-                "givenName": "{{mo_employee.givenname}}",
-                "sn": "{{mo_employee.surname}}",
-                "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
-                "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
-                "cpr": "{{mo_employee.cpr_no or None}}",
-                "seniority": "{{mo_employee.seniority or None}}",
-                "nickname_givenname": "{{mo_employee.nickname_givenname or None}}",
-                "nickname_surname": "{{mo_employee.nickname_surname or None}}",
-            }
-        },
-    }
-
     good_context = copy.deepcopy(context)
-    good_context["user_context"]["mapping"] = good_mapping
 
     for bad_mapping in ({}, {"ldap_to_mo": {}}, {"mo_to_ldap": {}}):
 
@@ -174,7 +152,7 @@ def test_mapping_loader_failure(context: Context) -> None:
                     givenName="Tester",
                     sn="Testersen",
                     objectGUID="{" + str(uuid.uuid4()) + "}",
-                    cpr="0101011234",
+                    employeeID="0101011234",
                 ),
                 "Employee",
             )
@@ -218,6 +196,7 @@ def test_find_cpr_field(context: Context) -> None:
                 "employeeID": "{{mo_employee.cpr_no or None}}",
             }
         },
+        "ldap_to_mo": {},
     }
 
     # This mapping does not contain the mo_employee.cpr_no field

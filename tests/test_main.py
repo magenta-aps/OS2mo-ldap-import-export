@@ -102,8 +102,8 @@ def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
     )
 
     dataloader = AsyncMock()
-    dataloader.load_ldap_populated_overview.return_value = "foo"
-    dataloader.load_ldap_overview.return_value = "foo"
+    dataloader.load_ldap_populated_overview = sync_dataloader
+    dataloader.load_ldap_overview = sync_dataloader
     dataloader.load_ldap_cpr_object.return_value = test_ldap_object
     dataloader.load_ldap_objects.return_value = [test_ldap_object] * 3
     dataloader.load_mo_employee.return_value = "foo"
@@ -192,13 +192,13 @@ def test_create_app(
 
 
 def test_create_fastramqpi(
-    load_settings_overrides: dict[str, str], disable_metrics: None
+    load_settings_overrides: dict[str, str], disable_metrics: None, converter: MagicMock
 ) -> None:
     """Test that we can construct our FastRAMQPI system."""
 
     with patch(
-        "mo_ldap_import_export.main.configure_ldap_connection", new_callable=MagicMock
-    ):
+        "mo_ldap_import_export.main.configure_ldap_connection", new_callable=MagicMock()
+    ), patch("mo_ldap_import_export.main.LdapConverter", return_value=converter):
         fastramqpi = create_fastramqpi()
     assert isinstance(fastramqpi, FastRAMQPI)
 

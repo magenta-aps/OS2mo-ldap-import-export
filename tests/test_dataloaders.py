@@ -369,11 +369,7 @@ async def test_get_overview(dataloader: DataLoader):
         "mo_ldap_import_export.dataloaders.get_ldap_superiors",
         return_value=["sup1", "sup2"],
     ):
-        output = (
-            await asyncio.gather(
-                dataloader.load_ldap_overview(),
-            )
-        )[0]
+        output = dataloader.load_ldap_overview()
 
     assert output == {
         "object1": {"attributes": ["attr1", "attr2"], "superiors": ["sup1", "sup2"]}
@@ -402,11 +398,7 @@ async def test_get_populated_overview(dataloader: DataLoader):
         "mo_ldap_import_export.dataloaders.paged_search",
         return_value=responses,
     ):
-        output = (
-            await asyncio.gather(
-                dataloader.load_ldap_populated_overview(),
-            )
-        )[0]
+        output = dataloader.load_ldap_populated_overview()
 
     assert output == {
         "object1": {"attributes": ["attr1"], "superiors": ["sup1", "sup2"]}
