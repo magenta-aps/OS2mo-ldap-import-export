@@ -1,6 +1,8 @@
+import copy
 import os.path
 import uuid
 from typing import Any
+from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,43 +15,53 @@ from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.exceptions import CprNoNotFound
 from mo_ldap_import_export.exceptions import IncorrectMapping
 
-mapping = {
-    "ldap_to_mo": {
-        "Employee": {
-            "objectClass": "ramodels.mo.employee.Employee",
-            "givenname": "{{ldap.GivenName}}",
-            "surname": "{{ldap.sn}}",
-        }
-    },
-    "mo_to_ldap": {
-        "Employee": {
-            "objectClass": "user",
-            "givenName": "{{mo_employee.givenname}}",
-            "sn": "{{mo_employee.surname}}",
-            "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
-            "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
-            "dn": "",
-            "employeeID": "{{mo_employee.cpr_no or None}}",
-        }
-    },
-}
 
-settings_mock = MagicMock()
-settings_mock.ldap_organizational_unit = "foo"
-settings_mock.ldap_search_base = "bar"
+@pytest.fixture
+def context() -> Context:
 
-dataloader_mock = MagicMock()
-
-context: Context = {
-    "user_context": {
-        "mapping": mapping,
-        "settings": settings_mock,
-        "dataloaders": dataloader_mock,
+    mapping = {
+        "ldap_to_mo": {
+            "Employee": {
+                "objectClass": "ramodels.mo.employee.Employee",
+                "givenname": "{{ldap.GivenName}}",
+                "surname": "{{ldap.sn}}",
+            }
+        },
+        "mo_to_ldap": {
+            "Employee": {
+                "objectClass": "user",
+                "givenName": "{{mo_employee.givenname}}",
+                "sn": "{{mo_employee.surname}}",
+                "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+                "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
+                "dn": "",
+                "employeeID": "{{mo_employee.cpr_no or None}}",
+            }
+        },
     }
-}
+
+    settings_mock = MagicMock()
+    settings_mock.ldap_organizational_unit = "foo"
+    settings_mock.ldap_search_base = "bar"
+
+    dataloader = AsyncMock()
+    mo_address_types = {"uuid1": "Email", "uuid2": "Post"}
+
+    load_mo_address_types = MagicMock()
+    load_mo_address_types.return_value = mo_address_types
+    dataloader.load_mo_address_types = load_mo_address_types
+
+    context: Context = {
+        "user_context": {
+            "mapping": mapping,
+            "settings": settings_mock,
+            "dataloader": dataloader,
+        }
+    }
+    return context
 
 
-def test_ldap_to_mo() -> None:
+def test_ldap_to_mo(context: Context) -> None:
     converter = LdapConverter(context)
     employee = converter.from_ldap(
         LdapObject(
@@ -66,7 +78,7 @@ def test_ldap_to_mo() -> None:
     assert employee.surname == "Testersen"
 
 
-def test_mo_to_ldap() -> None:
+def test_mo_to_ldap(context: Context) -> None:
     converter = LdapConverter(context)
     obj_dict = {"mo_employee": Employee(givenname="Tester", surname="Testersen")}
     ldap_object: Any = converter.to_ldap(obj_dict, "Employee")
@@ -109,7 +121,7 @@ def test_mapping_loader() -> None:
     assert mapping == expected
 
 
-def test_mapping_loader_failure() -> None:
+def test_mapping_loader_failure(context: Context) -> None:
 
     good_mapping = {
         "ldap_to_mo": {
@@ -138,23 +150,14 @@ def test_mapping_loader_failure() -> None:
             }
         },
     }
-    good_context: Context = {
-        "user_context": {
-            "mapping": good_mapping,
-            "settings": settings_mock,
-            "dataloaders": dataloader_mock,
-        }
-    }
+
+    good_context = copy.deepcopy(context)
+    good_context["user_context"]["mapping"] = good_mapping
 
     for bad_mapping in ({}, {"ldap_to_mo": {}}, {"mo_to_ldap": {}}):
 
-        bad_context: Context = {
-            "user_context": {
-                "mapping": bad_mapping,
-                "settings": settings_mock,
-                "dataloaders": dataloader_mock,
-            }
-        }
+        bad_context = copy.deepcopy(context)
+        bad_context["user_context"]["mapping"] = bad_mapping
 
         with pytest.raises(IncorrectMapping):
             LdapConverter(context=bad_context)
@@ -205,7 +208,7 @@ def test_splitlast() -> None:
     assert LdapConverter.filter_splitlast("") == ["", ""]
 
 
-def test_find_cpr_field() -> None:
+def test_find_cpr_field(context: Context) -> None:
 
     # This mapping is accepted
     good_mapping = {
@@ -237,7 +240,7 @@ def test_find_cpr_field() -> None:
         converter = LdapConverter(context)
 
 
-def test_template_lenience() -> None:
+def test_template_lenience(context: Context) -> None:
 
     mapping = {
         "ldap_to_mo": {
@@ -260,15 +263,8 @@ def test_template_lenience() -> None:
         },
     }
 
-    converter = LdapConverter(
-        context={
-            "user_context": {
-                "mapping": mapping,
-                "settings": settings_mock,
-                "dataloaders": dataloader_mock,
-            }
-        }
-    )
+    context["user_context"]["mapping"] = mapping
+    converter = LdapConverter(context)
     converter.from_ldap(
         LdapObject(
             dn="",
@@ -276,3 +272,114 @@ def test_template_lenience() -> None:
         ),
         "Employee",
     )
+
+
+def test_find_object_class(context: Context):
+    converter = LdapConverter(context)
+
+    output = converter.find_object_class("Employee", "ldap_to_mo")
+    assert output == "ramodels.mo.employee.Employee"
+
+    output = converter.find_object_class("Employee", "mo_to_ldap")
+    assert output == "user"
+
+    with pytest.raises(IncorrectMapping):
+        converter.find_object_class("non_existing_json_key", "mo_to_ldap")
+
+
+def test_find_ldap_object_class(context: Context):
+    converter = LdapConverter(context)
+    object_class = converter.find_ldap_object_class("Employee")
+    assert object_class == "user"
+
+
+def test_find_mo_object_class(context: Context):
+    converter = LdapConverter(context)
+    object_class = converter.find_mo_object_class("Employee")
+    assert object_class == "ramodels.mo.employee.Employee"
+
+
+def test_get_ldap_attributes(context: Context):
+    converter = LdapConverter(context)
+    attributes = converter.get_ldap_attributes("Employee")
+
+    all_attributes = list(
+        context["user_context"]["mapping"]["mo_to_ldap"]["Employee"].keys()
+    )
+
+    expected_attributes = [a for a in all_attributes if a != "objectClass"]
+
+    assert attributes == expected_attributes
+
+
+def test_get_mo_attributes(context: Context):
+    converter = LdapConverter(context)
+    attributes = converter.get_mo_attributes("Employee")
+
+    all_attributes = list(
+        context["user_context"]["mapping"]["ldap_to_mo"]["Employee"].keys()
+    )
+
+    expected_attributes = [a for a in all_attributes if a != "objectClass"]
+
+    assert attributes == expected_attributes
+
+
+def test_check_attributes(context: Context):
+    converter = LdapConverter(context)
+
+    detected_attributes = ["foo", "bar"]
+    accepted_attributes = ["bar"]
+
+    with pytest.raises(IncorrectMapping):
+        converter.check_attributes(detected_attributes, accepted_attributes)
+
+
+def test_get_accepted_json_keys(context: Context):
+    converter = LdapConverter(context)
+
+    # dataloader = MagicMock()
+    # mo_address_types = {"uuid1": "Email", "uuid2": "Post"}
+    # dataloader.load_mo_address_types.return_value = mo_address_types
+
+    # converter.dataloader = dataloader
+
+    output = converter.get_accepted_json_keys()
+
+    assert output == ["Employee", "Email", "Post"]
+
+
+# async def test_check_mapping(context: Context):
+
+#     context = copy.deepcopy(context)
+
+#     # This mapping should trigger the first check
+#     mapping = {
+#         "ldap_to_mo": {
+#             "Employee": {
+#                 "objectClass": "ramodels.mo.employee.Employee",
+#                 "givenname": "{{ldap.GivenName}}",
+#                 "surname": "{{ldap.sn}}",
+#             }
+#         },
+#         "mo_to_ldap": {
+#             "Employee": {
+#                 "objectClass": "user",
+#                 "givenName": "{{mo_employee.givenname}}",
+#                 "sn": "{{mo_employee.surname}}",
+#                 "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
+#                 "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
+#                 "dn": "",
+#                 "employeeID": "{{mo_employee.cpr_no or None}}",
+#             }
+#         },
+#     }
+
+#     context["user_context"]["mapping"] = mapping
+
+#     converter = LdapConverter(context)
+#     async with converter.check_mapping():
+#         pass
+
+#     # Keep expanding 'mapping' until it is accepted
+#     # See https://www.depends-on-the-definition.com/test-error-messages-with-pytest/
