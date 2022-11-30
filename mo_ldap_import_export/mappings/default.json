@@ -22,7 +22,7 @@
     // Note: This key needs to be a valid MO address type name*
     "Postadresse": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "value": "{{ nonejoin(ldap.postalCode, ldap.streetAddress) or None }}",
+      "value": "{{ ldap.postalAddress or None }}",
       "type": "{{'address'}}",
       "validity": "{{ dict(from_date=ldap.mail_validity_from or now()|strftime) }}",
 
@@ -50,8 +50,7 @@
     // Note: This key needs to be a valid MO address type name*
     "Postadresse": {
       "objectClass": "user",
-      "postalCode": "{{mo_address.value}}",
-      "streetAddress": "{{mo_address.value}}",
+      "postalAddress": "{{mo_address.value}}",
       "employeeID": "{{mo_employee.cpr_no}}"
     }
   }

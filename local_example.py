@@ -68,6 +68,12 @@ df = pd.DataFrame(r.json())
 print(df)
 print("")
 
+r = requests.get("http://0.0.0.0:8000/LDAP/Postadresse")
+print("Found all post addresses from LDAP:")
+df = pd.DataFrame(r.json())
+print(df)
+print("")
+
 # Get a single user from LDAP
 ad_user = r.json()[300]
 cpr = ad_user["employeeID"]
@@ -91,9 +97,12 @@ pretty_print(ad_user_detailed)
 # Get a user from LDAP (Converted to MO)
 for json_key in ["Employee", "Email", "Postadresse"]:
     r5 = requests.get(f"http://0.0.0.0:8000/LDAP/{json_key}/{cpr}/converted")
-    print(f"Here is the {json_key}, MO style:")
-    pretty_print(r5.json())
-    print("")
+    if r5.status_code == 202:
+        print(f"Here is the {json_key}, MO style:")
+        pretty_print(r5.json())
+        print("")
+    else:
+        print(f"Could not obtain {json_key}, MO style.")
 
 # %% Modify a user in LDAP
 random_int = random.randint(0, 10_000)
@@ -217,7 +226,9 @@ for json_key in ["Employee", "Email", "Postadresse"]:
     print(df)
     print("")
 
-# %% Modify an address in MO and check if it was also modified in AD
+# %% Modify an email address in MO and check if it was also modified in AD
+# Note: mail address gets overwritten because the email field which we specify can only
+# contain one value
 # Request an email address
 uuid = "00513f7c-5aed-466a-966d-35537025d72d"
 r = requests.get(f"http://0.0.0.0:8000/MO/Address/{uuid}")
@@ -257,7 +268,6 @@ while True:
         else:
             break
             print("mail address was not modified in LDAP")
-
 
 # %% Finish
 print("Success")
