@@ -34,7 +34,7 @@ class DataLoader:
         Loads an ldap object which can be found using a cpr number lookup
 
         Accepted json_keys are:
-            - Employee
+            - 'Employee'
             - a MO address type name
         """
         logger = structlog.get_logger()
@@ -96,7 +96,7 @@ class DataLoader:
     ):
         """
         Accepted json_keys are:
-            - Employee
+            - 'Employee'
             - a MO address type name
         """
         context = self.context
@@ -123,11 +123,11 @@ class DataLoader:
                 object_to_upload.dict()[cpr_field], json_key
             )
             dn = existing_object.dn
-            logger.info(f"Found existing employee: {dn}")
+            logger.info(f"Found existing object: {dn}")
         except NoObjectsReturnedException as e:
-            logger.info(f"Could not find existing employee: {e}")
+            logger.info(f"Could not find existing object: {e}")
 
-            # Note: it is possible that the employee exists, but that the CPR no.
+            # Note: it is possible that an employee object exists, but that the CPR no.
             # attribute is not set. In that case this function will just set the cpr no.
             # attribute in LDAP.
             dn = object_to_upload.dn
