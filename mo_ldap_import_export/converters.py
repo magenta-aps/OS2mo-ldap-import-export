@@ -36,10 +36,7 @@ def find_cpr_field(mapping):
     Get the field which contains the CPR number in LDAP
     """
     logger = structlog.get_logger()
-    try:
-        mo_to_ldap = mapping["mo_to_ldap"]
-    except KeyError:
-        raise IncorrectMapping("Missing mapping 'mo_to_ldap'")
+    mo_to_ldap = mapping["mo_to_ldap"]
     try:
         Employee_mapping = mo_to_ldap["Employee"]
     except KeyError:
@@ -87,9 +84,8 @@ class LdapConverter:
             environment,
         )
 
-        self.cpr_field = find_cpr_field(mapping)
-
         self.check_mapping()
+        self.cpr_field = find_cpr_field(mapping)
 
     def find_object_class(self, json_key, conversion):
         mapping = self.raw_mapping[conversion]
@@ -134,22 +130,49 @@ class LdapConverter:
     def check_mapping(self):
         logger = structlog.get_logger()
         logger.info("[json check] Checking json file")
-        mo_to_ldap_json_keys = list(self.mapping["mo_to_ldap"].keys())
-        ldap_to_mo_json_keys = list(self.mapping["ldap_to_mo"].keys())
+
+        try:
+            mo_to_ldap_json_keys = list(self.mapping["mo_to_ldap"].keys())
+        except KeyError:
+            raise IncorrectMapping("Missing key: 'mo_to_ldap'")
+
+        try:
+            ldap_to_mo_json_keys = list(self.mapping["ldap_to_mo"].keys())
+        except KeyError:
+            raise IncorrectMapping("Missing key: 'ldap_to_mo'")
+
         json_keys = list(set(mo_to_ldap_json_keys + ldap_to_mo_json_keys))
 
         accepted_json_keys = self.get_accepted_json_keys()
 
-        # 1. Check to make sure that all keys are valid
+        # Check to make sure that all keys are valid
         logger.info(f"[json check] Accepted keys: {accepted_json_keys}")
         logger.info(f"[json check] Detected keys: {json_keys}")
 
         for key in json_keys:
             if key not in accepted_json_keys:
-                raise IncorrectMapping(f"{key} is not a valid key")
+                raise IncorrectMapping(
+                    (
+                        f"'{key}' is not a valid key. "
+                        f"Accepted keys are {accepted_json_keys}"
+                    )
+                )
         logger.info("[json check] Keys OK")
 
-        # 2. check that the MO address attributes match the specified class
+        # Check that the 'objectClass' key is always present
+        for conversion in ["mo_to_ldap", "ldap_to_mo"]:
+            for json_key in self.mapping[conversion].keys():
+                if "objectClass" not in list(
+                    self.raw_mapping[conversion][json_key].keys()
+                ):
+                    raise IncorrectMapping(
+                        (
+                            "'objectClass' key not present in"
+                            f" ['{conversion}']['{json_key}'] json dict"
+                        )
+                    )
+
+        # check that the MO address attributes match the specified class
         for json_key in ldap_to_mo_json_keys:
             logger.info(f"[json check] checking ldap_to_mo[{json_key}]")
 
@@ -171,7 +194,7 @@ class LdapConverter:
 
             self.check_attributes(detected_attributes, accepted_attributes)
 
-        # 3. check that the LDAP attributes match what is available in LDAP
+        # check that the LDAP attributes match what is available in LDAP
         overview = self.dataloader.load_ldap_overview()
         for json_key in mo_to_ldap_json_keys:
             logger.info(f"[json check] checking mo_to_ldap[{json_key}]")
@@ -201,7 +224,9 @@ class LdapConverter:
 
     @staticmethod
     def nonejoin(*args):
-
+        """
+        Joins items together if they are not None or emtpy lists
+        """
         items_to_join = [a for a in args if a]
         return ", ".join(items_to_join)
 
@@ -268,27 +293,28 @@ class LdapConverter:
             object_mapping = mapping[json_key]
         except KeyError:
             raise IncorrectMapping(f"Missing '{json_key}' in mapping 'mo_to_ldap'")
+
+        if "mo_employee" not in mo_object_dict.keys():
+            raise NotSupportedException(
+                "Only cpr-indexed objects are supported by to_ldap"
+            )
+
         for ldap_field_name, template in object_mapping.items():
             rendered_item = template.render(mo_object_dict)
             ldap_object[ldap_field_name] = rendered_item
 
-        if "mo_employee" in mo_object_dict.keys():
-            mo_employee_object = mo_object_dict["mo_employee"]
+        mo_employee_object = mo_object_dict["mo_employee"]
 
-            givenname = mo_employee_object.givenname
-            surname = mo_employee_object.surname
-            cpr_no = mo_employee_object.cpr_no or ""
-            ldap_organizational_unit = self.settings.ldap_organizational_unit
+        givenname = mo_employee_object.givenname
+        surname = mo_employee_object.surname
+        cpr_no = mo_employee_object.cpr_no or ""
+        ldap_organizational_unit = self.settings.ldap_organizational_unit
 
-            cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
-            ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
-            dc = self.settings.ldap_search_base  # Domain Component
-            dn = ",".join([cn, ou, dc])  # Distinguished Name
-            ldap_object["dn"] = dn
-        else:
-            raise NotSupportedException(
-                "Only cpr-indexed objects are supported by to_ldap"
-            )
+        cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
+        ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
+        dc = self.settings.ldap_search_base  # Domain Component
+        dn = ",".join([cn, ou, dc])  # Distinguished Name
+        ldap_object["dn"] = dn
 
         return LdapObject(**ldap_object)
 
