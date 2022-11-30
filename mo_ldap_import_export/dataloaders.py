@@ -42,15 +42,13 @@ class DataLoader:
             - a MO address type name
         """
         logger = structlog.get_logger()
-        context = self.context
-        user_context = context["user_context"]
 
-        ldap_connection = user_context["ldap_connection"]
-        cpr_field = user_context["cpr_field"]
-        settings = user_context["settings"]
+        ldap_connection = self.user_context["ldap_connection"]
+        cpr_field = self.user_context["cpr_field"]
+        settings = self.user_context["settings"]
 
         search_base = settings.ldap_search_base
-        converter = user_context["converter"]
+        converter = self.user_context["converter"]
 
         object_class = converter.find_ldap_object_class(json_key)
         attributes = converter.get_ldap_attributes(json_key)
@@ -65,7 +63,7 @@ class DataLoader:
         }
         search_result = single_object_search(searchParameters, ldap_connection)
 
-        ldap_object: LdapObject = make_ldap_object(search_result, context)
+        ldap_object: LdapObject = make_ldap_object(search_result, self.context)
         logger.info(f"Found {ldap_object.dn}")
 
         return ldap_object
@@ -74,10 +72,7 @@ class DataLoader:
         """
         Returns list with desired ldap objects
         """
-        context = self.context
-
-        user_context = context["user_context"]
-        converter = user_context["converter"]
+        converter = self.user_context["converter"]
         user_class = converter.find_ldap_object_class(json_key)
         attributes = converter.get_ldap_attributes(json_key)
 
@@ -86,10 +81,10 @@ class DataLoader:
             "attributes": attributes,
         }
 
-        responses = paged_search(context, searchParameters)
+        responses = paged_search(self.context, searchParameters)
 
         output: list[LdapObject]
-        output = [make_ldap_object(r, context, nest=False) for r in responses]
+        output = [make_ldap_object(r, self.context, nest=False) for r in responses]
 
         return output
 
@@ -99,17 +94,14 @@ class DataLoader:
             - 'Employee'
             - a MO address type name
         """
-        context = self.context
         logger = structlog.get_logger()
-        user_context = context["user_context"]
-        ldap_connection = user_context["ldap_connection"]
-        converter = user_context["converter"]
+        converter = self.user_context["converter"]
         success = 0
         failed = 0
-        cpr_field = user_context["cpr_field"]
+        cpr_field = self.user_context["cpr_field"]
 
         object_class = converter.find_ldap_object_class(json_key)
-        all_attributes = get_ldap_attributes(ldap_connection, object_class)
+        all_attributes = get_ldap_attributes(self.ldap_connection, object_class)
 
         logger.info(f"Uploading {object_to_upload}")
         parameters_to_upload = list(object_to_upload.dict().keys())
@@ -149,15 +141,15 @@ class DataLoader:
                 changes = {parameter_to_upload: [("MODIFY_ADD", value_to_upload)]}
 
             logger.info(f"Uploading the following changes: {changes}")
-            ldap_connection.modify(dn, changes)
-            response = ldap_connection.result
+            self.ldap_connection.modify(dn, changes)
+            response = self.ldap_connection.result
 
             # If the user does not exist, create him/her/hir
             if response["description"] == "noSuchObject":
                 logger.info(f"Creating {dn}")
-                ldap_connection.add(dn, object_class)
-                ldap_connection.modify(dn, changes)
-                response = ldap_connection.result
+                self.ldap_connection.add(dn, object_class)
+                self.ldap_connection.modify(dn, changes)
+                response = self.ldap_connection.result
 
             if response["description"] == "success":
                 success += 1
@@ -179,17 +171,14 @@ class DataLoader:
         }
 
     def load_ldap_overview(self):
-        context = self.context
-        user_context = context["user_context"]
-        ldap_connection = user_context["ldap_connection"]
-        schema = get_ldap_schema(ldap_connection)
+        schema = get_ldap_schema(self.ldap_connection)
 
         all_object_classes = sorted(list(schema.object_classes.keys()))
 
         output = {}
         for ldap_class in all_object_classes:
-            all_attributes = get_ldap_attributes(ldap_connection, ldap_class)
-            superiors = get_ldap_superiors(ldap_connection, ldap_class)
+            all_attributes = get_ldap_attributes(self.ldap_connection, ldap_class)
+            superiors = get_ldap_superiors(self.ldap_connection, ldap_class)
             output[ldap_class] = self.make_overview_entry(all_attributes, superiors)
 
         return output
@@ -199,7 +188,6 @@ class DataLoader:
         Like load_ldap_overview but only returns fields which actually contain data
         """
         nan_values: list[Union[None, list]] = [None, []]
-        context = self.context
 
         output = {}
         overview = self.load_ldap_overview()
@@ -210,7 +198,7 @@ class DataLoader:
                 "attributes": ["*"],
             }
 
-            responses = paged_search(context, searchParameters)
+            responses = paged_search(self.context, searchParameters)
 
             populated_attributes = []
             for response in responses:
@@ -228,8 +216,7 @@ class DataLoader:
         return output
 
     async def load_mo_employee(self, uuid: UUID) -> Employee:
-        context = self.context
-        graphql_session: AsyncClientSession = context["user_context"]["gql_client"]
+        graphql_session: AsyncClientSession = self.user_context["gql_client"]
 
         query = gql(
             """
@@ -267,18 +254,15 @@ class DataLoader:
             }
             """
         )
-        context = self.context
-
-        graphql_session: SyncClientSession = context["user_context"]["gql_client_sync"]
+        graphql_session: SyncClientSession = self.user_context["gql_client_sync"]
         result = graphql_session.execute(query)
 
         output = {d["uuid"]: d["name"] for d in result["facets"][0]["classes"]}
         return output
 
     async def load_mo_address(self, uuid: UUID) -> tuple[Address, dict]:
-        context = self.context
 
-        graphql_session: AsyncClientSession = context["user_context"]["gql_client"]
+        graphql_session: AsyncClientSession = self.user_context["gql_client"]
         query = gql(
             """
             query SingleAddress {
@@ -330,7 +314,6 @@ class DataLoader:
             - If an Address object is supplied, the address is updated/created
             - And so on...
         """
-        context = self.context
 
-        model_client = context["user_context"]["model_client"]
+        model_client = self.user_context["model_client"]
         return cast(list[Any | None], await model_client.upload(objects))
