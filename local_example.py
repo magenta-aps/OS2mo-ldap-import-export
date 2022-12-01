@@ -57,8 +57,12 @@ def clean_dict(d):
     return output_dict
 
 
-def pretty_print(d):
-    print(json.dumps(clean_dict(d), sort_keys=True, indent=4))
+def pretty_print(list_or_dict):
+    if type(list_or_dict) is not list:
+        list_or_dict = [list_or_dict]
+
+    for d in list_or_dict:
+        print(json.dumps(clean_dict(d), sort_keys=True, indent=4))
 
 
 # %% Get all users from LDAP
@@ -94,8 +98,15 @@ print("Here is his mail address:")
 ad_user_detailed = r4.json()
 pretty_print(ad_user_detailed)
 
+# Get his post address(es)
+r4 = requests.get(f"http://0.0.0.0:8000/LDAP/Postadresse/{cpr}")
+print("Here is his post address:")
+ad_user_detailed = r4.json()
+pretty_print(ad_user_detailed)
+
 # Get a user from LDAP (Converted to MO)
 for json_key in ["Employee", "Email", "Postadresse"]:
+    cpr = ad_user["employeeID"]
     r5 = requests.get(f"http://0.0.0.0:8000/LDAP/{json_key}/{cpr}/converted")
     if r5.status_code == 202:
         print(f"Here is the {json_key}, MO style:")

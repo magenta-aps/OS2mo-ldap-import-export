@@ -97,7 +97,7 @@ def test_ldap_to_mo(context: Context) -> None:
             cpr="0101011234",
         ),
         "Employee",
-    )
+    )[0]
     assert employee.givenname == "Tester"
     assert employee.surname == "Testersen"
 
@@ -108,7 +108,7 @@ def test_ldap_to_mo(context: Context) -> None:
             mail_validity_from=datetime.datetime(2019, 1, 1, 0, 10, 0),
         ),
         "Email",
-    )
+    )[0]
 
     assert mail.value == "foo@bar.dk"
     from_date = mail.validity.dict()["from_date"].replace(tzinfo=None)
@@ -189,7 +189,7 @@ def test_mapping_loader_failure(context: Context) -> None:
                     employeeID="0101011234",
                 ),
                 "Employee",
-            )
+            )[0]
         with pytest.raises(IncorrectMapping):
             obj_dict = {
                 "mo_employee": Employee(givenname="Tester", surname="Testersen")
@@ -297,7 +297,7 @@ def test_template_lenience(context: Context) -> None:
             cpr="1234567890",
         ),
         "Employee",
-    )
+    )[0]
 
 
 def test_find_object_class(converter: LdapConverter):

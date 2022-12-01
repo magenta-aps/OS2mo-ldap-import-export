@@ -318,34 +318,63 @@ class LdapConverter:
 
         return LdapObject(**ldap_object)
 
+    def get_number_of_entries(self, ldap_object: LdapObject):
+        """
+        Returns the number of data entries in an LDAP object. It is possible for a
+        single LDAP field to contain multiple values. This function determines
+        if that is the case.
+        """
+        n = []
+        for key, value in ldap_object.dict().items():
+            if type(value) is list:
+                n.append(len(value))
+            else:
+                n.append(1)
+
+        number_of_entries_in_this_ldap_object = max(n)
+        return number_of_entries_in_this_ldap_object
+
     def from_ldap(self, ldap_object: LdapObject, json_key: str) -> Any:
-        ldap_dict = CaseInsensitiveDict(
-            {
-                key: value[0] if type(value) == list and len(value) == 1 else value
-                for key, value in ldap_object.dict().items()
-            }
-        )
-        mo_dict = {}
-        try:
-            mapping = self.mapping["ldap_to_mo"]
-        except KeyError:
-            raise IncorrectMapping("Missing mapping 'ldap_to_mo'")
-        try:
-            object_mapping = mapping[json_key]
-        except KeyError:
-            raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
-        for mo_field_name, template in object_mapping.items():
 
-            value = template.render({"ldap": ldap_dict}).strip()
+        # This is how many MO objects we need to return - a MO object can have only
+        # One value per field. Not multiple. LDAP objects however, can have multiple
+        # values per field.
+        number_of_entries = self.get_number_of_entries(ldap_object)
 
-            # TODO: Is it possible to render a dictionary directly?
-            #       Instead of converting from a string
-            if "{" in value and ":" in value and "}" in value:
-                value = self.str_to_dict(value)
+        converted_objects = []
+        for entry in range(number_of_entries):
 
-            if (value != "None") and value:
-                mo_dict[mo_field_name] = value
+            ldap_dict = CaseInsensitiveDict(
+                {
+                    key: value[min(entry, len(value) - 1)]
+                    if type(value) == list and len(value) > 0
+                    else value
+                    for key, value in ldap_object.dict().items()
+                }
+            )
+            mo_dict = {}
+            try:
+                mapping = self.mapping["ldap_to_mo"]
+            except KeyError:
+                raise IncorrectMapping("Missing mapping 'ldap_to_mo'")
+            try:
+                object_mapping = mapping[json_key]
+            except KeyError:
+                raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
+            for mo_field_name, template in object_mapping.items():
 
-        mo_class: Any = self.import_mo_object_class(json_key)
+                value = template.render({"ldap": ldap_dict}).strip()
 
-        return mo_class(**mo_dict)
+                # TODO: Is it possible to render a dictionary directly?
+                #       Instead of converting from a string
+                if "{" in value and ":" in value and "}" in value:
+                    value = self.str_to_dict(value)
+
+                if (value != "None") and value:
+                    mo_dict[mo_field_name] = value
+
+            mo_class: Any = self.import_mo_object_class(json_key)
+
+            converted_objects.append(mo_class(**mo_dict))
+
+        return converted_objects

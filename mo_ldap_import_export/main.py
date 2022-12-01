@@ -244,7 +244,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         converted_results = []
         for r in result:
             try:
-                converted_results.append(converter.from_ldap(r, json_key))
+                converted_results.extend(converter.from_ldap(r, json_key))
             except ValidationError as e:
                 logger.error(f"Cannot convert {r} to MO {json_key}: {e}")
         return converted_results
