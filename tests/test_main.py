@@ -107,7 +107,7 @@ def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
     dataloader.load_ldap_cpr_object.return_value = test_ldap_object
     dataloader.load_ldap_objects.return_value = [test_ldap_object] * 3
     dataloader.load_mo_employee.return_value = "foo"
-    dataloader.load_mo_address.return_value = "foo"
+    dataloader.load_mo_address.return_value = ("foo", {"address_type_name": "Email"})
     dataloader.load_mo_address_types = sync_dataloader
 
     return dataloader
@@ -310,8 +310,9 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
     converter_mock.cpr_field = "EmployeeID"
     converted_ldap_object = LdapObject(dn="Foo")
     converter_mock.to_ldap.return_value = converted_ldap_object
+    converter_mock.mapping = {"mo_to_ldap": {"Email": 2}}
 
-    address_type_name = "A Very difficult kind of address"
+    address_type_name = "Email"
     dataloader.load_mo_address.return_value = (
         "foo",
         {"address_type_name": address_type_name},

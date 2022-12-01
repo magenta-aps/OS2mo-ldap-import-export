@@ -109,15 +109,33 @@ def context(
 
 
 @pytest.fixture
-def dataloader(
-    context: Context,
-) -> DataLoader:
+def get_attribute_types() -> dict:
+
+    attr1_mock = MagicMock()
+    attr2_mock = MagicMock()
+    attr1_mock.single_value = False
+    attr2_mock.single_value = True
+    return {
+        "attr1": attr1_mock,
+        "attr2": attr2_mock,
+        "department": MagicMock(),
+        "name": MagicMock(),
+        "employeeID": MagicMock(),
+    }
+
+
+@pytest.fixture
+def dataloader(context: Context, get_attribute_types: dict) -> DataLoader:
     """Fixture to construct a dataloaders object using fixture mocks.
 
     Yields:
         Dataloaders with mocked clients.
     """
-    return DataLoader(context)
+    with patch(
+        "mo_ldap_import_export.dataloaders.get_attribute_types",
+        return_value=get_attribute_types,
+    ):
+        return DataLoader(context)
 
 
 def mock_ldap_response(ldap_attributes: dict, dn: str) -> dict[str, Collection[str]]:
@@ -347,11 +365,12 @@ async def test_upload_mo_employee(
 
 async def test_make_overview_entry(dataloader: DataLoader):
 
-    attributes = ["foo", "bar"]
-    superiors = ["state", "country", "world"]
+    attributes = ["attr1", "attr2"]
+    superiors = ["sup1", "sup2"]
     entry = dataloader.make_overview_entry(attributes, superiors)
 
-    assert entry == {"attributes": attributes, "superiors": superiors}
+    assert entry["attributes"] == attributes
+    assert entry["superiors"] == superiors
 
 
 async def test_get_overview(dataloader: DataLoader):
@@ -371,9 +390,10 @@ async def test_get_overview(dataloader: DataLoader):
     ):
         output = dataloader.load_ldap_overview()
 
-    assert output == {
-        "object1": {"attributes": ["attr1", "attr2"], "superiors": ["sup1", "sup2"]}
-    }
+    assert output["object1"]["attributes"] == ["attr1", "attr2"]
+    assert output["object1"]["superiors"] == ["sup1", "sup2"]
+    assert output["object1"]["attribute_types"]["attr1"].single_value is False
+    assert output["object1"]["attribute_types"]["attr2"].single_value is True
 
 
 async def test_get_populated_overview(dataloader: DataLoader):
@@ -400,9 +420,9 @@ async def test_get_populated_overview(dataloader: DataLoader):
     ):
         output = dataloader.load_ldap_populated_overview()
 
-    assert output == {
-        "object1": {"attributes": ["attr1"], "superiors": ["sup1", "sup2"]}
-    }
+    assert output["object1"]["attributes"] == ["attr1"]
+    assert output["object1"]["superiors"] == ["sup1", "sup2"]
+    assert output["object1"]["attribute_types"]["attr1"].single_value is False
 
 
 async def test_load_mo_address_types(
