@@ -69,7 +69,8 @@ Here the "Employee" class is specified to take the class "ramodels.mo.employee.E
 updating a MO object, and to take the class "user" when creating or updating an LDAP object. 
 If the LDAP schema uses a different name for the employee object type, specify that class here.
 
-Other valid classes include "Email" and "Postadresse"; see <ref> for the full list.
+Other valid classes include "Email" and "Postadresse";
+any MO class with a corresponding implementation in `main.py` should be acceptable.
 
 Each class _must_ specify:
 * An "objectClass" attribute
