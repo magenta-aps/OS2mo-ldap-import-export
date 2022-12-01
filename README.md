@@ -66,16 +66,23 @@ and takes the form:
     
 ```
 Here the "Employee" class is specified to take the class "ramodels.mo.employee.Employee" when creating or 
-updating a MO object, and to take the class "user" when creating or updating an LDAP object. 
-If the LDAP schema uses a different name for the employee object type, specify that class here.
+updating a MO object, and to take the class "user" when creating or updating an LDAP object.
+If the LDAP schema uses a different name for the employee object class, specify that class here.
 
-Other valid classes include "Email" and "Postadresse";
-any MO class with a corresponding implementation in `main.py` should be acceptable.
+Other valid names include "Email" and "Postadresse"; any MO class from ramodels should be acceptable.
+
+Available classes can be retrived by:
+* MO: http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get, 
+* LDAP: http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get 
 
 Each class _must_ specify:
 * An "objectClass" attribute
 * An attribute that corresponds to the primary key name for the MO or LDAP class
 * Attributes for all required fields in the MO or LDAP class to be written
+* For LDAP classes: a link to mo_employee.cpr_no must be present. Otherwise we do not know who the address belongs to.
+
+
+Note that all attributes MUST be accepted by the destination class in MO or LDAP.
 
 Values in the json structure may be normal strings, or a string containing one or more jinja2 templates,
 to be used for extracting values. For example:
@@ -129,5 +136,6 @@ These are called using the normal function call syntax:
 ```
 * `nonejoin`: Joins two or more strings together with comma, omitting any Falsy values 
   (`None`, `""`, `0`, `False`, `{}` or `[]`)
+* `now`: Returns current datetime
 
 Note: dette kan godt implementeres med et almindeligt filter
