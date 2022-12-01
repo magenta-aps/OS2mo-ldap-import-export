@@ -27,6 +27,7 @@ from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
 from ramqp.mo.models import RequestType
+from ramqp.utils import RejectMessage
 
 from .config import Settings
 from .converters import LdapConverter
@@ -50,7 +51,22 @@ help(RequestType)
 """
 
 
+def reject_on_failure(func):
+    """
+    Decorator to turn message into dead letter in case of exceptions.
+    """
+
+    async def modified_func(*args, **kwargs):
+        try:
+            await func(*args, **kwargs)
+        except:  # noqa
+            raise RejectMessage()
+
+    return modified_func
+
+
 @amqp_router.register("employee.*.*")
+@reject_on_failure
 async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
@@ -125,6 +141,8 @@ async def listen_to_changes_in_employees(
 
         logger.info(f"Found the following addresses in LDAP: {address_values_in_ldap}")
         logger.info(f"Found the following addresses in MO: {address_values_in_mo}")
+        if address_values_in_ldap == address_values_in_mo:
+            logger.info("No synchronization required")
 
         # Clean from LDAP as needed
         ldap_addresses_to_clean = []
