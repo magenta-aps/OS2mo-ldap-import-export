@@ -17,6 +17,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastramqpi.main import FastRAMQPI
+from ramodels.mo.details.address import Address
 from ramodels.mo.employee import Employee
 from ramqp.mo.models import MORoutingKey
 from ramqp.utils import RejectMessage
@@ -100,14 +101,21 @@ def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
     test_ldap_object = LdapObject(
         name="Tester", Department="QA", dn="someDN", cpr="0101012002"
     )
+    test_mo_employee = Employee(cpr_no="1212121234")
+    test_mo_address = Address.from_simplified_fields(
+        "Great Brittain", uuid4(), "2021-01-01"
+    )
 
     dataloader = AsyncMock()
     dataloader.load_ldap_populated_overview = sync_dataloader
     dataloader.load_ldap_overview = sync_dataloader
     dataloader.load_ldap_cpr_object.return_value = test_ldap_object
     dataloader.load_ldap_objects.return_value = [test_ldap_object] * 3
-    dataloader.load_mo_employee.return_value = "foo"
-    dataloader.load_mo_address.return_value = ("foo", {"address_type_name": "Email"})
+    dataloader.load_mo_employee.return_value = test_mo_employee
+    dataloader.load_mo_address.return_value = (
+        test_mo_address,
+        {"address_type_name": "Email"},
+    )
     dataloader.load_mo_address_types = sync_dataloader
 
     return dataloader
@@ -313,10 +321,6 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
     converter_mock.mapping = {"mo_to_ldap": {"Email": 2}}
 
     address_type_name = "Email"
-    dataloader.load_mo_address.return_value = (
-        "foo",
-        {"address_type_name": address_type_name},
-    )
 
     context = {
         "user_context": {
@@ -341,7 +345,9 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
     assert dataloader.load_mo_employee.called
     assert converter_mock.to_ldap.called
     assert dataloader.upload_ldap_object.called
-    dataloader.upload_ldap_object.assert_called_with(converted_ldap_object, "Employee")
+    dataloader.upload_ldap_object.assert_called_with(
+        converted_ldap_object, "Employee", overwrite=True
+    )
     assert not dataloader.load_mo_address.called
 
     # Simulate a created address
