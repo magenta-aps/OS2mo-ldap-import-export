@@ -103,7 +103,7 @@ def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
     )
     test_mo_employee = Employee(cpr_no="1212121234")
     test_mo_address = Address.from_simplified_fields(
-        "Great Brittain", uuid4(), "2021-01-01"
+        "foo@bar.dk", uuid4(), "2021-01-01"
     )
 
     dataloader = AsyncMock()
@@ -117,6 +117,9 @@ def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
         {"address_type_name": "Email"},
     )
     dataloader.load_mo_address_types = sync_dataloader
+    dataloader.load_mo_employee_addresses.return_value = [
+        (test_mo_address, {"address_type_name": "Email"})
+    ] * 2
 
     return dataloader
 
@@ -314,11 +317,16 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
         os.path.join(os.path.dirname(__file__), "resources", "mapping.json")
     )
 
-    converter_mock = MagicMock()
-    converter_mock.cpr_field = "EmployeeID"
+    converter = MagicMock()
+    converter.cpr_field = "EmployeeID"
     converted_ldap_object = LdapObject(dn="Foo")
-    converter_mock.to_ldap.return_value = converted_ldap_object
-    converter_mock.mapping = {"mo_to_ldap": {"Email": 2}}
+    converter.to_ldap.return_value = converted_ldap_object
+    converter.mapping = {"mo_to_ldap": {"Email": 2}}
+
+    converter.from_ldap.return_value = [
+        LdapObject(dn="foo", value="street 1"),
+        LdapObject(dn="bar", value="street 2"),
+    ]
 
     address_type_name = "Email"
 
@@ -326,7 +334,7 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
         "user_context": {
             "settings": settings_mock,
             "mapping": mapping,
-            "converter": converter_mock,
+            "converter": converter,
             "dataloader": dataloader,
         }
     }
@@ -343,7 +351,7 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
         listen_to_changes_in_employees(context, payload, mo_routing_key=mo_routing_key),
     )
     assert dataloader.load_mo_employee.called
-    assert converter_mock.to_ldap.called
+    assert converter.to_ldap.called
     assert dataloader.upload_ldap_object.called
     dataloader.upload_ldap_object.assert_called_with(
         converted_ldap_object, "Employee", overwrite=True
@@ -359,6 +367,25 @@ async def test_listen_to_changes_in_employees(dataloader: AsyncMock) -> None:
     dataloader.upload_ldap_object.assert_called_with(
         converted_ldap_object, address_type_name
     )
+
+    # Simulate case where no cleanup is needed
+    converter.from_ldap.return_value = [
+        LdapObject(dn="foo", value="foo@bar.dk"),
+        LdapObject(dn="bar", value="foo@bar.dk"),
+    ]
+
+    context = {
+        "user_context": {
+            "settings": settings_mock,
+            "mapping": mapping,
+            "converter": converter,
+            "dataloader": dataloader,
+        }
+    }
+    await asyncio.gather(
+        listen_to_changes_in_employees(context, payload, mo_routing_key=mo_routing_key),
+    )
+    assert dataloader.cleanup_attributes_in_ldap.called_with([], "Email")
 
 
 def test_ldap_get_overview_endpoint(test_client: TestClient) -> None:
