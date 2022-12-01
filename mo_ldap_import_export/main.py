@@ -63,7 +63,8 @@ async def listen_to_changes_in_employees(
         # Note: Deleting an object is not straightforward, because MO specifies a future
         # date, on which the object is to be deleted. We would need a job which runs
         # daily and checks for users/addresses/etc... that need to be deleted
-        raise RejectMessage("Not supported")
+        logger.exception("Not supported")
+        raise RejectMessage()
 
     user_context = context["user_context"]
     dataloader = user_context["dataloader"]
@@ -94,6 +95,11 @@ async def listen_to_changes_in_employees(
         address_type = meta_info["address_type_name"]
 
         logger.info(f"Obtained address type = {address_type}")
+        if address_type not in converter.mapping["mo_to_ldap"].keys():
+            logger.exception(
+                f"address type = '{address_type}' not in 'mo_to_ldap' mapping"
+            )
+            raise RejectMessage()
 
         # Convert to LDAP
         mo_object_dict["mo_address"] = changed_address
