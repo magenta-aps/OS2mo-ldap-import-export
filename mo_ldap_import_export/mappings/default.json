@@ -13,7 +13,7 @@
     "Email": {
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ldap.mail or None}}",
-      "type": "{{'address'}}",
+      "type": "address",
       "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|strftime) }}",
 
       // Note: Get valid address type uuids by using GET MO/address_types
@@ -23,7 +23,7 @@
     "Postadresse": {
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ ldap.postalAddress or None }}",
-      "type": "{{'address'}}",
+      "type": "address",
       "validity": "{{ dict(from_date=ldap.mail_validity_from or now()|strftime) }}",
 
       // Note: Get valid address type uuids by using GET MO/address_types

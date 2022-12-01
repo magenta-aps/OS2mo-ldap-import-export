@@ -27,12 +27,12 @@ from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
 from ramqp.mo.models import RequestType
-from ramqp.utils import RejectMessage
 
 from .config import Settings
 from .converters import LdapConverter
 from .converters import read_mapping_json
 from .dataloaders import DataLoader
+from .exceptions import NotSupportedException
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
@@ -55,16 +55,17 @@ async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
 
+    routing_key = kwargs["mo_routing_key"]
     logger.info("[MO] Registered change in the employee model")
+    logger.info(f"[MO] Routing key: {routing_key}")
     logger.info(f"Payload: {payload}")
 
     # TODO: Add support for deleting users / fields from LDAP
-    if kwargs["mo_routing_key"].request_type == RequestType.TERMINATE:
+    if routing_key.request_type == RequestType.TERMINATE:
         # Note: Deleting an object is not straightforward, because MO specifies a future
         # date, on which the object is to be deleted. We would need a job which runs
         # daily and checks for users/addresses/etc... that need to be deleted
-        logger.exception("Not supported")
-        raise RejectMessage()
+        raise NotSupportedException("Terminations are not supported")
 
     user_context = context["user_context"]
     dataloader = user_context["dataloader"]
@@ -76,16 +77,17 @@ async def listen_to_changes_in_employees(
 
     mo_object_dict: dict[str, Any] = {"mo_employee": changed_employee}
 
-    if kwargs["mo_routing_key"].object_type == ObjectType.EMPLOYEE:
+    if routing_key.object_type == ObjectType.EMPLOYEE:
         logger.info("[MO] Change registered in the employee object type")
 
         # Convert to LDAP
         ldap_employee = converter.to_ldap(mo_object_dict, "Employee")
 
-        # Upload to LDAP
-        await dataloader.upload_ldap_object(ldap_employee, "Employee")
+        # Upload to LDAP - overwrite because all employee fields are unique.
+        # One person cannot have multiple names.
+        await dataloader.upload_ldap_object(ldap_employee, "Employee", overwrite=True)
 
-    elif kwargs["mo_routing_key"].object_type == ObjectType.ADDRESS:
+    elif routing_key.object_type == ObjectType.ADDRESS:
         logger.info("[MO] Change registered in the address object type")
 
         # Get MO address
@@ -95,11 +97,6 @@ async def listen_to_changes_in_employees(
         address_type = meta_info["address_type_name"]
 
         logger.info(f"Obtained address type = {address_type}")
-        if address_type not in converter.mapping["mo_to_ldap"].keys():
-            logger.exception(
-                f"address type = '{address_type}' not in 'mo_to_ldap' mapping"
-            )
-            raise RejectMessage()
 
         # Convert to LDAP
         mo_object_dict["mo_address"] = changed_address
@@ -107,6 +104,29 @@ async def listen_to_changes_in_employees(
 
         # Upload to LDAP
         await dataloader.upload_ldap_object(ldap_address, address_type)
+
+        # Get all addresses for this user in LDAP
+        result = await dataloader.load_ldap_cpr_object(
+            changed_employee.cpr_no, address_type
+        )
+
+        # Convert to MO so the two are easy to compare
+        addresses_in_ldap = converter.from_ldap(result, address_type)
+
+        # Get all CURRENT addresses of this type for this user from MO
+        addresses_in_mo = await dataloader.load_mo_employee_addresses(
+            changed_employee.uuid, changed_address.address_type.uuid
+        )
+
+        # Format as lists
+        address_values_in_ldap = [a.value for a in addresses_in_ldap]
+        address_values_in_mo = [a[0].value for a in addresses_in_mo]
+
+        # Delete from LDAP as needed
+        logger.info(
+            f"Obtained the following addresses from LDAP: {address_values_in_ldap}"
+        )
+        logger.info(f"Obtained the following addresses from MO: {address_values_in_mo}")
 
 
 @asynccontextmanager

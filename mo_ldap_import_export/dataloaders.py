@@ -28,6 +28,7 @@ from .ldap_classes import LdapObject
 
 class DataLoader:
     def __init__(self, context):
+        self.logger = structlog.get_logger()
         self.context = context
         self.user_context = context["user_context"]
         self.ldap_connection = self.user_context["ldap_connection"]
@@ -41,8 +42,6 @@ class DataLoader:
             - 'Employee'
             - a MO address type name
         """
-        logger = structlog.get_logger()
-
         ldap_connection = self.user_context["ldap_connection"]
         cpr_field = self.user_context["cpr_field"]
         settings = self.user_context["settings"]
@@ -64,13 +63,17 @@ class DataLoader:
         search_result = single_object_search(searchParameters, ldap_connection)
 
         ldap_object: LdapObject = make_ldap_object(search_result, self.context)
-        logger.info(f"Found {ldap_object.dn}")
+        self.logger.info(f"Found {ldap_object.dn}")
 
         return ldap_object
 
     async def load_ldap_objects(self, json_key: str) -> list[LdapObject]:
         """
         Returns list with desired ldap objects
+
+        Accepted json_keys are:
+            - 'Employee'
+            - a MO address type name
         """
         converter = self.user_context["converter"]
         user_class = converter.find_ldap_object_class(json_key)
@@ -88,13 +91,12 @@ class DataLoader:
 
         return output
 
-    async def upload_ldap_object(self, object_to_upload, json_key):
+    async def upload_ldap_object(self, object_to_upload, json_key, overwrite=False):
         """
         Accepted json_keys are:
             - 'Employee'
             - a MO address type name
         """
-        logger = structlog.get_logger()
         converter = self.user_context["converter"]
         success = 0
         failed = 0
@@ -103,7 +105,7 @@ class DataLoader:
         object_class = converter.find_ldap_object_class(json_key)
         all_attributes = get_ldap_attributes(self.ldap_connection, object_class)
 
-        logger.info(f"Uploading {object_to_upload}")
+        self.logger.info(f"Uploading {object_to_upload}")
         parameters_to_upload = list(object_to_upload.dict().keys())
 
         # Check if the cpr field is present
@@ -115,9 +117,9 @@ class DataLoader:
                 object_to_upload.dict()[cpr_field], json_key
             )
             dn = existing_object.dn
-            logger.info(f"Found existing object: {dn}")
+            self.logger.info(f"Found existing object: {dn}")
         except NoObjectsReturnedException as e:
-            logger.info(f"Could not find existing object: {e}")
+            self.logger.info(f"Could not find existing object: {e}")
 
             # Note: it is possible that an employee object exists, but that the CPR no.
             # attribute is not set. In that case this function will just set the cpr no.
@@ -135,18 +137,18 @@ class DataLoader:
             value_to_upload = [] if value is None else [value]
 
             single_value = self.attribute_types[parameter_to_upload].single_value
-            if single_value:
+            if single_value or overwrite:
                 changes = {parameter_to_upload: [("MODIFY_REPLACE", value_to_upload)]}
             else:
                 changes = {parameter_to_upload: [("MODIFY_ADD", value_to_upload)]}
 
-            logger.info(f"Uploading the following changes: {changes}")
+            self.logger.info(f"Uploading the following changes: {changes}")
             self.ldap_connection.modify(dn, changes)
             response = self.ldap_connection.result
 
             # If the user does not exist, create him/her/hir
             if response["description"] == "noSuchObject":
-                logger.info(f"Creating {dn}")
+                self.logger.info(f"Creating {dn}")
                 self.ldap_connection.add(dn, object_class)
                 self.ldap_connection.modify(dn, changes)
                 response = self.ldap_connection.result
@@ -155,12 +157,12 @@ class DataLoader:
                 success += 1
             else:
                 failed += 1
-            logger.info(f"Response: {response}")
+            self.logger.info(f"Response: {response}")
 
             results.append(response)
 
-        logger.info(f"Succeeded MODIFY_REPLACE operations: {success}")
-        logger.info(f"Failed MODIFY_REPLACE operations: {failed}")
+        self.logger.info(f"Succeeded MODIFY_* operations: {success}")
+        self.logger.info(f"Failed MODIFY_* operations: {failed}")
         return results
 
     def make_overview_entry(self, attributes, superiors):
@@ -261,6 +263,13 @@ class DataLoader:
         return output
 
     async def load_mo_address(self, uuid: UUID) -> tuple[Address, dict]:
+        """
+        Loads a mo address
+
+        Notes
+        ---------
+        Only returns addresses which are valid today. Meaning the to/from date is valid.
+        """
 
         graphql_session: AsyncClientSession = self.user_context["gql_client"]
         query = gql(
@@ -287,7 +296,15 @@ class DataLoader:
             % (uuid)
         )
 
+        self.logger.info(f"Loading address={uuid}")
         result = await graphql_session.execute(query)
+        if len(result["addresses"]) == 0:
+            raise NoObjectsReturnedException(
+                (
+                    "No valid address found. "
+                    "The uuid does not exist, or belongs to a future/past address"
+                )
+            )
         entry = result["addresses"][0]["objects"][0]
 
         address = Address.from_simplified_fields(
@@ -306,6 +323,37 @@ class DataLoader:
         }
 
         return (address, address_metadata)
+
+    async def load_mo_employee_addresses(self, employee_uuid, address_type_uuid):
+        """
+        Loads all addresses of a specific type for an employee
+        """
+        graphql_session: AsyncClientSession = self.user_context["gql_client"]
+        query = gql(
+            """
+            query GetEmployeeAddresses {
+              employees(uuids: "%s") {
+                objects {
+                  addresses(address_types: "%s") {
+                    uuid
+                  }
+                }
+              }
+            }
+            """
+            % (employee_uuid, address_type_uuid)
+        )
+
+        result = await graphql_session.execute(query)
+        address_uuids = [
+            d["uuid"] for d in result["employees"][0]["objects"][0]["addresses"]
+        ]
+
+        output = []
+        for address_uuid in address_uuids:
+            mo_address = await self.load_mo_address(address_uuid)
+            output.append(mo_address)
+        return output
 
     async def upload_mo_objects(self, objects: list[Any]):
         """
