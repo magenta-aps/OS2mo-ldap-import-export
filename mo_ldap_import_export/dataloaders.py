@@ -34,6 +34,15 @@ class DataLoader:
         self.ldap_connection = self.user_context["ldap_connection"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
 
+    def load_ldap_object(self, dn, attributes):
+        searchParameters = {
+            "search_base": dn,
+            "search_filter": "(objectclass=*)",
+            "attributes": attributes,
+        }
+        search_result = single_object_search(searchParameters, self.ldap_connection)
+        return make_ldap_object(search_result, self.context)
+
     async def load_ldap_cpr_object(self, cpr_no: str, json_key: str) -> LdapObject:
         """
         Loads an ldap object which can be found using a cpr number lookup
@@ -42,7 +51,6 @@ class DataLoader:
             - 'Employee'
             - a MO address type name
         """
-        ldap_connection = self.user_context["ldap_connection"]
         cpr_field = self.user_context["cpr_field"]
         settings = self.user_context["settings"]
 
@@ -60,12 +68,52 @@ class DataLoader:
             "search_filter": f"(&({object_class_filter})({cpr_filter}))",
             "attributes": attributes,
         }
-        search_result = single_object_search(searchParameters, ldap_connection)
+        search_result = single_object_search(searchParameters, self.ldap_connection)
 
         ldap_object: LdapObject = make_ldap_object(search_result, self.context)
         self.logger.info(f"Found {ldap_object.dn}")
 
         return ldap_object
+
+    def cleanup_attributes_in_ldap(self, ldap_objects: list[LdapObject], json_key: str):
+        """
+        Deletes the values belonging to the attributes in the given ldap objects.
+
+        Notes
+        ----------
+        Only removes attribute values if there are still remaining values belonging to
+        the attribute. This function will not erase an attribute or its values entirely
+        """
+        for ldap_object in ldap_objects:
+            self.logger.info(f"Cleaning up attributes from {ldap_object.dn}")
+            attributes_to_clean = [
+                a
+                for a in ldap_object.dict().keys()
+                if a != "dn" and not self.attribute_types[a].single_value
+            ]
+            dn = ldap_object.dn
+            for attribute in attributes_to_clean:
+                value_to_delete = ldap_object.dict()[attribute]
+                self.logger.info(f"Cleaning {value_to_delete} from '{attribute}'")
+
+                # Load current values for this attribute
+                ldap_object = self.load_ldap_object(dn, [attribute])
+                current_values = ldap_object.dict()[attribute]
+
+                if type(current_values) is not list:
+                    raise Exception(
+                        (
+                            "Something is wrong... Attribute values"
+                            " with single_value=False should always be lists"
+                        )
+                    )
+
+                # Never remove the only remaining value.
+                if len(current_values) > 1:
+                    changes = {attribute: [("MODIFY_DELETE", value_to_delete)]}
+                    self.ldap_connection.modify(dn, changes)
+                    response = self.ldap_connection.result
+                    self.logger.info(f"Response: {response}")
 
     async def load_ldap_objects(self, json_key: str) -> list[LdapObject]:
         """

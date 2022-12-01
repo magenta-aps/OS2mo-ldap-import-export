@@ -203,7 +203,8 @@ def single_object_search(searchParameters, ldap_connection):
     Notes
     ------
     If you want to be 100% sure that the search only returns one result; Supply an
-    object's dn (distinguished name) as the search base.
+    object's dn (distinguished name) as the search base and set
+    searchFilter = "(objectclass=*)"
     """
     ldap_connection.search(**searchParameters)
     response = ldap_connection.response

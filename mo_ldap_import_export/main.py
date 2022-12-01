@@ -94,24 +94,25 @@ async def listen_to_changes_in_employees(
         changed_address, meta_info = await dataloader.load_mo_address(
             payload.object_uuid
         )
-        address_type = meta_info["address_type_name"]
+        address_type = json_key = meta_info["address_type_name"]
 
         logger.info(f"Obtained address type = {address_type}")
 
         # Convert to LDAP
         mo_object_dict["mo_address"] = changed_address
-        ldap_address = converter.to_ldap(mo_object_dict, address_type)
 
         # Upload to LDAP
-        await dataloader.upload_ldap_object(ldap_address, address_type)
+        await dataloader.upload_ldap_object(
+            converter.to_ldap(mo_object_dict, json_key), json_key
+        )
 
         # Get all addresses for this user in LDAP
-        result = await dataloader.load_ldap_cpr_object(
-            changed_employee.cpr_no, address_type
+        loaded_ldap_address = await dataloader.load_ldap_cpr_object(
+            changed_employee.cpr_no, json_key
         )
 
         # Convert to MO so the two are easy to compare
-        addresses_in_ldap = converter.from_ldap(result, address_type)
+        addresses_in_ldap = converter.from_ldap(loaded_ldap_address, json_key)
 
         # Get all CURRENT addresses of this type for this user from MO
         addresses_in_mo = await dataloader.load_mo_employee_addresses(
@@ -119,14 +120,27 @@ async def listen_to_changes_in_employees(
         )
 
         # Format as lists
-        address_values_in_ldap = [a.value for a in addresses_in_ldap]
-        address_values_in_mo = [a[0].value for a in addresses_in_mo]
+        address_values_in_ldap = sorted([a.value for a in addresses_in_ldap])
+        address_values_in_mo = sorted([a[0].value for a in addresses_in_mo])
 
-        # Delete from LDAP as needed
-        logger.info(
-            f"Obtained the following addresses from LDAP: {address_values_in_ldap}"
-        )
-        logger.info(f"Obtained the following addresses from MO: {address_values_in_mo}")
+        logger.info(f"Found the following addresses in LDAP: {address_values_in_ldap}")
+        logger.info(f"Found the following addresses in MO: {address_values_in_mo}")
+
+        # Clean from LDAP as needed
+        ldap_addresses_to_clean = []
+        for address in addresses_in_ldap:
+            if address.value not in address_values_in_mo:
+                ldap_addresses_to_clean.append(
+                    converter.to_ldap(
+                        {
+                            "mo_employee": changed_employee,
+                            "mo_address": address,
+                        },
+                        json_key,
+                        dn=loaded_ldap_address.dn,
+                    )
+                )
+        dataloader.cleanup_attributes_in_ldap(ldap_addresses_to_clean, json_key)
 
 
 @asynccontextmanager

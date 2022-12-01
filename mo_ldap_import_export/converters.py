@@ -272,7 +272,7 @@ class LdapConverter:
                 mapping[key] = self._populate_mapping_with_templates(value, environment)
         return mapping
 
-    def to_ldap(self, mo_object_dict: dict, json_key: str) -> LdapObject:
+    def to_ldap(self, mo_object_dict: dict, json_key: str, dn=None) -> LdapObject:
         """
         mo_object_dict : dict
             dict with mo objects to convert. for example:
@@ -310,10 +310,11 @@ class LdapConverter:
         cpr_no = mo_employee_object.cpr_no or ""
         ldap_organizational_unit = self.settings.ldap_organizational_unit
 
-        cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
-        ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
-        dc = self.settings.ldap_search_base  # Domain Component
-        dn = ",".join([cn, ou, dc])  # Distinguished Name
+        if not dn:
+            cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
+            ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
+            dc = self.settings.ldap_search_base  # Domain Component
+            dn = ",".join([cn, ou, dc])  # Distinguished Name
         ldap_object["dn"] = dn
 
         return LdapObject(**ldap_object)
