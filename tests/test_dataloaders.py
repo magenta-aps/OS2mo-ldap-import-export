@@ -25,7 +25,12 @@ from mo_ldap_import_export.exceptions import CprNoNotFound
 
 @pytest.fixture()
 def ldap_attributes() -> dict:
-    return {"department": None, "name": "John", "employeeID": "0101011234"}
+    return {
+        "department": None,
+        "name": "John",
+        "employeeID": "0101011234",
+        "postalAddress": "foo",
+    }
 
 
 @pytest.fixture
@@ -121,6 +126,7 @@ def get_attribute_types() -> dict:
         "department": MagicMock(),
         "name": MagicMock(),
         "employeeID": MagicMock(),
+        "postalAddress": MagicMock(),
     }
 
 
@@ -193,7 +199,7 @@ async def test_modify_ldap_employee(
     employee = LdapObject(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
         cpr="0101011234",
-        **ldap_attributes
+        **ldap_attributes,
     )
 
     bad_response = {
@@ -265,7 +271,7 @@ async def test_create_invalid_ldap_employee(
 
     employee = LdapObject(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        **ldap_attributes_without_cpr_field
+        **ldap_attributes_without_cpr_field,
     )
 
     # Get result from dataloader
@@ -276,6 +282,30 @@ async def test_create_invalid_ldap_employee(
     except CprNoNotFound as e:
         assert e.status_code == 404
         assert type(e) == CprNoNotFound
+
+
+async def test_append_data_to_ldap_object(
+    ldap_connection: MagicMock,
+    dataloader: DataLoader,
+    ldap_attributes: dict,
+    cpr_field: str,
+):
+
+    address = LdapObject(
+        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
+        postalAddress="foo",
+        **{cpr_field: "123"},
+    )
+
+    dataloader.single_value = {"postalAddress": False, cpr_field: True}
+
+    await asyncio.gather(
+        dataloader.upload_ldap_object(address, "user"),
+    )
+
+    changes = {"postalAddress": [("MODIFY_ADD", "foo")]}
+    dn = address.dn
+    assert ldap_connection.modify.called_once_with(dn, changes)
 
 
 async def test_create_ldap_employee(
@@ -494,3 +524,30 @@ def test_load_ldap_object(dataloader: DataLoader):
         dn = "CN=Nikki Minaj"
         output = dataloader.load_ldap_object(dn, ["foo", "bar"])
         assert output.called_once_with("foo", dataloader.context)
+
+
+def test_cleanup_attributes_in_ldap(dataloader: DataLoader):
+    dataloader.single_value = {"value": False}
+
+    ldap_objects = [
+        # LdapObject(dn="foo", value="New address"),
+        LdapObject(dn="foo", value="Old address"),
+    ]
+
+    with patch(
+        "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_object",
+        return_value=LdapObject(dn="foo", value=["New address", "Old address"]),
+    ):
+        dataloader.cleanup_attributes_in_ldap(ldap_objects)
+
+        changes = {"value": [("MODIFY_DELETE", "Old address")]}
+        assert dataloader.ldap_connection.modify.called_once_with("foo", changes)
+
+    # Simulate impossible case - where the value field of the ldap object on the server
+    # is not a list
+    with patch(
+        "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_object",
+        return_value=LdapObject(dn="foo", value="New address"),
+    ):
+        with pytest.raises(Exception):
+            dataloader.cleanup_attributes_in_ldap(ldap_objects)
