@@ -87,7 +87,7 @@ Each entry in the conversion file _must_ specify:
 * An "objectClass" attribute.
     * MO: Any MO class from ramodels should be acceptable.
     * LDAP: Available LDAP classes and their attributes can be retrieved by calling
-    [GET:Overview][get_overview].
+    [GET:LDAP_overview][get_overview].
 * An attribute that corresponds to the cpr number for the MO or LDAP class.
 * Attributes for all required fields in the MO or LDAP class to be written
 * For LDAP classes: a link to mo_employee.cpr_no must be present.
@@ -134,7 +134,7 @@ MO can contain multiple addresses of the same type for a single user. It is ther
 recommended that the LDAP field corresponding to MO's address value can contain multiple
 values. If this is not the case, the address in LDAP will be overwritten every time a
 new address of an existing type is added in MO. Information about whether an LDAP field
-can contain multiple values can be found by calling [GET:Overview][get_overview].
+can contain multiple values can be found by calling [GET:LDAP_overview][get_overview].
 and inspecting the `single_value` attribute in `["attribute_types"]["{attribute_name}"]`.
 
 An example of an address conversion dict is as follows:
@@ -154,7 +154,7 @@ An example of an address conversion dict is as follows:
 Note the presence of the `mo_employee.cpr_no` field. This field must be present, for the
 application to know who this address belongs to. Furthermore, the `Email` key must be a
 valid MO address type name. MO address types can be retrieved by calling
-[GET:Address types][get_address_types].
+[GET:MO/Address_types][get_address_types].
 
 Converting the other way around can be done as follows:
 
@@ -175,7 +175,7 @@ Converting the other way around can be done as follows:
 Note the uuid in the `address_type` field. This value must be a dict, as specified by
 `ramodels.mo.details.address.Address`. Furthermore the uuid must be a valid address type
 uuid. Valid address type uuids can be obtained by calling
-[GET:Address types][get_address_types].
+[GET:MO/Address_types][get_address_types].
 
 
 #### Filters and globals
