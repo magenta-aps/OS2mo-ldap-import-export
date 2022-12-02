@@ -213,6 +213,28 @@ class LdapConverter:
                     f"'{cpr_field}' attribute not present in mo_to_ldap['{json_key}']"
                 )
 
+            # Check single value fields which map to MO address data.
+            # We like fields which map to MO address data to be multi-value fields,
+            # to avoid data being overwritten if two addresses of the same type are
+            # added in MO
+            detected_single_value_attributes = [
+                a for a in detected_attributes if self.dataloader.single_value[a]
+            ]
+
+            for attribute in detected_single_value_attributes:
+                template = self.mapping["mo_to_ldap"][json_key][attribute]
+                dummy_dict = {"mo_address": {"value": 123}, "mo_employee": None}
+                if template.render(dummy_dict) == "123":
+                    logger.warning(
+                        (
+                            f"[json check] {object_class}['{attribute}'] LDAP "
+                            "attribute cannot contain multiple values. "
+                            "Values in LDAP will be overwritten if "
+                            f"multiple addresses of the '{json_key}' type are "
+                            "added in MO."
+                        )
+                    )
+
         logger.info("[json check] Attributes OK")
 
         return cpr_field

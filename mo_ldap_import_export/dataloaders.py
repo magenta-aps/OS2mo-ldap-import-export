@@ -33,6 +33,9 @@ class DataLoader:
         self.user_context = context["user_context"]
         self.ldap_connection = self.user_context["ldap_connection"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
+        self.single_value = {
+            a: self.attribute_types[a].single_value for a in self.attribute_types.keys()
+        }
 
     def load_ldap_object(self, dn, attributes):
         searchParameters = {
@@ -89,7 +92,7 @@ class DataLoader:
             attributes_to_clean = [
                 a
                 for a in ldap_object.dict().keys()
-                if a != "dn" and not self.attribute_types[a].single_value
+                if a != "dn" and not self.single_value[a]
             ]
             dn = ldap_object.dn
             for attribute in attributes_to_clean:
@@ -184,8 +187,7 @@ class DataLoader:
             value = parameters[parameter_to_upload]
             value_to_upload = [] if value is None else [value]
 
-            single_value = self.attribute_types[parameter_to_upload].single_value
-            if single_value or overwrite:
+            if self.single_value[parameter_to_upload] or overwrite:
                 changes = {parameter_to_upload: [("MODIFY_REPLACE", value_to_upload)]}
             else:
                 changes = {parameter_to_upload: [("MODIFY_ADD", value_to_upload)]}
