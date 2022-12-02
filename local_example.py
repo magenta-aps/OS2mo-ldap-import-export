@@ -193,8 +193,8 @@ for p in list(overview["user"]["attributes"])[:10]:
     print(p)
 print("...]")
 
-print("Here is the attribute type info for the 'department' field:")
-overview["user"]["attribute_types"]["department"]
+print("Here is the attribute type info for the 'postalAddress' field:")
+print(overview["user"]["attribute_types"]["postalAddress"])
 
 print("")
 print("Here are the 'user' attributes which can contain multiple values:")

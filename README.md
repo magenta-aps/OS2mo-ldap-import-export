@@ -135,7 +135,45 @@ recommended that the LDAP field corresponding to MO's address value can contain 
 values. If this is not the case, the address in LDAP will be overwritten every time a
 new address of an existing type is added in MO. Information about whether an LDAP field
 can contain multiple values can be found by calling [GET:LDAP_overview][get_overview].
-and inspecting the `single_value` attribute in `["attribute_types"]["{attribute_name}"]`.
+and inspecting the `single_value` attribute
+in `["{class_name}"]["attribute_types"]["{attribute_name}"]`. For example:
+
+```
+r = requests.get("http://0.0.0.0:8000/LDAP_overview")
+overview = r.json()
+print("Here is the attribute type info for the 'postalAddress' field:")
+print(overview["user"]["attribute_types"]["postalAddress"])
+```
+
+Returns:
+
+```
+>>> {'oid': '2.5.4.16',
+     'name': ['postalAddress'],
+     'description': None,
+     'obsolete': False,
+     'extensions': None,
+     'experimental': None,
+     'raw_definition': "( 2.5.4.16 NAME 'postalAddress' SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )",
+     '_oid_info': None,
+     'superior': None,
+     'equality': None,
+     'ordering': None,
+     'substring': None,
+     'syntax': '1.3.6.1.4.1.1466.115.121.1.15',
+     'min_length': None,
+     'single_value': False,
+     'collective': False,
+     'no_user_modification': False,
+     'usage': None,
+     'mandatory_in': [],
+     'optional_in': ['organizationalUnit',
+      'organizationalPerson',
+      'organization',
+      'residentialPerson',
+      'rFC822LocalPart',
+      'organizationalRole']}
+```
 
 An example of an address conversion dict is as follows:
 
