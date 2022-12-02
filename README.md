@@ -16,7 +16,7 @@ You can use the flags `-vx` where `v` prints the test & `x` makes the test stop 
 
 You can get the coverage report like this:
 
-`poetry run pytest -s --cov --cov-report term-missing -vv`
+`poetry run pytest -s --cov --cov-report term-missing -vvx`
 
 ### Using the app
 

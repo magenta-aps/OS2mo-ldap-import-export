@@ -10,6 +10,7 @@ import pytest
 from fastramqpi.context import Context
 from ramodels.mo import Employee
 
+from mo_ldap_import_export.converters import find_cpr_field
 from mo_ldap_import_export.converters import LdapConverter
 from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import LdapObject
@@ -255,6 +256,7 @@ def test_find_cpr_field(context: Context) -> None:
         ):
             context["user_context"]["mapping"] = bad_mapping
             converter = LdapConverter(context)
+            find_cpr_field(converter.mapping)
 
     with pytest.raises(IncorrectMapping):
         with patch(
@@ -264,6 +266,7 @@ def test_find_cpr_field(context: Context) -> None:
             # This mapping does not contain the 'Employee' field
             context["user_context"]["mapping"] = {"mo_to_ldap": {}}
             converter = LdapConverter(context)
+            find_cpr_field(converter.mapping)
 
 
 def test_template_lenience(context: Context) -> None:
