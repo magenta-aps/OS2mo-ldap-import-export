@@ -78,7 +78,7 @@ class DataLoader:
 
         return ldap_object
 
-    def cleanup_attributes_in_ldap(self, ldap_objects: list[LdapObject], json_key: str):
+    def cleanup_attributes_in_ldap(self, ldap_objects: list[LdapObject]):
         """
         Deletes the values belonging to the attributes in the given ldap objects.
 
@@ -100,8 +100,9 @@ class DataLoader:
                 self.logger.info(f"Cleaning {value_to_delete} from '{attribute}'")
 
                 # Load current values for this attribute
-                ldap_object = self.load_ldap_object(dn, [attribute])
-                current_values = ldap_object.dict()[attribute]
+                current_values = self.load_ldap_object(dn, [attribute]).dict()[
+                    attribute
+                ]
 
                 if type(current_values) is not list:
                     raise Exception(

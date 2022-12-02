@@ -158,7 +158,7 @@ async def listen_to_changes_in_employees(
                         dn=loaded_ldap_address.dn,
                     )
                 )
-        dataloader.cleanup_attributes_in_ldap(ldap_addresses_to_clean, json_key)
+        dataloader.cleanup_attributes_in_ldap(ldap_addresses_to_clean)
 
 
 @asynccontextmanager
