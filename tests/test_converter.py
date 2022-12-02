@@ -1,6 +1,7 @@
 import copy
 import datetime
 import os.path
+import re
 import uuid
 from typing import Any
 from unittest.mock import MagicMock
@@ -9,6 +10,7 @@ from unittest.mock import patch
 import pytest
 from fastramqpi.context import Context
 from ramodels.mo import Employee
+from structlog.testing import capture_logs
 
 from mo_ldap_import_export.converters import find_cpr_field
 from mo_ldap_import_export.converters import LdapConverter
@@ -62,12 +64,18 @@ def context() -> Context:
     load_mo_address_types = MagicMock()
     load_mo_address_types.return_value = mo_address_types
     dataloader.load_mo_address_types = load_mo_address_types
-
-    overview = {
-        "user": {
-            "attributes": ["givenName", "sn", "displayName", "name", "dn", "employeeID"]
-        }
+    dataloader.single_value = {
+        "givenName": True,
+        "sn": True,
+        "displayName": True,
+        "name": True,
+        "dn": True,
+        "employeeID": True,
+        "postalAddress": False,
+        "mail": True,
     }
+
+    overview = {"user": {"attributes": list(dataloader.single_value.keys())}}
 
     dataloader.load_ldap_overview.return_value = overview
 
@@ -367,11 +375,11 @@ async def test_check_mapping(context: Context):
     context = copy.deepcopy(context)
 
     def initialize_converter():
-        find_cpr_field = MagicMock()
+        # find_cpr_field = MagicMock()
         context["user_context"]["mapping"] = mapping
         with patch(
             "mo_ldap_import_export.converters.find_cpr_field",
-            return_value=find_cpr_field,
+            return_value="employeeID",
         ):
             LdapConverter(context)
 
@@ -420,6 +428,22 @@ async def test_check_mapping(context: Context):
     mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "foo": "bar"}}
     test_exception("attribute 'foo' not allowed")
 
+    # Test cpr field not present
+    mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "name": "bar"}}
+    test_exception("'employeeID' attribute not present")
+
+    # Test single_value field
+    mapping["mo_to_ldap"] = {
+        "Email": {"objectClass": "user", "employeeID": "123", "postalAddress": "123"}
+    }
+    with capture_logs() as cap_logs:
+        initialize_converter()
+        warnings = [w for w in cap_logs if w["log_level"] == "warning"]
+        assert len(warnings) == 1
+        assert re.match(
+            ".*LDAP attribute cannot contain multiple values.*", warnings[0]["event"]
+        )
+
 
 def test_nonejoin(converter: LdapConverter):
     output = converter.nonejoin("foo", "bar", None)
@@ -434,3 +458,15 @@ def test_str_to_dict(converter: LdapConverter):
 def test_filter_strftime(converter: LdapConverter):
     output = converter.filter_strftime(datetime.datetime(2019, 4, 13, 20, 10, 10))
     assert output == "2019-04-13T20:10:10"
+
+
+def test_get_number_of_entries(converter: LdapConverter):
+
+    single_entry_object = LdapObject(dn="foo", value="bar")
+    multi_entry_object = LdapObject(dn="foo", value=["bar", "bar2"])
+
+    output = converter.get_number_of_entries(single_entry_object)
+    assert output == 1
+
+    output = converter.get_number_of_entries(multi_entry_object)
+    assert output == 2
