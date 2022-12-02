@@ -101,7 +101,7 @@ Here, `employeeID` in the resulting LDAP object will be set to the `cpr_no` valu
 The `mo_employee` object will be added to the template context by adding to the `mo_object_dict` in 
 `mo_import_export.main.listen_to_changes_in_employees`.
 
-More advanced template string may be constructed, such as:
+More advanced template strings may be constructed, such as:
 ```
   [...]
   "ldap_to_mo": {
