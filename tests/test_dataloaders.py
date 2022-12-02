@@ -21,6 +21,7 @@ from mo_ldap_import_export.config import Settings
 from mo_ldap_import_export.dataloaders import DataLoader
 from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.exceptions import CprNoNotFound
+from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 
 
 @pytest.fixture()
@@ -473,6 +474,17 @@ async def test_load_mo_address_types(
     assert output == expected_result
 
 
+async def test_load_mo_address_no_valid_addresses(
+    dataloader: DataLoader, gql_client: AsyncMock
+) -> None:
+    uuid = uuid4()
+
+    gql_client.execute.return_value = {"addresses": []}
+
+    with pytest.raises(NoObjectsReturnedException):
+        await asyncio.gather(dataloader.load_mo_address(uuid))
+
+
 async def test_load_mo_address(dataloader: DataLoader, gql_client: AsyncMock) -> None:
 
     uuid = uuid4()
@@ -551,3 +563,39 @@ def test_cleanup_attributes_in_ldap(dataloader: DataLoader):
     ):
         with pytest.raises(Exception):
             dataloader.cleanup_attributes_in_ldap(ldap_objects)
+
+
+async def test_load_mo_employee_addresses(
+    dataloader: DataLoader, gql_client: AsyncMock
+):
+
+    address1_uuid = uuid4()
+    address2_uuid = uuid4()
+
+    gql_client.execute.return_value = {
+        "employees": [
+            {
+                "objects": [
+                    {
+                        "addresses": [
+                            {"uuid": address1_uuid},
+                            {"uuid": address2_uuid},
+                        ]
+                    }
+                ]
+            },
+        ]
+    }
+
+    employee_uuid = uuid4()
+    address_type_uuid = uuid4()
+
+    load_mo_address = AsyncMock()
+    dataloader.load_mo_address = load_mo_address  # type: ignore
+
+    await asyncio.gather(
+        dataloader.load_mo_employee_addresses(employee_uuid, address_type_uuid),
+    )
+
+    load_mo_address.assert_any_call(address1_uuid)
+    load_mo_address.assert_any_call(address2_uuid)
