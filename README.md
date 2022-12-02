@@ -192,7 +192,8 @@ An example of an address conversion dict is as follows:
 Note the presence of the `mo_employee.cpr_no` field. This field must be present, for the
 application to know who this address belongs to. Furthermore, the `Email` key must be a
 valid MO address type name. MO address types can be retrieved by calling
-[GET:MO/Address_types][get_address_types].
+[GET:MO/Address_types][get_address_types]. Finally it is recommended that LDAP's `mail`
+attribute is a multi-value field.
 
 Converting the other way around can be done as follows:
 
