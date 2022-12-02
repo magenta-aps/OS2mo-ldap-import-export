@@ -39,12 +39,21 @@ r = requests.get("http://0.0.0.0:8000/LDAP/all")
 print(r.json()[-2])
 ```
 
-Or you can go to [the swagger documentation](http://localhost:8000/docs) for a more graphic interface
+Or you can go to [the swagger documentation](http://localhost:8000/docs) for a more
+graphic interface
 
 ### Setting up conversion file
 
-The conversion file specifies in json how to map attributes from MO to LDAP and from LDAP to MO,
-and takes the form:
+The conversion dictionary is the heart of the application. New fields can be synchronized
+solely by adding entries to this dictionary, without the need to change code elsewhere.
+
+Currently only MO addresses and employees are supported for conversion. All address types
+are supported.
+
+#### Employee conversion
+
+The conversion file specifies in json how to map attributes from MO to LDAP and from LDAP
+to MO, and takes the form:
 
 ```
 {
@@ -65,27 +74,30 @@ and takes the form:
 }
     
 ```
-Here the "Employee" class is specified to take the class "ramodels.mo.employee.Employee" when creating or 
-updating a MO object, and to take the class "user" when creating or updating an LDAP object.
-If the LDAP schema uses a different name for the employee object class, specify that class here.
+Note that the `Employee` key must always be present in the conversion file.
 
-Other valid names include "Email" and "Postadresse"; any MO class from ramodels should be acceptable.
+Here the `Employee` class is specified to take the class `ramodels.mo.employee.Employee`
+when creating or updating a MO object, and to take the class `user` when creating or
+updating an LDAP object. If the LDAP schema uses a different class for the employee
+object, specify that class here.
 
-Available classes and their attributes can be retrieved by:
-* MO: http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get, 
-* LDAP: http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get 
 
-Each class _must_ specify:
-* An "objectClass" attribute
-* An attribute that corresponds to the primary key name for the MO or LDAP class
+
+Each entry in the conversion file _must_ specify:
+* An "objectClass" attribute.
+    * MO: Any MO class from ramodels should be acceptable.
+    * LDAP: Available LDAP classes and their attributes can be retrieved by calling
+    http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get .
+* An attribute that corresponds to the cpr number for the MO or LDAP class.
 * Attributes for all required fields in the MO or LDAP class to be written
-* For LDAP classes: a link to mo_employee.cpr_no must be present. Otherwise we do not know who the address belongs to.
+* For LDAP classes: a link to mo_employee.cpr_no must be present.
+Otherwise we do not know who the address belongs to.
 
 
 Note that all attributes MUST be accepted by the destination class in MO or LDAP.
 
-Values in the json structure may be normal strings, or a string containing one or more jinja2 templates,
-to be used for extracting values. For example:
+Values in the json structure may be normal strings, or a string containing one or more
+jinja2 templates, to be used for extracting values. For example:
 
 ```
   [...]
@@ -97,9 +109,9 @@ to be used for extracting values. For example:
   }
   [...]
 ```
-Here, `employeeID` in the resulting LDAP object will be set to the `cpr_no` value from the MO object.
-The `mo_employee` object will be added to the template context by adding to the `mo_object_dict` in 
-`mo_import_export.main.listen_to_changes_in_employees`.
+Here, `employeeID` in the resulting LDAP object will be set to the `cpr_no` value from
+the MO object. The `mo_employee` object will be added to the template context by adding
+to the `mo_object_dict` in `mo_import_export.main.listen_to_changes_in_employees`.
 
 More advanced template strings may be constructed, such as:
 ```
@@ -112,9 +124,62 @@ More advanced template strings may be constructed, such as:
   }
   [...]
 ```
-Here, the MO object's `givenname` attribute will be set to the givenName attribute from LDAP,
-if it exists, or if it does not, to the name attribute modified to be split by the last space and 
-using the first part of the result.
+Here, the MO object's `givenname` attribute will be set to the givenName attribute from
+LDAP, if it exists, or if it does not, to the name attribute modified to be split by the
+last space and using the first part of the result.
+
+#### Address conversion
+
+MO can contain multiple addresses of the same type for a single user. It is therefore
+recommended that the LDAP field corresponding to MO's address value can contain multiple
+values. If this is not the case, the address in LDAP will be overwritten every time a
+new address of an existing type is added in MO. Information about whether an LDAP field
+can contain multiple values can be found by calling
+http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get .
+and inspecting the `single_field` parameter in `attribute_types`.
+
+An example of an address conversion dict is as follows:
+
+```
+  [...]
+  "mo_to_ldap": {
+    "Email": {
+      "objectClass": "user",
+      "mail": "{{mo_address.value}}",
+      "employeeID": "{{mo_employee.cpr_no}}"
+    }
+  }
+  [...]
+```
+
+Note the presence of the `mo_employee.cpr_no` field. This field must be present, for the
+application to know who this address belongs to. Furthermore, the `Email` key must be a
+valid MO address type name. MO address types can be retrieved by calling
+http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get .
+
+Converting the other way around can be done as follows:
+
+```
+  [...]
+  "ldap_to_mo": {
+    "Email": {
+      "objectClass": "ramodels.mo.details.address.Address",
+      "value": "{{ldap.mail or None}}",
+      "type": "address",
+      "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|strftime) }}",
+      "address_type": "{{ dict(uuid='f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
+    },
+  }
+  [...]
+```
+
+Note the uuid in the `address_type` field. This value must be a dict, as specified by
+`ramodels.mo.details.address.Address`. Furthermore the uuid must be a valid address type
+uuid. Valid address type uuids can be obtained by calling
+http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get .
+
+
+#### Filters and globals
 
 In addition to the [Jinja2's builtin filters](https://jinja.palletsprojects.com/en/3.1.x/templates/#builtin-filters),
 the following filters are available:
@@ -138,4 +203,3 @@ These are called using the normal function call syntax:
   (`None`, `""`, `0`, `False`, `{}` or `[]`)
 * `now`: Returns current datetime
 
-Note: dette kan godt implementeres med et almindeligt filter
