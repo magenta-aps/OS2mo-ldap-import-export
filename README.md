@@ -136,7 +136,7 @@ values. If this is not the case, the address in LDAP will be overwritten every t
 new address of an existing type is added in MO. Information about whether an LDAP field
 can contain multiple values can be found by calling
 http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get .
-and inspecting the `single_field` parameter in `attribute_types`.
+and inspecting the `single_value` attribute in `["attribute_types"]["{attribute_name}"]`.
 
 An example of an address conversion dict is as follows:
 
