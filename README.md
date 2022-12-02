@@ -71,7 +71,7 @@ If the LDAP schema uses a different name for the employee object class, specify 
 
 Other valid names include "Email" and "Postadresse"; any MO class from ramodels should be acceptable.
 
-Available classes can be retrived by:
+Available classes and their attributes can be retrieved by:
 * MO: http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get, 
 * LDAP: http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get 
 
