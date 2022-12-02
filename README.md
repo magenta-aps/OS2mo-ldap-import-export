@@ -39,7 +39,7 @@ r = requests.get("http://0.0.0.0:8000/LDAP/all")
 print(r.json()[-2])
 ```
 
-Or you can go to [the swagger documentation](http://localhost:8000/docs) for a more
+Or you can go to [the swagger documentation][swagger] for a more
 graphic interface
 
 ### Setting up conversion file
@@ -87,7 +87,7 @@ Each entry in the conversion file _must_ specify:
 * An "objectClass" attribute.
     * MO: Any MO class from ramodels should be acceptable.
     * LDAP: Available LDAP classes and their attributes can be retrieved by calling
-    http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get .
+    [GET:Overview][get_overview].
 * An attribute that corresponds to the cpr number for the MO or LDAP class.
 * Attributes for all required fields in the MO or LDAP class to be written
 * For LDAP classes: a link to mo_employee.cpr_no must be present.
@@ -134,8 +134,7 @@ MO can contain multiple addresses of the same type for a single user. It is ther
 recommended that the LDAP field corresponding to MO's address value can contain multiple
 values. If this is not the case, the address in LDAP will be overwritten every time a
 new address of an existing type is added in MO. Information about whether an LDAP field
-can contain multiple values can be found by calling
-http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get .
+can contain multiple values can be found by calling [GET:Overview][get_overview].
 and inspecting the `single_value` attribute in `["attribute_types"]["{attribute_name}"]`.
 
 An example of an address conversion dict is as follows:
@@ -155,7 +154,7 @@ An example of an address conversion dict is as follows:
 Note the presence of the `mo_employee.cpr_no` field. This field must be present, for the
 application to know who this address belongs to. Furthermore, the `Email` key must be a
 valid MO address type name. MO address types can be retrieved by calling
-http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get .
+[GET:Address types][get_address_types].
 
 Converting the other way around can be done as follows:
 
@@ -176,12 +175,12 @@ Converting the other way around can be done as follows:
 Note the uuid in the `address_type` field. This value must be a dict, as specified by
 `ramodels.mo.details.address.Address`. Furthermore the uuid must be a valid address type
 uuid. Valid address type uuids can be obtained by calling
-http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get .
+[GET:Address types][get_address_types].
 
 
 #### Filters and globals
 
-In addition to the [Jinja2's builtin filters](https://jinja.palletsprojects.com/en/3.1.x/templates/#builtin-filters),
+In addition to the [Jinja2's builtin filters][jinja2_filters],
 the following filters are available:
 
 * `splitfirst`: Splits a string at the first space, returning two elements
@@ -203,3 +202,7 @@ These are called using the normal function call syntax:
   (`None`, `""`, `0`, `False`, `{}` or `[]`)
 * `now`: Returns current datetime
 
+[swagger]:http://localhost:8000/docs
+[get_overview]:http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get
+[get_address_types]:http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get
+[jinja2_filters]:https://jinja.palletsprojects.com/en/3.1.x/templates/#builtin-filters
