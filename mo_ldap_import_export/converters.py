@@ -84,8 +84,7 @@ class LdapConverter:
             environment,
         )
 
-        self.check_mapping()
-        self.cpr_field = find_cpr_field(mapping)
+        self.cpr_field = self.check_mapping()
 
     def find_object_class(self, json_key, conversion):
         mapping = self.raw_mapping[conversion]
@@ -196,8 +195,9 @@ class LdapConverter:
 
         # check that the LDAP attributes match what is available in LDAP
         overview = self.dataloader.load_ldap_overview()
+        cpr_field = find_cpr_field(self.mapping)
         for json_key in mo_to_ldap_json_keys:
-            logger.info(f"[json check] checking mo_to_ldap[{json_key}]")
+            logger.info(f"[json check] checking mo_to_ldap['{json_key}']")
 
             object_class = self.find_ldap_object_class(json_key)
 
@@ -206,7 +206,16 @@ class LdapConverter:
 
             self.check_attributes(detected_attributes, accepted_attributes)
 
+            # Check that the CPR field is present. Otherwise we do not know who an
+            # Address/Employee belongs to.
+            if cpr_field not in detected_attributes:
+                raise IncorrectMapping(
+                    f"'{cpr_field}' attribute not present in mo_to_ldap['{json_key}']"
+                )
+
         logger.info("[json check] Attributes OK")
+
+        return cpr_field
 
     @staticmethod
     def filter_splitfirst(text):
