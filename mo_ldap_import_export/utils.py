@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 #
 # SPDX-License-Identifier: MPL-2.0
-# # https://stackoverflow.com/questions/547829/how-to-dynamically-load-a-python-class
+# https://stackoverflow.com/questions/547829/how-to-dynamically-load-a-python-class
 def import_class(name):
     components = name.split(".")
     mod = __import__(components[0])

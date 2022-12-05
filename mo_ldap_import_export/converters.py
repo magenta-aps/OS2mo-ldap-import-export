@@ -38,7 +38,7 @@ def find_cpr_field(mapping):
     logger = structlog.get_logger()
     mo_to_ldap = mapping["mo_to_ldap"]
     try:
-        Employee_mapping = mo_to_ldap["Employee"]
+        employee_mapping = mo_to_ldap["Employee"]
     except KeyError:
         raise IncorrectMapping("Missing 'Employee' in mapping 'mo_to_ldap'")
 
@@ -48,7 +48,7 @@ def find_cpr_field(mapping):
 
     mo_dict = {search_field: search_result}
     cpr_field = None
-    for ldap_field_name, template in Employee_mapping.items():
+    for ldap_field_name, template in employee_mapping.items():
         value = template.render({"mo_employee": mo_dict}).strip()
 
         if value == search_result:
@@ -127,6 +127,12 @@ class LdapConverter:
         return accepted_json_keys
 
     def check_mapping(self):
+        """
+        Returns
+        -----------
+        cpr_field : str
+            LDAP field which contains the CPR number
+        """
         logger = structlog.get_logger()
         logger.info("[json check] Checking json file")
 
@@ -179,6 +185,7 @@ class LdapConverter:
 
             accepted_attributes = list(mo_class.schema()["properties"].keys())
             detected_attributes = self.get_mo_attributes(json_key)
+            self.check_attributes(detected_attributes, accepted_attributes)
             if "required" in mo_class.schema().keys():
                 required_attributes = mo_class.schema()["required"]
                 for attribute in required_attributes:
@@ -191,8 +198,6 @@ class LdapConverter:
                             )
                         )
 
-            self.check_attributes(detected_attributes, accepted_attributes)
-
         # check that the LDAP attributes match what is available in LDAP
         overview = self.dataloader.load_ldap_overview()
         cpr_field = find_cpr_field(self.mapping)
@@ -203,7 +208,6 @@ class LdapConverter:
 
             accepted_attributes = overview[object_class]["attributes"]
             detected_attributes = self.get_ldap_attributes(json_key)
-
             self.check_attributes(detected_attributes, accepted_attributes)
 
             # Check that the CPR field is present. Otherwise we do not know who an
@@ -307,8 +311,10 @@ class LdapConverter:
         """
         mo_object_dict : dict
             dict with mo objects to convert. for example:
-                {'mo_employee': Empoyee,
+                {'mo_employee': Employee,
                  'mo_address': Address}
+
+            Where Employee and Address are imported from ramodels.
 
         json_key : str
             Key to look for in the mapping dict. For example:
@@ -334,14 +340,14 @@ class LdapConverter:
             rendered_item = template.render(mo_object_dict)
             ldap_object[ldap_field_name] = rendered_item
 
-        mo_employee_object = mo_object_dict["mo_employee"]
-
-        givenname = mo_employee_object.givenname
-        surname = mo_employee_object.surname
-        cpr_no = mo_employee_object.cpr_no or ""
-        ldap_organizational_unit = self.settings.ldap_organizational_unit
-
         if not dn:
+            mo_employee_object = mo_object_dict["mo_employee"]
+
+            givenname = mo_employee_object.givenname
+            surname = mo_employee_object.surname
+            cpr_no = mo_employee_object.cpr_no or ""
+            ldap_organizational_unit = self.settings.ldap_organizational_unit
+
             cn = f"CN={givenname} {surname} - {cpr_no}"  # Common Name
             ou = f"OU=Users,{ldap_organizational_unit}"  # Org. Unit
             dc = self.settings.ldap_search_base  # Domain Component

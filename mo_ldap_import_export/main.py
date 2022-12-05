@@ -122,7 +122,8 @@ async def listen_to_changes_in_employees(
             converter.to_ldap(mo_object_dict, json_key), json_key
         )
 
-        # Get all addresses for this user in LDAP
+        # Get all addresses for this user in LDAP (note that LDAP can contain multiple
+        # addresses in one object.)
         loaded_ldap_address = await dataloader.load_ldap_cpr_object(
             changed_employee.cpr_no, json_key
         )

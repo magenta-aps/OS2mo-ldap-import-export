@@ -199,7 +199,6 @@ async def test_modify_ldap_employee(
 
     employee = LdapObject(
         dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        cpr="0101011234",
         **ldap_attributes,
     )
 

@@ -155,7 +155,6 @@ class DataLoader:
         cpr_field = self.user_context["cpr_field"]
 
         object_class = converter.find_ldap_object_class(json_key)
-        all_attributes = get_ldap_attributes(self.ldap_connection, object_class)
 
         self.logger.info(f"Uploading {object_to_upload}")
         parameters_to_upload = list(object_to_upload.dict().keys())
@@ -178,14 +177,11 @@ class DataLoader:
             # attribute in LDAP.
             dn = object_to_upload.dn
 
-        parameters_to_upload = [
-            p for p in parameters_to_upload if p != "dn" and p in all_attributes
-        ]
+        parameters_to_upload = [p for p in parameters_to_upload if p != "dn"]
         results = []
-        parameters = object_to_upload.dict()
 
         for parameter_to_upload in parameters_to_upload:
-            value = parameters[parameter_to_upload]
+            value = object_to_upload.dict()[parameter_to_upload]
             value_to_upload = [] if value is None else [value]
 
             if self.single_value[parameter_to_upload] or overwrite:
@@ -199,7 +195,7 @@ class DataLoader:
 
             # If the user does not exist, create him/her/hir
             if response["description"] == "noSuchObject":
-                self.logger.info(f"Creating {dn}")
+                self.logger.info(f"Received 'noSuchObject' response. Creating {dn}")
                 self.ldap_connection.add(dn, object_class)
                 self.ldap_connection.modify(dn, changes)
                 response = self.ldap_connection.result
@@ -375,7 +371,9 @@ class DataLoader:
 
         return (address, address_metadata)
 
-    async def load_mo_employee_addresses(self, employee_uuid, address_type_uuid):
+    async def load_mo_employee_addresses(
+        self, employee_uuid, address_type_uuid
+    ) -> list[tuple[Address, dict]]:
         """
         Loads all addresses of a specific type for an employee
         """
