@@ -50,7 +50,11 @@ def context() -> Context:
                 "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
                 "dn": "",
                 "employeeID": "{{mo_employee.cpr_no or None}}",
-            }
+            },
+            "Email": {
+                "objectClass": "user",
+                "employeeID": "{{mo_employee.cpr_no or None}}",
+            },
         },
     }
 
@@ -239,7 +243,7 @@ def test_find_cpr_field(context: Context) -> None:
                 "employeeID": "{{mo_employee.cpr_no or None}}",
             }
         },
-        "ldap_to_mo": {},
+        "ldap_to_mo": {"Employee": {"objectClass": "ramodels.mo.employee.Employee"}},
     }
 
     # This mapping does not contain the mo_employee.cpr_no field
@@ -250,6 +254,7 @@ def test_find_cpr_field(context: Context) -> None:
                 "givenName": "{{mo_employee.givenname}}",
             }
         },
+        "ldap_to_mo": {"Employee": {"objectClass": "ramodels.mo.employee.Employee"}},
     }
 
     # Test both cases
@@ -402,10 +407,16 @@ async def test_check_mapping(context: Context):
 
     # Test invalid json keys
     mapping["ldap_to_mo"] = {"Foo": {}}
+    mapping["mo_to_ldap"] = {"Foo": {}}
     test_exception("'Foo' is not a valid key")
 
     # Test no objectClass present
     mapping["ldap_to_mo"] = {
+        "Email": {
+            "value": "foo",
+        }
+    }
+    mapping["mo_to_ldap"] = {
         "Email": {
             "value": "foo",
         }
@@ -419,12 +430,22 @@ async def test_check_mapping(context: Context):
             "value": "foo",
         }
     }
+    mapping["mo_to_ldap"] = {
+        "Email": {
+            "objectClass": "user",
+            "value": "foo",
+        }
+    }
     test_exception(
         "attribute .* is mandatory. The following attributes are mandatory: .*"
     )
 
     # Test invalid ldap object attributes
-    mapping["ldap_to_mo"] = {}
+    mapping["ldap_to_mo"] = {
+        "Employee": {
+            "objectClass": "ramodels.mo.employee.Employee",
+        }
+    }
     mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "foo": "bar"}}
     test_exception("attribute 'foo' not allowed")
 
@@ -436,6 +457,16 @@ async def test_check_mapping(context: Context):
     mapping["mo_to_ldap"] = {
         "Email": {"objectClass": "user", "employeeID": "123", "postalAddress": "123"}
     }
+    mapping["ldap_to_mo"] = {
+        "Email": {
+            "objectClass": "ramodels.mo.details.address.Address",
+            "value": "{{ldap.mail or None}}",
+            "validity": "{{ dict(from_date = ldap.mail_validity_from|strftime) }}",
+            "address_type": (
+                "{{ dict(uuid=" "'f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
+            ),
+        },
+    }
     with capture_logs() as cap_logs:
         initialize_converter()
         warnings = [w for w in cap_logs if w["log_level"] == "warning"]
@@ -443,6 +474,16 @@ async def test_check_mapping(context: Context):
         assert re.match(
             ".*LDAP attribute cannot contain multiple values.*", warnings[0]["event"]
         )
+
+    # Test value in ldap_to_mo not present in mo_to_ldap
+    mapping["ldap_to_mo"] = {"Employee": {}}
+    mapping["mo_to_ldap"] = {}
+    test_exception("Missing key in 'mo_to_ldap'")
+
+    # Test value in mo_to_ldap not present in ldap_to_mo
+    mapping["ldap_to_mo"] = {}
+    mapping["mo_to_ldap"] = {"Employee": {}}
+    test_exception("Missing key in 'ldap_to_mo'")
 
 
 def test_nonejoin(converter: LdapConverter):
