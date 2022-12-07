@@ -118,12 +118,23 @@ class LdapConverter:
                     )
                 )
 
+    def get_json_keys(self, conversion):
+        try:
+            return list(self.mapping[conversion].keys())
+        except KeyError:
+            raise IncorrectMapping(f"Missing key: '{conversion}'")
+
+    def get_ldap_to_mo_json_keys(self):
+        return self.get_json_keys("ldap_to_mo")
+
+    def get_mo_to_ldap_json_keys(self):
+        return self.get_json_keys("mo_to_ldap")
+
     def get_accepted_json_keys(self) -> list[str]:
 
-        mo_address_type_dict = self.dataloader.load_mo_address_types()
-        mo_address_types = list(mo_address_type_dict.values())
-
+        mo_address_types = list(self.dataloader.load_mo_address_types().keys())
         accepted_json_keys = ["Employee"] + mo_address_types
+
         return accepted_json_keys
 
     def check_mapping(self):
@@ -136,15 +147,8 @@ class LdapConverter:
         logger = structlog.get_logger()
         logger.info("[json check] Checking json file")
 
-        try:
-            mo_to_ldap_json_keys = list(self.mapping["mo_to_ldap"].keys())
-        except KeyError:
-            raise IncorrectMapping("Missing key: 'mo_to_ldap'")
-
-        try:
-            ldap_to_mo_json_keys = list(self.mapping["ldap_to_mo"].keys())
-        except KeyError:
-            raise IncorrectMapping("Missing key: 'ldap_to_mo'")
+        mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
+        ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
 
         # Check that all mo_to_ldap keys are also in ldap_to_mo
         for json_key in mo_to_ldap_json_keys:
@@ -249,6 +253,23 @@ class LdapConverter:
                         )
                     )
 
+        # Check that keys which map to ramodels.mo.details.address.Address have scope
+        # Which is NOT equal to 'DAR'. DAR fields can still be present in MO. They can
+        # just not be synchronized by this app.
+
+        # DAR adresses are not accepted for two reasons:
+        #   - DAR does not exist in greenland
+        #   - The DAR UUID is not present in LDAP. And LDAP cannot guarantee that an
+        #     address is in the same format as DAR expects it to be.
+        address_type_info = self.dataloader.load_mo_address_types()
+        for json_key in json_keys:
+            mo_class = self.find_mo_object_class(json_key)
+            if ".Address" in mo_class:
+                if address_type_info[json_key]["scope"] == "DAR":
+                    raise IncorrectMapping(
+                        f"'{json_key}' maps to an address with scope = 'DAR'"
+                    )
+
         logger.info("[json check] Attributes OK")
 
         return cpr_field
@@ -275,6 +296,10 @@ class LdapConverter:
         items_to_join = [a for a in args if a]
         return ", ".join(items_to_join)
 
+    def get_address_type_uuid(self, address_type):
+        address_type_info = self.dataloader.load_mo_address_types()
+        return address_type_info[address_type]["uuid"]
+
     @staticmethod
     def str_to_dict(text):
         """
@@ -287,7 +312,7 @@ class LdapConverter:
         """
         Converts a string to a datestring with today's date
         """
-        return datetime_object.strftime("%Y-%m-%dT%H:%M:%S")
+        return datetime_object.strftime("%Y-%m-%dT00:00:00")
 
     @staticmethod
     def filter_splitlast(text):
@@ -312,6 +337,9 @@ class LdapConverter:
                 mapping[key] = environment.from_string(value)
                 mapping[key].globals["now"] = datetime.datetime.utcnow
                 mapping[key].globals["nonejoin"] = self.nonejoin
+                mapping[key].globals[
+                    "get_address_type_uuid"
+                ] = self.get_address_type_uuid
 
             elif type(value) == dict:
                 mapping[key] = self._populate_mapping_with_templates(value, environment)
@@ -382,7 +410,14 @@ class LdapConverter:
         number_of_entries_in_this_ldap_object = max(n)
         return number_of_entries_in_this_ldap_object
 
-    def from_ldap(self, ldap_object: LdapObject, json_key: str) -> Any:
+    def from_ldap(
+        self, ldap_object: LdapObject, json_key: str, employee_uuid=None
+    ) -> Any:
+        """
+        uuid : UUID
+            Uuid of the employee whom this object belongs to. If None: Generates a new
+            uuid
+        """
 
         # This is how many MO objects we need to return - a MO object can have only
         # One value per field. Not multiple. LDAP objects however, can have multiple
@@ -422,6 +457,14 @@ class LdapConverter:
                     mo_dict[mo_field_name] = value
 
             mo_class: Any = self.import_mo_object_class(json_key)
+
+            if employee_uuid:
+                if json_key == "Employee":
+                    employee_uuid_dict = {"uuid": employee_uuid}
+                else:
+                    employee_uuid_dict = {"person": {"uuid": employee_uuid}}
+
+                mo_dict.update(employee_uuid_dict)
 
             converted_objects.append(mo_class(**mo_dict))
 

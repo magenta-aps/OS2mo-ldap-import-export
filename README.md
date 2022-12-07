@@ -20,7 +20,9 @@ You can get the coverage report like this:
 
 ### Using the app
 
-First create a `docker-compose.override.yml` file based on the
+First make sure that os2mo is up and running.
+
+Then, create a `docker-compose.override.yml` file based on the
 `docker-compose.override.template.yml` file
 
 You can then boot the app like this:
@@ -216,6 +218,12 @@ Note the uuid in the `address_type` field. This value must be a dict, as specifi
 uuid. Valid address type uuids can be obtained by calling
 [GET:MO/Address_types][get_address_types].
 
+
+##### Post Address conversion
+
+For post addresses, it is required to use an address type in MO with `scope` != `DAR`.
+The reason for this is that we cannot expect an LDAP server to have the same address
+format as DAR.
 
 #### Filters and globals
 

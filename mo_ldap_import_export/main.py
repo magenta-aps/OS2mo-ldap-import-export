@@ -2,13 +2,16 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 """Event handling."""
+import datetime
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from functools import wraps
 from typing import Any
 from typing import Literal
 from typing import Tuple
 from uuid import UUID
+from uuid import uuid4
 
 import structlog
 from fastapi import APIRouter
@@ -23,6 +26,7 @@ from ldap3 import Connection
 from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
+from ramodels.mo.details.address import Address
 from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
@@ -33,14 +37,21 @@ from .config import Settings
 from .converters import LdapConverter
 from .converters import read_mapping_json
 from .dataloaders import DataLoader
+from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NotSupportedException
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
 
+# from .exceptions import CprNoNotFound
+# from .exceptions import NoObjectsReturnedException
+
 logger = structlog.get_logger()
 fastapi_router = APIRouter()
 amqp_router = MORouter()
+
+# Dictionary where each function registers if changes should be listened to.
+listen_to_changes: dict[Any, bool] = {}
 
 """
 Employee.schema()
@@ -49,6 +60,18 @@ help(ServiceType)
 help(ObjectType)
 help(RequestType)
 """
+
+
+def skip_if_not_listen_to_changes(func):
+    global listen_to_changes
+
+    async def modified_func(*args, **kwargs):
+        if False in listen_to_changes.values():
+            pass
+        else:
+            await func(*args, **kwargs)
+
+    return modified_func
 
 
 def reject_on_failure(func):
@@ -67,6 +90,7 @@ def reject_on_failure(func):
 
 @amqp_router.register("employee.*.*")
 @reject_on_failure
+@skip_if_not_listen_to_changes
 async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
@@ -142,8 +166,6 @@ async def listen_to_changes_in_employees(
 
         logger.info(f"Found the following addresses in LDAP: {address_values_in_ldap}")
         logger.info(f"Found the following addresses in MO: {address_values_in_mo}")
-        if address_values_in_ldap == address_values_in_mo:
-            logger.info("No synchronization required")
 
         # Clean from LDAP as needed
         ldap_addresses_to_clean = []
@@ -159,7 +181,11 @@ async def listen_to_changes_in_employees(
                         dn=loaded_ldap_address.dn,
                     )
                 )
-        dataloader.cleanup_attributes_in_ldap(ldap_addresses_to_clean)
+
+        if len(ldap_addresses_to_clean) == 0:
+            logger.info("No synchronization required")
+        else:
+            dataloader.cleanup_attributes_in_ldap(ldap_addresses_to_clean)
 
 
 @asynccontextmanager
@@ -269,6 +295,26 @@ def encode_result(result):
     return json_compatible_result
 
 
+def bypass_listen_to_changes(func):
+    """
+    Decorator to skip listen_to_changes function calls
+    """
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        global listen_to_changes
+        try:
+            listen_to_changes[func] = False
+            output = await func(*args, **kwargs)
+            listen_to_changes[func] = True
+        except Exception as e:  # noqa
+            listen_to_changes[func] = True
+            raise e
+        return output
+
+    return wrapper
+
+
 def create_app(**kwargs: Any) -> FastAPI:
     """FastAPI application factory.
 
@@ -286,10 +332,117 @@ def create_app(**kwargs: Any) -> FastAPI:
     dataloader = user_context["dataloader"]
 
     accepted_json_keys = tuple(converter.get_accepted_json_keys())
+    detected_json_keys = converter.get_ldap_to_mo_json_keys()
+
+    def get_address_uuid(lookup_value, address_values_in_mo):
+        for uuid, value in address_values_in_mo.items():
+            if value == lookup_value:
+                return uuid
+
+    # Load all users from LDAP, and import them into MO
+    @app.get("/Import/all", status_code=202, tags=["Import"])
+    @bypass_listen_to_changes
+    async def import_all_objects_from_LDAP() -> Any:
+        all_ldap_objects = await dataloader.load_ldap_objects("Employee")
+        all_cpr_numbers = [o.dict()[converter.cpr_field] for o in all_ldap_objects]
+        # all_cpr_numbers = [a for a in all_cpr_numbers if a][:20]
+        all_cpr_numbers = [a for a in all_cpr_numbers if a]
+        number_of_entries = len(all_cpr_numbers)
+
+        time_deltas = []
+
+        # Maybe asyncio.wait() or asyncio.gather() is faster, but this is more robust
+        # with respect to bypassing listen_to_changes. We need to avoid that info
+        # written to MO is synchronized back to LDAP immediately
+        for counter, cpr in enumerate(set(all_cpr_numbers)):
+            logger.info("=" * 50)
+            logger.info(f"Importing user {counter+1}/{number_of_entries}")
+            logger.info("=" * 50)
+            t1 = datetime.datetime.now()
+            await import_single_user_from_LDAP(cpr)
+            t2 = datetime.datetime.now()
+
+            time_deltas.append((t2 - t1).total_seconds())
+            avg_delta = sum(time_deltas) / len(time_deltas)
+            time_remaining = avg_delta * (number_of_entries - (counter + 1))
+
+            hours = int(time_remaining / 60 / 60)
+            minutes = int(time_remaining / 60 - hours * 60)
+            seconds = time_remaining - minutes * 60 - hours * 60 * 60
+
+            eta = f"{hours:.2f} hours, {minutes:.2f} minutes, {seconds:.2f} seconds"
+            logger.info(f"Time remaining: {eta}\n")
+
+    # Load a single user from LDAP, and import him/her/hir into MO
+    @app.get("/Import/{cpr}", status_code=202, tags=["Import"])
+    @bypass_listen_to_changes
+    async def import_single_user_from_LDAP(cpr: str) -> Any:
+        # Get the employee's uuid (if he exists)
+        employee_uuid = await dataloader.find_mo_employee(cpr)
+        if not employee_uuid:
+            employee_uuid = uuid4()
+
+        # First import the Employee
+        # Then import other objects (which link to the employee)
+        json_keys = ["Employee"] + [k for k in detected_json_keys if k != "Employee"]
+
+        for json_key in json_keys:
+            logger.info(f"Loading {json_key} object")
+            try:
+                loaded_object = await dataloader.load_ldap_cpr_object(cpr, json_key)
+            except MultipleObjectsReturnedException as e:
+                logger.warning(f"Could not upload {json_key} object: {e}")
+                break
+
+            logger.info(f"Loaded {loaded_object.dn}")
+
+            try:
+                converted_objects = converter.from_ldap(
+                    loaded_object, json_key, employee_uuid=employee_uuid
+                )
+            except ValidationError as e:
+                logger.warning(f"Could not upload {loaded_object} object: {e}")
+                continue
+
+            if len(converted_objects) == 0:
+                continue
+
+            if ".Address" in converter.find_mo_object_class(json_key):
+                # Load addresses already in MO
+                addresses_in_mo = await dataloader.load_mo_employee_addresses(
+                    employee_uuid, converted_objects[0].address_type.uuid
+                )
+                address_values_in_mo = {a[0].uuid: a[0].value for a in addresses_in_mo}
+
+                # Set uuid if a matching one is found. so an address gets updated
+                # instead of duplicated
+                converted_objects_uuid_checked = []
+                for converted_object in converted_objects:
+                    if converted_object.value in address_values_in_mo.values():
+                        logger.info(
+                            (
+                                "Found matching MO address with "
+                                f"value='{converted_object.value}'"
+                            )
+                        )
+                        address_uuid = get_address_uuid(
+                            converted_object.value, address_values_in_mo
+                        )
+
+                        address_dict = converted_object.dict()
+                        address_dict["uuid"] = address_uuid
+                        converted_objects_uuid_checked.append(Address(**address_dict))
+                    else:
+                        converted_objects_uuid_checked.append(converted_object)
+
+                converted_objects = converted_objects_uuid_checked
+
+            logger.info(f"Importing {converted_objects}")
+            await dataloader.upload_mo_objects(converted_objects)
 
     # Get all objects from LDAP - Converted to MO
     @app.get("/LDAP/{json_key}/converted", status_code=202, tags=["LDAP"])
-    async def convert_all_org_persons_from_ldap(
+    async def convert_all_objects_from_ldap(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
 
@@ -307,7 +460,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def load_object_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
         cpr: str,
-        request: Request,
     ) -> Any:
 
         result = await dataloader.load_ldap_cpr_object(cpr, json_key)
@@ -318,7 +470,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def convert_object_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
         cpr: str,
-        request: Request,
         response: Response,
     ) -> Any:
 
