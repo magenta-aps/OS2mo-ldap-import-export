@@ -65,6 +65,8 @@ def find_cpr_field(mapping):
 class LdapConverter:
     def __init__(self, context: Context):
 
+        self.logger = structlog.get_logger()
+
         self.context = context
         self.user_context = context["user_context"]
         self.settings = self.user_context["settings"]
@@ -84,7 +86,8 @@ class LdapConverter:
             environment,
         )
 
-        self.cpr_field = self.check_mapping()
+        self.check_mapping()
+        self.cpr_field = find_cpr_field(self.mapping)
 
     def find_object_class(self, json_key, conversion):
         mapping = self.raw_mapping[conversion]
@@ -137,16 +140,7 @@ class LdapConverter:
 
         return accepted_json_keys
 
-    def check_mapping(self):
-        """
-        Returns
-        -----------
-        cpr_field : str
-            LDAP field which contains the CPR number
-        """
-        logger = structlog.get_logger()
-        logger.info("[json check] Checking json file")
-
+    def cross_check_keys(self):
         mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
         ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
 
@@ -160,13 +154,15 @@ class LdapConverter:
             if json_key not in mo_to_ldap_json_keys:
                 raise IncorrectMapping(f"Missing key in 'mo_to_ldap': '{json_key}'")
 
-        json_keys = list(set(mo_to_ldap_json_keys + ldap_to_mo_json_keys))
+    def check_key_validity(self):
+        mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
+        ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
 
+        json_keys = list(set(mo_to_ldap_json_keys + ldap_to_mo_json_keys))
         accepted_json_keys = self.get_accepted_json_keys()
 
-        # Check to make sure that all keys are valid
-        logger.info(f"[json check] Accepted keys: {accepted_json_keys}")
-        logger.info(f"[json check] Detected keys: {json_keys}")
+        self.logger.info(f"[json check] Accepted keys: {accepted_json_keys}")
+        self.logger.info(f"[json check] Detected keys: {json_keys}")
 
         for key in json_keys:
             if key not in accepted_json_keys:
@@ -176,9 +172,9 @@ class LdapConverter:
                         f"Accepted keys are {accepted_json_keys}"
                     )
                 )
-        logger.info("[json check] Keys OK")
+        self.logger.info("[json check] Keys OK")
 
-        # Check that the 'objectClass' key is always present
+    def check_for_objectClass(self):
         for conversion in ["mo_to_ldap", "ldap_to_mo"]:
             for json_key in self.mapping[conversion].keys():
                 if "objectClass" not in list(
@@ -191,9 +187,11 @@ class LdapConverter:
                         )
                     )
 
-        # check that the MO address attributes match the specified class
+    def check_mo_address_attributes(self):
+
+        ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
         for json_key in ldap_to_mo_json_keys:
-            logger.info(f"[json check] checking ldap_to_mo[{json_key}]")
+            self.logger.info(f"[json check] checking ldap_to_mo[{json_key}]")
 
             mo_class = self.import_mo_object_class(json_key)
 
@@ -212,11 +210,13 @@ class LdapConverter:
                             )
                         )
 
-        # check that the LDAP attributes match what is available in LDAP
+    def check_ldap_attributes(self):
+        mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
+
         overview = self.dataloader.load_ldap_overview()
         cpr_field = find_cpr_field(self.mapping)
         for json_key in mo_to_ldap_json_keys:
-            logger.info(f"[json check] checking mo_to_ldap['{json_key}']")
+            self.logger.info(f"[json check] checking mo_to_ldap['{json_key}']")
 
             object_class = self.find_ldap_object_class(json_key)
 
@@ -243,7 +243,7 @@ class LdapConverter:
                 template = self.mapping["mo_to_ldap"][json_key][attribute]
                 dummy_dict = {"mo_address": {"value": 123}, "mo_employee": None}
                 if template.render(dummy_dict) == "123":
-                    logger.warning(
+                    self.logger.warning(
                         (
                             f"[json check] {object_class}['{attribute}'] LDAP "
                             "attribute cannot contain multiple values. "
@@ -253,6 +253,44 @@ class LdapConverter:
                         )
                     )
 
+    def check_dar_scope(self):
+        address_type_info = self.dataloader.load_mo_address_types()
+
+        ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
+
+        for json_key in ldap_to_mo_json_keys:
+            mo_class = self.find_mo_object_class(json_key)
+            if ".Address" in mo_class:
+                if address_type_info[json_key]["scope"] == "DAR":
+                    raise IncorrectMapping(
+                        f"'{json_key}' maps to an address with scope = 'DAR'"
+                    )
+
+    def check_mapping(self):
+        """
+        Returns
+        -----------
+        cpr_field : str
+            LDAP field which contains the CPR number
+        """
+        self.logger.info("[json check] Checking json file")
+
+        # Check that all mo_to_ldap keys are also in ldap_to_mo
+        # Check that all ldap_to_mo keys are also in mo_to_ldap
+        self.cross_check_keys()
+
+        # Check to make sure that all keys are valid
+        self.check_key_validity()
+
+        # Check that the 'objectClass' key is always present
+        self.check_for_objectClass()
+
+        # check that the MO address attributes match the specified class
+        self.check_mo_address_attributes()
+
+        # check that the LDAP attributes match what is available in LDAP
+        self.check_ldap_attributes()
+
         # Check that keys which map to ramodels.mo.details.address.Address have scope
         # Which is NOT equal to 'DAR'. DAR fields can still be present in MO. They can
         # just not be synchronized by this app.
@@ -261,18 +299,9 @@ class LdapConverter:
         #   - DAR does not exist in greenland
         #   - The DAR UUID is not present in LDAP. And LDAP cannot guarantee that an
         #     address is in the same format as DAR expects it to be.
-        address_type_info = self.dataloader.load_mo_address_types()
-        for json_key in json_keys:
-            mo_class = self.find_mo_object_class(json_key)
-            if ".Address" in mo_class:
-                if address_type_info[json_key]["scope"] == "DAR":
-                    raise IncorrectMapping(
-                        f"'{json_key}' maps to an address with scope = 'DAR'"
-                    )
+        self.check_dar_scope()
 
-        logger.info("[json check] Attributes OK")
-
-        return cpr_field
+        self.logger.info("[json check] Attributes OK")
 
     @staticmethod
     def filter_splitfirst(text):
