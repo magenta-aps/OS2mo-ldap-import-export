@@ -9,7 +9,10 @@ from unittest.mock import patch
 
 import pytest
 from fastramqpi.context import Context
+from jinja2 import Environment
+from jinja2 import Undefined
 from ramodels.mo import Employee
+from ramodels.mo.details.address import Address
 from structlog.testing import capture_logs
 
 from mo_ldap_import_export.converters import find_cpr_field
@@ -63,7 +66,10 @@ def context() -> Context:
     settings_mock.ldap_search_base = "bar"
 
     dataloader = MagicMock()
-    mo_address_types = {"uuid1": "Email", "uuid2": "Post"}
+    mo_address_types = {
+        "Email": {"uuid": "uuid1", "scope": "MAIL"},
+        "Post": {"uuid": "uuid2", "scope": "TEXT"},
+    }
 
     load_mo_address_types = MagicMock()
     load_mo_address_types.return_value = mo_address_types
@@ -125,7 +131,9 @@ def test_ldap_to_mo(context: Context) -> None:
 
     assert mail.value == "foo@bar.dk"
     from_date = mail.validity.dict()["from_date"].replace(tzinfo=None)
-    assert from_date == datetime.datetime(2019, 1, 1, 0, 10, 0)
+
+    # Note: Date is always at midnight in MO
+    assert from_date == datetime.datetime(2019, 1, 1, 0, 0, 0)
 
 
 def test_mo_to_ldap(context: Context) -> None:
@@ -375,115 +383,115 @@ def test_get_accepted_json_keys(converter: LdapConverter):
     assert output == ["Employee", "Email", "Post"]
 
 
-async def test_check_mapping(context: Context):
+# async def test_check_mapping(context: Context):
 
-    context = copy.deepcopy(context)
+#     context = copy.deepcopy(context)
 
-    def initialize_converter():
-        # find_cpr_field = MagicMock()
-        context["user_context"]["mapping"] = mapping
-        with patch(
-            "mo_ldap_import_export.converters.find_cpr_field",
-            return_value="employeeID",
-        ):
-            LdapConverter(context)
+#     def initialize_converter():
+#         # find_cpr_field = MagicMock()
+#         context["user_context"]["mapping"] = mapping
+#         with patch(
+#             "mo_ldap_import_export.converters.find_cpr_field",
+#             return_value="employeeID",
+#         ):
+#             LdapConverter(context)
 
-    def test_exception(match):
+#     def test_exception(match):
 
-        with pytest.raises(IncorrectMapping, match=match):
-            initialize_converter()
+#         with pytest.raises(IncorrectMapping, match=match):
+#             initialize_converter()
 
-    # Testing missing mo_to_ldap key
-    mapping: dict = {}
-    test_exception("Missing key: 'mo_to_ldap'")
+#     # Testing missing mo_to_ldap key
+#     mapping: dict = {}
+#     test_exception("Missing key: 'mo_to_ldap'")
 
-    # Testing missing ldap_to_mo key
-    mapping["mo_to_ldap"] = {}
-    test_exception("Missing key: 'ldap_to_mo'")
+#     # Testing missing ldap_to_mo key
+#     mapping["mo_to_ldap"] = {}
+#     test_exception("Missing key: 'ldap_to_mo'")
 
-    # This dict is accepted
-    mapping["ldap_to_mo"] = {}
-    initialize_converter()
+#     # This dict is accepted
+#     mapping["ldap_to_mo"] = {}
+#     initialize_converter()
 
-    # Test invalid json keys
-    mapping["ldap_to_mo"] = {"Foo": {}}
-    mapping["mo_to_ldap"] = {"Foo": {}}
-    test_exception("'Foo' is not a valid key")
+#     # Test invalid json keys
+#     mapping["ldap_to_mo"] = {"Foo": {}}
+#     mapping["mo_to_ldap"] = {"Foo": {}}
+#     test_exception("'Foo' is not a valid key")
 
-    # Test no objectClass present
-    mapping["ldap_to_mo"] = {
-        "Email": {
-            "value": "foo",
-        }
-    }
-    mapping["mo_to_ldap"] = {
-        "Email": {
-            "value": "foo",
-        }
-    }
-    test_exception("'objectClass' key not present")
+#     # Test no objectClass present
+#     mapping["ldap_to_mo"] = {
+#         "Email": {
+#             "value": "foo",
+#         }
+#     }
+#     mapping["mo_to_ldap"] = {
+#         "Email": {
+#             "value": "foo",
+#         }
+#     }
+#     test_exception("'objectClass' key not present")
 
-    # Test invalid mo object attributes
-    mapping["ldap_to_mo"] = {
-        "Email": {
-            "objectClass": "ramodels.mo.details.address.Address",
-            "value": "foo",
-        }
-    }
-    mapping["mo_to_ldap"] = {
-        "Email": {
-            "objectClass": "user",
-            "value": "foo",
-        }
-    }
-    test_exception(
-        "attribute .* is mandatory. The following attributes are mandatory: .*"
-    )
+#     # Test invalid mo object attributes
+#     mapping["ldap_to_mo"] = {
+#         "Email": {
+#             "objectClass": "ramodels.mo.details.address.Address",
+#             "value": "foo",
+#         }
+#     }
+#     mapping["mo_to_ldap"] = {
+#         "Email": {
+#             "objectClass": "user",
+#             "value": "foo",
+#         }
+#     }
+#     test_exception(
+#         "attribute .* is mandatory. The following attributes are mandatory: .*"
+#     )
 
-    # Test invalid ldap object attributes
-    mapping["ldap_to_mo"] = {
-        "Employee": {
-            "objectClass": "ramodels.mo.employee.Employee",
-        }
-    }
-    mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "foo": "bar"}}
-    test_exception("attribute 'foo' not allowed")
+#     # Test invalid ldap object attributes
+#     mapping["ldap_to_mo"] = {
+#         "Employee": {
+#             "objectClass": "ramodels.mo.employee.Employee",
+#         }
+#     }
+#     mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "foo": "bar"}}
+#     test_exception("attribute 'foo' not allowed")
 
-    # Test cpr field not present
-    mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "name": "bar"}}
-    test_exception("'employeeID' attribute not present")
+#     # Test cpr field not present
+#     mapping["mo_to_ldap"] = {"Employee": {"objectClass": "user", "name": "bar"}}
+#     test_exception("'employeeID' attribute not present")
 
-    # Test single_value field
-    mapping["mo_to_ldap"] = {
-        "Email": {"objectClass": "user", "employeeID": "123", "postalAddress": "123"}
-    }
-    mapping["ldap_to_mo"] = {
-        "Email": {
-            "objectClass": "ramodels.mo.details.address.Address",
-            "value": "{{ldap.mail or None}}",
-            "validity": "{{ dict(from_date = ldap.mail_validity_from|strftime) }}",
-            "address_type": (
-                "{{ dict(uuid=" "'f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
-            ),
-        },
-    }
-    with capture_logs() as cap_logs:
-        initialize_converter()
-        warnings = [w for w in cap_logs if w["log_level"] == "warning"]
-        assert len(warnings) == 1
-        assert re.match(
-            ".*LDAP attribute cannot contain multiple values.*", warnings[0]["event"]
-        )
+#     # Test single_value field
+#     mapping["mo_to_ldap"] = {
+#         "Email": {"objectClass": "user", "employeeID": "123", "postalAddress": "123"}
+#     }
+#     mapping["ldap_to_mo"] = {
+#         "Email": {
+#             "objectClass": "ramodels.mo.details.address.Address",
+#             "value": "{{ldap.mail or None}}",
+#             "validity": "{{ dict(from_date = ldap.mail_validity_from|strftime) }}",
+#             "address_type": (
+#                 "{{ dict(uuid=" "'f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
+#             ),
+#         },
+#     }
+#     with capture_logs() as cap_logs:
+#         initialize_converter()
+#         warnings = [w for w in cap_logs if w["log_level"] == "warning"]
+#         assert len(warnings) == 1
+#         assert re.match(
+#             ".*LDAP attribute cannot contain multiple values.*", warnings[0]["event"]
+#         )
 
-    # Test value in ldap_to_mo not present in mo_to_ldap
-    mapping["ldap_to_mo"] = {"Employee": {}}
-    mapping["mo_to_ldap"] = {}
-    test_exception("Missing key in 'mo_to_ldap'")
+#     # Test value in ldap_to_mo not present in mo_to_ldap
+#     mapping["ldap_to_mo"] = {"Employee": {}}
+#     mapping["mo_to_ldap"] = {}
+#     test_exception("Missing key in 'mo_to_ldap'")
 
-    # Test value in mo_to_ldap not present in ldap_to_mo
-    mapping["ldap_to_mo"] = {}
-    mapping["mo_to_ldap"] = {"Employee": {}}
-    test_exception("Missing key in 'ldap_to_mo'")
+#     # Test value in mo_to_ldap not present in ldap_to_mo
+#     mapping["ldap_to_mo"] = {}
+#     mapping["mo_to_ldap"] = {"Employee": {}}
+#     test_exception("Missing key in 'ldap_to_mo'")
 
 
 def test_nonejoin(converter: LdapConverter):
@@ -498,7 +506,8 @@ def test_str_to_dict(converter: LdapConverter):
 
 def test_filter_strftime(converter: LdapConverter):
     output = converter.filter_strftime(datetime.datetime(2019, 4, 13, 20, 10, 10))
-    assert output == "2019-04-13T20:10:10"
+    # Note: Dates are always at midnight in MO
+    assert output == "2019-04-13T00:00:00"
 
 
 def test_get_number_of_entries(converter: LdapConverter):
@@ -511,3 +520,175 @@ def test_get_number_of_entries(converter: LdapConverter):
 
     output = converter.get_number_of_entries(multi_entry_object)
     assert output == 2
+
+
+async def test_cross_check_keys(converter: LdapConverter):
+
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
+        return_value=["foo", "bar"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
+        return_value=["bar"],
+    ):
+        with pytest.raises(IncorrectMapping, match="Missing key in 'ldap_to_mo'"):
+            converter.cross_check_keys()
+
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
+        return_value=["foo"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
+        return_value=["foo", "bar"],
+    ):
+        with pytest.raises(IncorrectMapping, match="Missing key in 'mo_to_ldap'"):
+            converter.cross_check_keys()
+
+
+async def test_check_key_validity(converter: LdapConverter):
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
+        return_value=["foo", "bar"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
+        return_value=["foo", "bar"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_accepted_json_keys",
+        return_value=["foo"],
+    ):
+        with pytest.raises(IncorrectMapping, match="'bar' is not a valid key"):
+            converter.check_key_validity()
+
+
+async def test_check_for_objectClass(converter: LdapConverter):
+    converter.raw_mapping = {
+        "ldap_to_mo": {"foo": {"objectClass": "foo"}},
+        "mo_to_ldap": {"foo": {}},
+    }
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_json_keys",
+        return_value=["foo"],
+    ):
+        with pytest.raises(IncorrectMapping, match="'objectClass' key not present"):
+            converter.check_for_objectClass()
+
+
+async def test_check_mo_attributes(converter: LdapConverter):
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
+        return_value=["foo"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.import_mo_object_class",
+        return_value=Address,
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_mo_attributes",
+        return_value=["value"],
+    ):
+        with pytest.raises(
+            IncorrectMapping,
+            match=(
+                "attribute .* is mandatory. The following attributes are mandatory: .*"
+            ),
+        ):
+            converter.check_mo_attributes()
+
+
+async def test_check_ldap_attributes_cpr_field(converter: LdapConverter):
+
+    dataloader = MagicMock()
+    dataloader.load_ldap_overview.return_value = {
+        "user": {"attributes": ["attr1", "attr2"]}
+    }
+    converter.dataloader = dataloader
+
+    patch(
+        "mo_ldap_import_export.converters.LdapConverter.dataloader.load_ldap_overview",
+        return_value={"user": {"attributes": ["attr1", "attr2"]}},
+    ),
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
+        return_value=["foo"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_attributes",
+        return_value=["attr1", "foo"],
+    ), patch(
+        "mo_ldap_import_export.converters.find_cpr_field",
+        return_value="cpr_field",
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.check_attributes",
+        return_value=None,
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.find_ldap_object_class",
+        return_value="user",
+    ):
+        with pytest.raises(
+            IncorrectMapping,
+            match="'cpr_field' attribute not present",
+        ):
+            converter.check_ldap_attributes()
+
+
+async def test_check_ldap_attributes_single_value_fields(converter: LdapConverter):
+
+    dataloader = MagicMock()
+    dataloader.load_ldap_overview.return_value = {
+        "user": {"attributes": ["attr1", "attr2"]}
+    }
+    dataloader.single_value = {"attr1": True, "cpr_field": False}
+    converter.dataloader = dataloader
+    environment = Environment(undefined=Undefined)
+
+    mapping = {
+        "mo_to_ldap": {
+            "foo": {"attr1": "{{ mo_address.value }}", "cpr_field": "{{ foo }}"}
+        }
+    }
+    converter.mapping = converter._populate_mapping_with_templates(mapping, environment)
+
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
+        return_value=["foo"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_attributes",
+        return_value=["attr1", "cpr_field"],
+    ), patch(
+        "mo_ldap_import_export.converters.find_cpr_field",
+        return_value="cpr_field",
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.check_attributes",
+        return_value=None,
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.find_ldap_object_class",
+        return_value="user",
+    ):
+        with capture_logs() as cap_logs:
+            converter.check_ldap_attributes()
+
+            warnings = [w for w in cap_logs if w["log_level"] == "warning"]
+            assert len(warnings) == 1
+            assert re.match(
+                ".*LDAP attribute cannot contain multiple values.*",
+                warnings[0]["event"],
+            )
+
+
+async def test_check_dar_scope(converter: LdapConverter):
+
+    address_type_info = {"foo": {"scope": "TEXT"}, "bar": {"scope": "DAR"}}
+
+    dataloader = MagicMock()
+    dataloader.load_mo_address_types.return_value = address_type_info
+    converter.dataloader = dataloader
+
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
+        return_value=["foo", "bar"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.find_mo_object_class",
+        return_value="ramodels.mo.details.address.Address",
+    ):
+        with pytest.raises(
+            IncorrectMapping,
+            match="maps to an address with scope = 'DAR'",
+        ):
+            converter.check_dar_scope()

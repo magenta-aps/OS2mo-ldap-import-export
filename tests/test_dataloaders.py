@@ -468,9 +468,8 @@ async def test_load_mo_address_types(
         ]
     }
 
-    expected_result = {uuid: name}
     output = dataloader.load_mo_address_types()
-    assert output == expected_result
+    assert output[name]["uuid"] == uuid
 
 
 async def test_load_mo_address_no_valid_addresses(

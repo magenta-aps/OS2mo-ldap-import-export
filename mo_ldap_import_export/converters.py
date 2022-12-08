@@ -176,7 +176,7 @@ class LdapConverter:
 
     def check_for_objectClass(self):
         for conversion in ["mo_to_ldap", "ldap_to_mo"]:
-            for json_key in self.mapping[conversion].keys():
+            for json_key in self.get_json_keys(conversion):
                 if "objectClass" not in list(
                     self.raw_mapping[conversion][json_key].keys()
                 ):
@@ -187,7 +187,7 @@ class LdapConverter:
                         )
                     )
 
-    def check_mo_address_attributes(self):
+    def check_mo_attributes(self):
 
         ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
         for json_key in ldap_to_mo_json_keys:
@@ -286,7 +286,7 @@ class LdapConverter:
         self.check_for_objectClass()
 
         # check that the MO address attributes match the specified class
-        self.check_mo_address_attributes()
+        self.check_mo_attributes()
 
         # check that the LDAP attributes match what is available in LDAP
         self.check_ldap_attributes()
