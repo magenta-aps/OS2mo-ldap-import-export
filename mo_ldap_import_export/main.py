@@ -69,6 +69,7 @@ def reject_on_failure(func):
         except:  # noqa
             raise RejectMessage()
 
+    modified_func.__wrapped__ = func  # type: ignore
     return modified_func
 
 
@@ -288,6 +289,12 @@ def encode_result(result):
     return json_compatible_result
 
 
+def get_address_uuid(lookup_value, address_values_in_mo):
+    for uuid, value in address_values_in_mo.items():
+        if value == lookup_value:
+            return uuid
+
+
 def create_app(**kwargs: Any) -> FastAPI:
     """FastAPI application factory.
 
@@ -306,11 +313,6 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     accepted_json_keys = tuple(converter.get_accepted_json_keys())
     detected_json_keys = converter.get_ldap_to_mo_json_keys()
-
-    def get_address_uuid(lookup_value, address_values_in_mo):
-        for uuid, value in address_values_in_mo.items():
-            if value == lookup_value:
-                return uuid
 
     # Load all users from LDAP, and import them into MO
     @app.get("/Import/all", status_code=202, tags=["Import"])
