@@ -403,6 +403,7 @@ def create_app(**kwargs: Any) -> FastAPI:
 
                         address_dict = converted_object.dict()
                         address_dict["uuid"] = address_uuid
+                        address_dict["user_key"] = str(address_uuid)
                         converted_objects_uuid_checked.append(Address(**address_dict))
                     else:
                         converted_objects_uuid_checked.append(converted_object)
