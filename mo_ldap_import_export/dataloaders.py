@@ -264,7 +264,7 @@ class DataLoader:
 
         return output
 
-    async def find_mo_employee(self, cpr_no: str) -> Union[None, UUID]:
+    async def find_mo_employee_uuid(self, cpr_no: str) -> Union[None, UUID]:
         graphql_session: AsyncClientSession = self.user_context["gql_client"]
 
         query = gql(

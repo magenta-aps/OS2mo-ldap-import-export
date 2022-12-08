@@ -2,11 +2,9 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 """Event handling."""
-import datetime
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from functools import wraps
 from typing import Any
 from typing import Literal
 from typing import Tuple
@@ -32,6 +30,7 @@ from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
 from ramqp.mo.models import RequestType
 from ramqp.utils import RejectMessage
+from tqdm import tqdm
 
 from .config import Settings
 from .converters import LdapConverter
@@ -43,15 +42,9 @@ from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
 
-# from .exceptions import CprNoNotFound
-# from .exceptions import NoObjectsReturnedException
-
 logger = structlog.get_logger()
 fastapi_router = APIRouter()
 amqp_router = MORouter()
-
-# Dictionary where each function registers if changes should be listened to.
-listen_to_changes: dict[Any, bool] = {}
 
 """
 Employee.schema()
@@ -61,17 +54,8 @@ help(ObjectType)
 help(RequestType)
 """
 
-
-def skip_if_not_listen_to_changes(func):
-    global listen_to_changes
-
-    async def modified_func(*args, **kwargs):
-        if False in listen_to_changes.values():
-            pass
-        else:
-            await func(*args, **kwargs)
-
-    return modified_func
+# UUIDs in this list will be ignored by listen_to_changes ONCE
+uuids_to_ignore: list[UUID] = []
 
 
 def reject_on_failure(func):
@@ -90,15 +74,24 @@ def reject_on_failure(func):
 
 @amqp_router.register("employee.*.*")
 @reject_on_failure
-@skip_if_not_listen_to_changes
 async def listen_to_changes_in_employees(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
 
+    global uuids_to_ignore
+
+    # If the object was uploaded by us, it does not need to be synchronized.
+    if payload.object_uuid in uuids_to_ignore:
+        logger.info(f"[listen_to_changes] Ignoring {payload.object_uuid}")
+
+        # Remove uuid so it does not get ignored twice.
+        uuids_to_ignore.remove(payload.object_uuid)
+        return None
+
     routing_key = kwargs["mo_routing_key"]
     logger.info("[MO] Registered change in the employee model")
     logger.info(f"[MO] Routing key: {routing_key}")
-    logger.info(f"Payload: {payload}")
+    logger.info(f"[MO] Payload: {payload}")
 
     # TODO: Add support for deleting users / fields from LDAP
     if routing_key.request_type == RequestType.TERMINATE:
@@ -295,26 +288,6 @@ def encode_result(result):
     return json_compatible_result
 
 
-def bypass_listen_to_changes(func):
-    """
-    Decorator to skip listen_to_changes function calls
-    """
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        global listen_to_changes
-        try:
-            listen_to_changes[func] = False
-            output = await func(*args, **kwargs)
-            listen_to_changes[func] = True
-        except Exception as e:  # noqa
-            listen_to_changes[func] = True
-            raise e
-        return output
-
-    return wrapper
-
-
 def create_app(**kwargs: Any) -> FastAPI:
     """FastAPI application factory.
 
@@ -341,44 +314,41 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     # Load all users from LDAP, and import them into MO
     @app.get("/Import/all", status_code=202, tags=["Import"])
-    @bypass_listen_to_changes
-    async def import_all_objects_from_LDAP() -> Any:
+    async def import_all_objects_from_LDAP(
+        test_on_first_20_entries: bool = False,
+    ) -> Any:
         all_ldap_objects = await dataloader.load_ldap_objects("Employee")
         all_cpr_numbers = [o.dict()[converter.cpr_field] for o in all_ldap_objects]
-        # all_cpr_numbers = [a for a in all_cpr_numbers if a][:20]
-        all_cpr_numbers = [a for a in all_cpr_numbers if a]
-        number_of_entries = len(all_cpr_numbers)
+        all_cpr_numbers = list(set([a for a in all_cpr_numbers if a]))
+        logger.info(f"Found {len(all_cpr_numbers)} cpr-indexed entries in AD")
 
-        time_deltas = []
+        if test_on_first_20_entries:
+            # Only upload the first 20 entries
+            all_cpr_numbers = all_cpr_numbers[:20]
 
-        # Maybe asyncio.wait() or asyncio.gather() is faster, but this is more robust
-        # with respect to bypassing listen_to_changes. We need to avoid that info
-        # written to MO is synchronized back to LDAP immediately
-        for counter, cpr in enumerate(set(all_cpr_numbers)):
-            logger.info("=" * 50)
-            logger.info(f"Importing user {counter+1}/{number_of_entries}")
-            logger.info("=" * 50)
-            t1 = datetime.datetime.now()
-            await import_single_user_from_LDAP(cpr)
-            t2 = datetime.datetime.now()
+        with tqdm(total=len(all_cpr_numbers), unit="ldap object") as progress_bar:
+            progress_bar.set_description("Progress")
 
-            time_deltas.append((t2 - t1).total_seconds())
-            avg_delta = sum(time_deltas) / len(time_deltas)
-            time_remaining = avg_delta * (number_of_entries - (counter + 1))
-
-            hours = int(time_remaining / 60 / 60)
-            minutes = int(time_remaining / 60 - hours * 60)
-            seconds = time_remaining - minutes * 60 - hours * 60 * 60
-
-            eta = f"{hours:.2f} hours, {minutes:.2f} minutes, {seconds:.2f} seconds"
-            logger.info(f"Time remaining: {eta}\n")
+            # Note: This can be done in a more parallel way using asyncio.gather() but:
+            # - it was experienced that fastapi throws broken pipe errors
+            # - MO was observed to not handle that well either.
+            # - We don't need the additional speed. This is meant as a one-time import
+            for cpr in all_cpr_numbers:
+                await import_single_user_from_LDAP(cpr)
+                progress_bar.update()
 
     # Load a single user from LDAP, and import him/her/hir into MO
     @app.get("/Import/{cpr}", status_code=202, tags=["Import"])
-    @bypass_listen_to_changes
     async def import_single_user_from_LDAP(cpr: str) -> Any:
+
+        global uuids_to_ignore
         # Get the employee's uuid (if he exists)
-        employee_uuid = await dataloader.find_mo_employee(cpr)
+        # Note: We could optimize this by loading all relevant employees once. But:
+        # - What if an employee is created by someone else while this code is running?
+        # - We don't need the additional speed. This is meant as a one-time import
+        # - We won't gain much; This is an asynchronous request. The code moves on while
+        #   we are waiting for MO's response
+        employee_uuid = await dataloader.find_mo_employee_uuid(cpr)
         if not employee_uuid:
             employee_uuid = uuid4()
 
@@ -438,6 +408,9 @@ def create_app(**kwargs: Any) -> FastAPI:
                 converted_objects = converted_objects_uuid_checked
 
             logger.info(f"Importing {converted_objects}")
+
+            for mo_object in converted_objects:
+                uuids_to_ignore.append(mo_object.uuid)
             await dataloader.upload_mo_objects(converted_objects)
 
     # Get all objects from LDAP - Converted to MO
