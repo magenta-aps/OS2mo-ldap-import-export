@@ -6,6 +6,7 @@ import uuid
 from typing import Any
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from fastramqpi.context import Context
@@ -106,6 +107,7 @@ def converter(context: Context) -> LdapConverter:
 
 def test_ldap_to_mo(context: Context) -> None:
     converter = LdapConverter(context)
+    employee_uuid = uuid4()
     employee = converter.from_ldap(
         LdapObject(
             dn="",
@@ -116,9 +118,11 @@ def test_ldap_to_mo(context: Context) -> None:
             cpr="0101011234",
         ),
         "Employee",
+        employee_uuid=employee_uuid,
     )[0]
     assert employee.givenname == "Tester"
     assert employee.surname == "Testersen"
+    assert employee.uuid == employee_uuid
 
     mail = converter.from_ldap(
         LdapObject(
@@ -127,9 +131,11 @@ def test_ldap_to_mo(context: Context) -> None:
             mail_validity_from=datetime.datetime(2019, 1, 1, 0, 10, 0),
         ),
         "Email",
+        employee_uuid=employee_uuid,
     )[0]
 
     assert mail.value == "foo@bar.dk"
+    assert mail.person.uuid == employee_uuid
     from_date = mail.validity.dict()["from_date"].replace(tzinfo=None)
 
     # Note: Date is always at midnight in MO
@@ -692,3 +698,15 @@ async def test_check_dar_scope(converter: LdapConverter):
             match="maps to an address with scope = 'DAR'",
         ):
             converter.check_dar_scope()
+
+
+async def test_get_address_type_uuid(converter: LdapConverter):
+
+    address_type_info = {"foo": {"uuid": "uuid1"}, "bar": {"uuid": "uuid2"}}
+
+    dataloader = MagicMock()
+    dataloader.load_mo_address_types.return_value = address_type_info
+    converter.dataloader = dataloader
+
+    assert converter.get_address_type_uuid("foo") == "uuid1"
+    assert converter.get_address_type_uuid("bar") == "uuid2"
