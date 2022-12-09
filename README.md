@@ -207,7 +207,7 @@ Converting the other way around can be done as follows:
       "value": "{{ldap.mail or None}}",
       "type": "address",
       "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|strftime) }}",
-      "address_type": "{{ dict(uuid='f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
+      "address_type": "{{ dict(uuid=get_address_type_uuid('Lokation')) }}"
     },
   }
   [...]
@@ -216,7 +216,8 @@ Converting the other way around can be done as follows:
 Note the uuid in the `address_type` field. This value must be a dict, as specified by
 `ramodels.mo.details.address.Address`. Furthermore the uuid must be a valid address type
 uuid. Valid address type uuids can be obtained by calling
-[GET:MO/Address_types][get_address_types].
+[GET:MO/Address_types][get_address_types] or by using the `get_address_type_uuid` global
+function in the template.
 
 
 ##### Post Address conversion
@@ -248,6 +249,7 @@ These are called using the normal function call syntax:
 * `nonejoin`: Joins two or more strings together with comma, omitting any Falsy values 
   (`None`, `""`, `0`, `False`, `{}` or `[]`)
 * `now`: Returns current datetime
+* `get_address_type_uuid`: Returns the address type uuid for an address type string
 
 [swagger]:http://localhost:8000/docs
 [get_overview]:http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get
