@@ -488,11 +488,9 @@ class LdapConverter:
 
             if employee_uuid:
                 if "person" in mo_class.schema()["properties"].keys():
-                    employee_uuid_dict = {"person": {"uuid": employee_uuid}}
+                    mo_dict["person"] = {"uuid": employee_uuid}
                 else:
-                    employee_uuid_dict = {"uuid": employee_uuid}
-
-                mo_dict.update(employee_uuid_dict)
+                    mo_dict["uuid"] = employee_uuid
 
             converted_objects.append(mo_class(**mo_dict))
 
