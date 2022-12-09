@@ -268,12 +268,6 @@ class LdapConverter:
                     )
 
     def check_mapping(self):
-        """
-        Returns
-        -----------
-        cpr_field : str
-            LDAP field which contains the CPR number
-        """
         self.logger.info("[json check] Checking json file")
 
         # Check that all mo_to_ldap keys are also in ldap_to_mo
