@@ -334,7 +334,7 @@ class LdapConverter:
     @staticmethod
     def filter_strftime(datetime_object):
         """
-        Converts a string to a datestring with today's date
+        Converts a datetime object to a date string which is accepted by MO.
 
         Notes
         -------
