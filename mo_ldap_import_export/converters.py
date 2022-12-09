@@ -72,6 +72,7 @@ class LdapConverter:
         self.settings = self.user_context["settings"]
         self.raw_mapping = self.user_context["mapping"]
         self.dataloader = self.user_context["dataloader"]
+        self.address_type_info = self.dataloader.load_mo_address_types()
 
         mapping = delete_keys_from_dict(
             copy.deepcopy(self.raw_mapping), ["objectClass"]
@@ -135,7 +136,7 @@ class LdapConverter:
 
     def get_accepted_json_keys(self) -> list[str]:
 
-        mo_address_types = list(self.dataloader.load_mo_address_types().keys())
+        mo_address_types = list(self.address_type_info.keys())
         accepted_json_keys = ["Employee"] + mo_address_types
 
         return accepted_json_keys
@@ -225,7 +226,7 @@ class LdapConverter:
             self.check_attributes(detected_attributes, accepted_attributes)
 
             # Check that the CPR field is present. Otherwise we do not know who an
-            # Address/Employee belongs to.
+            # Address/Employee/... belongs to.
             if cpr_field not in detected_attributes:
                 raise IncorrectMapping(
                     f"'{cpr_field}' attribute not present in mo_to_ldap['{json_key}']"
@@ -254,7 +255,7 @@ class LdapConverter:
                     )
 
     def check_dar_scope(self):
-        address_type_info = self.dataloader.load_mo_address_types()
+        address_type_info = self.address_type_info
 
         ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
 
@@ -326,7 +327,7 @@ class LdapConverter:
         return ", ".join(items_to_join)
 
     def get_address_type_uuid(self, address_type):
-        address_type_info = self.dataloader.load_mo_address_types()
+        address_type_info = self.address_type_info
         return address_type_info[address_type]["uuid"]
 
     @staticmethod
@@ -340,6 +341,10 @@ class LdapConverter:
     def filter_strftime(datetime_object):
         """
         Converts a string to a datestring with today's date
+
+        Notes
+        -------
+        MO only accepts date objects dated at midnight.
         """
         return datetime_object.strftime("%Y-%m-%dT00:00:00")
 
@@ -488,10 +493,10 @@ class LdapConverter:
             mo_class: Any = self.import_mo_object_class(json_key)
 
             if employee_uuid:
-                if json_key == "Employee":
-                    employee_uuid_dict = {"uuid": employee_uuid}
-                else:
+                if "person" in mo_class.schema()["properties"].keys():
                     employee_uuid_dict = {"person": {"uuid": employee_uuid}}
+                else:
+                    employee_uuid_dict = {"uuid": employee_uuid}
 
                 mo_dict.update(employee_uuid_dict)
 

@@ -24,7 +24,6 @@ from ldap3 import Connection
 from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
-from ramodels.mo.details.address import Address
 from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
@@ -290,6 +289,21 @@ def encode_result(result):
 
 
 def get_address_uuid(lookup_value, address_values_in_mo):
+    """
+    Returns the address uuid belonging to an address value.
+
+    Parameters
+    ---------------
+    lookup_value: str
+        Address value to look for
+    address_values_in_mo: dict
+        Dictionary where keys are MO address UUIDs and values are the values belonging
+        to the addresses
+
+    Notes
+    ------
+    If multiple addresses match this value, returns the first match.
+    """
     for uuid, value in address_values_in_mo.items():
         if value == lookup_value:
             return uuid
@@ -321,15 +335,18 @@ def create_app(**kwargs: Any) -> FastAPI:
     ) -> Any:
         all_ldap_objects = await dataloader.load_ldap_objects("Employee")
         all_cpr_numbers = [o.dict()[converter.cpr_field] for o in all_ldap_objects]
-        all_cpr_numbers = list(set([a for a in all_cpr_numbers if a]))
-        logger.info(f"Found {len(all_cpr_numbers)} cpr-indexed entries in AD")
+        all_cpr_numbers = sorted(list(set([a for a in all_cpr_numbers if a])))
 
         if test_on_first_20_entries:
             # Only upload the first 20 entries
+            logger.info("Slicing the first 20 entries")
             all_cpr_numbers = all_cpr_numbers[:20]
 
-        with tqdm(total=len(all_cpr_numbers), unit="ldap object") as progress_bar:
-            progress_bar.set_description("Progress")
+        number_of_entries = len(all_cpr_numbers)
+        logger.info(f"Found {number_of_entries} cpr-indexed entries in AD")
+
+        with tqdm(total=number_of_entries, unit="ldap object") as progress_bar:
+            progress_bar.set_description("LDAP import progress")
 
             # Note: This can be done in a more parallel way using asyncio.gather() but:
             # - it was experienced that fastapi throws broken pipe errors
@@ -393,7 +410,7 @@ def create_app(**kwargs: Any) -> FastAPI:
                     if converted_object.value in address_values_in_mo.values():
                         logger.info(
                             (
-                                "Found matching MO address with "
+                                f"Found matching MO '{json_key}' address with "
                                 f"value='{converted_object.value}'"
                             )
                         )
@@ -404,7 +421,9 @@ def create_app(**kwargs: Any) -> FastAPI:
                         address_dict = converted_object.dict()
                         address_dict["uuid"] = address_uuid
                         address_dict["user_key"] = str(address_uuid)
-                        converted_objects_uuid_checked.append(Address(**address_dict))
+
+                        mo_class = converter.import_mo_object_class(json_key)
+                        converted_objects_uuid_checked.append(mo_class(**address_dict))
                     else:
                         converted_objects_uuid_checked.append(converted_object)
 
