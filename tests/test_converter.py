@@ -570,10 +570,7 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
 async def test_check_dar_scope(converter: LdapConverter):
 
     address_type_info = {"foo": {"scope": "TEXT"}, "bar": {"scope": "DAR"}}
-
-    dataloader = MagicMock()
-    dataloader.load_mo_address_types.return_value = address_type_info
-    converter.dataloader = dataloader
+    converter.address_type_info = address_type_info
 
     with patch(
         "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
@@ -592,10 +589,7 @@ async def test_check_dar_scope(converter: LdapConverter):
 async def test_get_address_type_uuid(converter: LdapConverter):
 
     address_type_info = {"foo": {"uuid": "uuid1"}, "bar": {"uuid": "uuid2"}}
-
-    dataloader = MagicMock()
-    dataloader.load_mo_address_types.return_value = address_type_info
-    converter.dataloader = dataloader
+    converter.address_type_info = address_type_info
 
     assert converter.get_address_type_uuid("foo") == "uuid1"
     assert converter.get_address_type_uuid("bar") == "uuid2"

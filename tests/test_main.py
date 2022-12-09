@@ -549,6 +549,7 @@ async def test_import_address_objects(
     test_client: TestClient, converter: MagicMock, dataloader: AsyncMock
 ):
     converter.find_mo_object_class.return_value = "ramodels.mo.details.address.Address"
+    converter.import_mo_object_class.return_value = Address
 
     address_type_uuid = uuid4()
 
