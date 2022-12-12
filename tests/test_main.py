@@ -524,27 +524,6 @@ async def test_import_single_object_from_LDAP_multiple_employees(
     assert response.status_code == 202
 
 
-async def test_import_single_object_from_LDAP_empty_address_value(
-    test_client: TestClient, converter: MagicMock
-):
-    def from_ldap(loaded_object, json_key, employee_uuid=None):
-        return Address(value=[])
-
-    converter.from_ldap = from_ldap
-
-    with capture_logs() as cap_logs:
-        response = test_client.get("/Import/0101011234")
-        warnings = [w for w in cap_logs if w["log_level"] == "warning"]
-
-        for warning in warnings:
-            assert re.match(
-                ".*Could not upload .* object.*",
-                warning["event"],
-            )
-
-    assert response.status_code == 202
-
-
 async def test_import_address_objects(
     test_client: TestClient, converter: MagicMock, dataloader: AsyncMock
 ):

@@ -65,7 +65,7 @@ def reject_on_failure(func):
     async def modified_func(*args, **kwargs):
         try:
             await func(*args, **kwargs)
-        except:  # noqa
+        except NotSupportedException:
             raise RejectMessage()
 
     modified_func.__wrapped__ = func  # type: ignore
@@ -385,13 +385,9 @@ def create_app(**kwargs: Any) -> FastAPI:
 
             logger.info(f"Loaded {loaded_object.dn}")
 
-            try:
-                converted_objects = converter.from_ldap(
-                    loaded_object, json_key, employee_uuid=employee_uuid
-                )
-            except ValidationError as e:
-                logger.warning(f"Could not upload {loaded_object} object: {e}")
-                continue
+            converted_objects = converter.from_ldap(
+                loaded_object, json_key, employee_uuid=employee_uuid
+            )
 
             if len(converted_objects) == 0:
                 continue

@@ -188,6 +188,14 @@ class LdapConverter:
                         )
                     )
 
+    def get_required_attributes(self, mo_class):
+        if "required" in mo_class.schema().keys():
+            required_attributes = mo_class.schema()["required"]
+        else:
+            required_attributes = []
+
+        return required_attributes
+
     def check_mo_attributes(self):
 
         ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()
@@ -199,17 +207,16 @@ class LdapConverter:
             accepted_attributes = list(mo_class.schema()["properties"].keys())
             detected_attributes = self.get_mo_attributes(json_key)
             self.check_attributes(detected_attributes, accepted_attributes)
-            if "required" in mo_class.schema().keys():
-                required_attributes = mo_class.schema()["required"]
-                for attribute in required_attributes:
-                    if attribute not in detected_attributes:
-                        raise IncorrectMapping(
-                            (
-                                f"attribute '{attribute}' is mandatory. "
-                                f"The following attributes are mandatory: "
-                                f"{required_attributes}"
-                            )
+            required_attributes = self.get_required_attributes(mo_class)
+            for attribute in required_attributes:
+                if attribute not in detected_attributes:
+                    raise IncorrectMapping(
+                        (
+                            f"attribute '{attribute}' is mandatory. "
+                            f"The following attributes are mandatory: "
+                            f"{required_attributes}"
                         )
+                    )
 
     def check_ldap_attributes(self):
         mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
@@ -492,6 +499,10 @@ class LdapConverter:
                 else:
                     mo_dict["uuid"] = employee_uuid
 
-            converted_objects.append(mo_class(**mo_dict))
+            required_attributes = self.get_required_attributes(mo_class)
+
+            # If all required attributes are present:
+            if all(a in mo_dict.keys() for a in required_attributes):
+                converted_objects.append(mo_class(**mo_dict))
 
         return converted_objects
