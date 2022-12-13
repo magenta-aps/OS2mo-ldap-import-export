@@ -288,7 +288,7 @@ def encode_result(result):
     return json_compatible_result
 
 
-def get_address_uuid(lookup_value, address_values_in_mo):
+def get_address_uuid(lookup_value: str, address_values_in_mo: dict[UUID, str]):
     """
     Returns the address uuid belonging to an address value.
 
