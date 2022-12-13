@@ -39,7 +39,9 @@ def context() -> Context:
                 "objectClass": "ramodels.mo.details.address.Address",
                 "value": "{{ldap.mail or None}}",
                 "type": "{{'address'}}",
-                "validity": "{{ dict(from_date = ldap.mail_validity_from|strftime) }}",
+                "validity": (
+                    "{{ dict(from_date = " "ldap.mail_validity_from|mo_datestring) }}"
+                ),
                 "address_type": (
                     "{{ dict(uuid=" "'f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
                 ),
@@ -399,8 +401,8 @@ def test_str_to_dict(converter: LdapConverter):
     assert output == {"foo": 2}
 
 
-def test_filter_strftime(converter: LdapConverter):
-    output = converter.filter_strftime(datetime.datetime(2019, 4, 13, 20, 10, 10))
+def test_filter_mo_datestring(converter: LdapConverter):
+    output = converter.filter_mo_datestring(datetime.datetime(2019, 4, 13, 20, 10, 10))
     # Note: Dates are always at midnight in MO
     assert output == "2019-04-13T00:00:00"
 

@@ -83,7 +83,7 @@ class LdapConverter:
         environment = Environment(undefined=Undefined)
         environment.filters["splitlast"] = LdapConverter.filter_splitlast
         environment.filters["splitfirst"] = LdapConverter.filter_splitfirst
-        environment.filters["strftime"] = LdapConverter.filter_strftime
+        environment.filters["mo_datestring"] = LdapConverter.filter_mo_datestring
         self.mapping = self._populate_mapping_with_templates(
             mapping,
             environment,
@@ -377,7 +377,7 @@ class LdapConverter:
         return json.loads(text.replace("'", '"'))
 
     @staticmethod
-    def filter_strftime(datetime_object):
+    def filter_mo_datestring(datetime_object):
         """
         Converts a datetime object to a date string which is accepted by MO.
 

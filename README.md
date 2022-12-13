@@ -206,7 +206,7 @@ Converting the other way around can be done as follows:
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ldap.mail or None}}",
       "type": "address",
-      "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|strftime) }}",
+      "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_address_type_uuid('Lokation')) }}"
     },
   }
@@ -237,7 +237,7 @@ the following filters are available:
 * `splitlast`: Splits a string at the last space, returning two elements
   This is convenient for splitting a name into a givenName and a surname
   and works for names with no spaces (givenname will then be empty)
-* `strftime`: Accepts a datetime object and formats it as a string
+* `mo_datestring`: Accepts a datetime object and formats it as a string
 
 In addition to filters, a few methods have been made available for the templates.
 These are called using the normal function call syntax:
