@@ -540,7 +540,7 @@ class LdapConverter:
             required_attributes = self.get_required_attributes(mo_class)
 
             # If all required attributes are present:
-            if all(a in mo_dict.keys() for a in required_attributes):
+            if all(a in mo_dict for a in required_attributes):
                 converted_objects.append(mo_class(**mo_dict))
 
         return converted_objects
