@@ -274,7 +274,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
         else os.path.join(os.path.dirname(__file__), mappings_path)
     )
     if not os.path.isfile(mappings_file):
-        raise Exception(
+        raise FileNotFoundError(
             f"Configured mapping file {mappings_file} does not exist "
             f"(this is set by the CONVERSION_MAP environment variable)"
         )
