@@ -7,6 +7,7 @@ import copy
 import datetime
 import json
 import re
+import string
 from typing import Any
 from typing import Dict
 
@@ -73,6 +74,7 @@ class LdapConverter:
         self.raw_mapping = self.user_context["mapping"]
         self.dataloader = self.user_context["dataloader"]
         self.address_type_info = self.dataloader.load_mo_address_types()
+        self.overview = self.dataloader.load_ldap_overview()
 
         mapping = delete_keys_from_dict(
             copy.deepcopy(self.raw_mapping), ["objectClass"]
@@ -221,14 +223,13 @@ class LdapConverter:
     def check_ldap_attributes(self):
         mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
 
-        overview = self.dataloader.load_ldap_overview()
         cpr_field = find_cpr_field(self.mapping)
         for json_key in mo_to_ldap_json_keys:
             self.logger.info(f"[json check] checking mo_to_ldap['{json_key}']")
 
             object_class = self.find_ldap_object_class(json_key)
 
-            accepted_attributes = overview[object_class]["attributes"]
+            accepted_attributes = self.overview[object_class]["attributes"]
             detected_attributes = self.get_ldap_attributes(json_key)
             self.check_attributes(detected_attributes, accepted_attributes)
 
@@ -274,6 +275,40 @@ class LdapConverter:
                         f"'{json_key}' maps to an address with scope = 'DAR'"
                     )
 
+    def check_ldap_to_mo_references(self):
+
+        # https://ff1959.wordpress.com/2012/03/04/characters-that-are-permitted-in-
+        # attribute-names-descriptors/
+        # The only characters that are permitted in attribute names are ALPHA, DIGIT,
+        # and HYPHEN (‘-’). Underscores ‘_’ are not permitted.
+        valid_chars = string.ascii_letters + string.digits + "-"
+        invalid_chars = "".join([s for s in string.punctuation if s not in valid_chars])
+        invalid_chars_regex = r"[%s\s]\s*" % invalid_chars
+
+        raw_mapping = self.raw_mapping["ldap_to_mo"]
+        for json_key in self.get_ldap_to_mo_json_keys():
+            object_class = self.find_ldap_object_class(json_key)
+            accepted_attributes = sorted(set(self.overview[object_class]["attributes"]))
+            for key, value in raw_mapping[json_key].items():
+                if "ldap." in value:
+                    ldap_refs = value.split("ldap.")[1:]
+
+                    for ldap_ref in ldap_refs:
+                        ldap_attribute = re.split(invalid_chars_regex, ldap_ref)[0]
+
+                        if ldap_attribute not in accepted_attributes:
+                            accepted_attributes_string = "\n".join(accepted_attributes)
+                            raise IncorrectMapping(
+                                (
+                                    f"Non existing attribute detected in "
+                                    f"ldap_to_mo['{json_key}']['{key}']: "
+                                    f"'ldap.{ldap_ref}...'. "
+                                    f"'{ldap_attribute}' attribute not found in LDAP. "
+                                    f"Accepted attributes for '{object_class}' are:\n"
+                                    f"{accepted_attributes_string}"
+                                )
+                            )
+
     def check_mapping(self):
         self.logger.info("[json check] Checking json file")
 
@@ -302,6 +337,9 @@ class LdapConverter:
         #   - The DAR UUID is not present in LDAP. And LDAP cannot guarantee that an
         #     address is in the same format as DAR expects it to be.
         self.check_dar_scope()
+
+        # Check that fields referred to in ldap_to_mo actually exist in LDAP
+        self.check_ldap_to_mo_references()
 
         self.logger.info("[json check] Attributes OK")
 

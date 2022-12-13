@@ -3,18 +3,18 @@
     "Employee": {
       "objectClass": "ramodels.mo.employee.Employee",
       "givenname": "{{ldap.givenName or ldap.name|splitlast|first}}",
-      "surname": "{{ldap.surname or ldap.sn or ldap.name|splitlast|last or ''}}",
-      "cpr_no": "{{ldap.employeeID or ldap.cpr or None}}",
-      "seniority": "{{ldap.seniority or None}}",
-      "nickname_givenname": "{{ldap.nickname_givenname or None}}",
-      "nickname_surname": "{{ldap.nickname_surname or None}}"
+      "surname": "{{ ldap.sn or ldap.name|splitlast|last or ''}}",
+      "cpr_no": "{{ldap.employeeID or None}}",
+      "seniority": "{{None}}",
+      "nickname_givenname": "{{None}}",
+      "nickname_surname": "{{None}}"
     },
     // Note: This key needs to be a valid MO address type name*
     "Email": {
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ldap.mail or None}}",
       "type": "address",
-      "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|strftime) }}",
+      "validity": "{{ dict(from_date = now()|strftime) }}",
 
       // Note: Get valid address type uuids by using GET MO/address_types
       "address_type": "{{ dict(uuid=get_address_type_uuid('Email')) }}"
@@ -24,7 +24,7 @@
       "objectClass": "ramodels.mo.details.address.Address",
       "value": "{{ ldap.postalAddress or None }}",
       "type": "address",
-      "validity": "{{ dict(from_date=ldap.mail_validity_from or now()|strftime) }}",
+      "validity": "{{ dict(from_date=now()|strftime) }}",
 
       // Note: Get valid address type uuids by using GET MO/address_types
       "address_type": "{{ dict(uuid=get_address_type_uuid('Lokation')) }}"

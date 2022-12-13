@@ -32,7 +32,7 @@ def context() -> Context:
         "ldap_to_mo": {
             "Employee": {
                 "objectClass": "ramodels.mo.employee.Employee",
-                "givenname": "{{ldap.GivenName}}",
+                "givenname": "{{ldap.givenName}}",
                 "surname": "{{ldap.sn}}",
             },
             "Email": {
@@ -302,7 +302,7 @@ def test_template_lenience(context: Context) -> None:
         "ldap_to_mo": {
             "Employee": {
                 "objectClass": "ramodels.mo.employee.Employee",
-                "givenname": "{{ldap.GivenName}}",
+                "givenname": "{{ldap.givenName}}",
                 "surname": "{{ldap.sn}}",
             }
         },
@@ -593,3 +593,23 @@ async def test_get_address_type_uuid(converter: LdapConverter):
 
     assert converter.get_address_type_uuid("foo") == "uuid1"
     assert converter.get_address_type_uuid("bar") == "uuid2"
+
+
+async def test_check_ldap_to_mo_references(converter: LdapConverter):
+
+    converter.raw_mapping = {
+        "ldap_to_mo": {"Employee": {"name": "{{ ldap.nonExistingAttribute}}"}}
+    }
+
+    with patch(
+        "mo_ldap_import_export.converters.LdapConverter.get_ldap_to_mo_json_keys",
+        return_value=["Employee"],
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.find_ldap_object_class",
+        return_value="user",
+    ):
+        with pytest.raises(
+            IncorrectMapping,
+            match="Non existing attribute detected",
+        ):
+            converter.check_ldap_to_mo_references()
