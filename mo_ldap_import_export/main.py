@@ -265,9 +265,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     mappings_path = os.environ.get("CONVERSION_MAP")
     if not mappings_path:
         mappings_path = "mappings/magenta_demo.json"
-        logger.warning(
-            f"CONVERSION_MAP is not set, falling back to {mappings_path}"
-        )
+        logger.warning(f"CONVERSION_MAP is not set, falling back to {mappings_path}")
     mappings_file = os.path.normpath(
         mappings_path
         if mappings_path.startswith("/")
