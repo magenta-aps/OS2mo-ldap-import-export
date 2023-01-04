@@ -601,17 +601,14 @@ async def test_find_mo_employee_uuid(
     dataloader: DataLoader, gql_client: AsyncMock, gql_client_sync: MagicMock
 ):
     uuid = uuid4()
-    gql_client.execute.return_value = {
+    return_value = {
         "employees": [
             {"uuid": uuid},
         ]
     }
 
-    gql_client_sync.execute.return_value = {
-        "employees": [
-            {"uuid": uuid},
-        ]
-    }
+    gql_client.execute.return_value = return_value
+    gql_client_sync.execute.return_value = return_value
 
     output = await asyncio.gather(
         dataloader.find_mo_employee_uuid("0101011221"),
