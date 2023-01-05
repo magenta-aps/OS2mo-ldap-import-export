@@ -489,8 +489,9 @@ async def test_load_mo_address(dataloader: DataLoader, gql_client: AsyncMock) ->
         "value": "foo@bar.dk",
         "uuid": uuid,
         "address_type": {"uuid": uuid},
-        "validity": {"from": "2021-01-01 01:00"},
+        "validity": {"from": "2021-01-01 01:00", "to": None},
         "person": {"uuid": uuid},
+        "visibility": {"uuid": uuid},
     }
 
     # Note that 'Address' requires 'person' to be a dict
@@ -499,6 +500,8 @@ async def test_load_mo_address(dataloader: DataLoader, gql_client: AsyncMock) ->
     # While graphQL returns it as a list with length 1
     address_dict["person"] = [{"cpr_no": "0101012002", "uuid": uuid}]
     address_dict["address_type"]["name"] = "address"
+    address_dict["value2"] = None
+    address_dict["visibility_uuid"] = uuid
 
     gql_client.execute.return_value = {
         "addresses": [

@@ -442,13 +442,16 @@ class DataLoader:
               addresses(uuids: "{%s}") {
                 objects {
                   value: name
+                  value2
                   uuid
+                  visibility_uuid
                   person: employee {
                     cpr_no
                     uuid
                   }
                   validity {
                       from
+                      to
                     }
                   address_type {
                       name
@@ -477,6 +480,9 @@ class DataLoader:
             entry["validity"]["from"],
             person_uuid=entry["person"][0]["uuid"],
             uuid=entry["uuid"],
+            to_date=entry["validity"]["to"],
+            value2=entry["value2"],
+            visibility_uuid=entry["visibility_uuid"],
         )
 
         # We make a dict with meta-data because ramodels Address does not support

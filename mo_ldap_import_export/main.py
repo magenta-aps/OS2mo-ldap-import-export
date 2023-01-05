@@ -457,6 +457,8 @@ def create_app(**kwargs: Any) -> FastAPI:
                 )
                 addresses_in_mo_dict = {a[0].uuid: a[0] for a in addresses_in_mo}
 
+                mo_attributes = converter.get_mo_attributes(json_key)
+
                 # Set uuid if a matching one is found. so an address gets updated
                 # instead of duplicated
                 converted_objects_uuid_checked = []
@@ -473,14 +475,15 @@ def create_app(**kwargs: Any) -> FastAPI:
                             converted_object.value, addresses_in_mo_dict
                         )
                         matching_address = addresses_in_mo_dict[matching_address_uuid]
+                        converted_address_dict = converted_object.dict()
 
-                        address_dict = converted_object.dict()
-                        address_dict["uuid"] = matching_address_uuid
-                        address_dict["user_key"] = str(matching_address_uuid)
-                        address_dict["validity"] = {
-                            "from_date": matching_address.validity.from_date,
-                            "to_date": matching_address.validity.to_date,
-                        }
+                        address_dict = matching_address.dict()
+                        for key in mo_attributes:
+                            if (
+                                key not in ["validity", "uuid", "objectClass"]
+                                and key in converted_address_dict.keys()
+                            ):
+                                address_dict[key] = converted_address_dict[key]
 
                         mo_class = converter.import_mo_object_class(json_key)
                         converted_objects_uuid_checked.append(mo_class(**address_dict))

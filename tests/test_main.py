@@ -30,7 +30,7 @@ from mo_ldap_import_export.exceptions import NotSupportedException
 from mo_ldap_import_export.ldap_classes import LdapObject
 from mo_ldap_import_export.main import create_app
 from mo_ldap_import_export.main import create_fastramqpi
-from mo_ldap_import_export.main import get_address_uuid
+from mo_ldap_import_export.main import get_matching_address_uuid
 from mo_ldap_import_export.main import listen_to_changes_in_employees
 from mo_ldap_import_export.main import open_ldap_connection
 
@@ -497,10 +497,14 @@ def test_load_address_types_from_MO_endpoint(test_client: TestClient):
 def test_get_address_uuid():
     uuid1 = uuid4()
     uuid2 = uuid4()
-    address_values_in_mo = {uuid1: "Aldersrovej 1", uuid2: "Aldersrovej 2"}
 
-    assert get_address_uuid("Aldersrovej 1", address_values_in_mo) == uuid1
-    assert get_address_uuid("Aldersrovej 2", address_values_in_mo) == uuid2
+    address1 = Address.from_simplified_fields("Aldersrovej 1", uuid1, "2021-01-01")
+    address2 = Address.from_simplified_fields("Aldersrovej 2", uuid2, "2021-01-01")
+
+    addresses_in_mo = {uuid1: address1, uuid2: address2}
+
+    assert get_matching_address_uuid("Aldersrovej 1", addresses_in_mo) == uuid1
+    assert get_matching_address_uuid("Aldersrovej 2", addresses_in_mo) == uuid2
 
 
 async def test_import_all_objects_from_LDAP_first_20(test_client: TestClient) -> None:
@@ -563,9 +567,9 @@ async def test_import_address_objects(
     converter.from_ldap.return_value = converted_objects
 
     mo_uuid = uuid4()
-    address_in_mo = MagicMock()
-    address_in_mo.uuid = mo_uuid
-    address_in_mo.value = "foo@bar.dk"
+
+    address_in_mo = Address.from_simplified_fields("foo@bar.dk", mo_uuid, "2021-01-01")
+
     addresses_in_mo = [(address_in_mo, None)]
 
     dataloader.load_mo_employee_addresses.return_value = addresses_in_mo
@@ -573,12 +577,8 @@ async def test_import_address_objects(
     response = test_client.get("/Import/0101011234")
     assert response.status_code == 202
 
-    address1_dict = converted_objects[0].dict()
-    address1_dict["uuid"] = mo_uuid
-    address1_dict["user_key"] = str(mo_uuid)
-
     converted_objects_uuid_checked = [
-        Address(**address1_dict),
+        address_in_mo,
         converted_objects[1],
         converted_objects[2],
     ]
