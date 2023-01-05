@@ -401,11 +401,7 @@ class DataLoader:
             query MyQuery {
               itusers(uuids: "%s") {
                 objects {
-                  uuid
                   user_key
-                  type
-                  org_unit_uuid
-                  primary_uuid
                   validity {
                     from
                     to
@@ -546,10 +542,10 @@ class DataLoader:
         result = await graphql_session.execute(query)
 
         output = []
-        for ituser in result["employees"][0]["objects"][0]["itusers"]:
-            if ituser["itsystem_uuid"] == str(it_system_uuid):
+        for it_user_dict in result["employees"][0]["objects"][0]["itusers"]:
+            if it_user_dict["itsystem_uuid"] == str(it_system_uuid):
 
-                it_user = await self.load_mo_it_user(ituser["uuid"])
+                it_user = await self.load_mo_it_user(it_user_dict["uuid"])
 
                 output.append(it_user)
         return output

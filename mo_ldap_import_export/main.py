@@ -24,6 +24,7 @@ from ldap3 import Connection
 from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
+from ramodels.mo.details.address import Address
 from ramqp.mo import MORouter
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
@@ -110,9 +111,9 @@ async def listen_to_changes_in_employees(
     changed_employee = await dataloader.load_mo_employee(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
-    def cleanup(json_key, value_key, objects_in_mo, mo_dict_key):
-        # Get all addresses for this user in LDAP (note that LDAP can contain multiple
-        # addresses in one object.)
+    def cleanup(json_key, value_key, mo_dict_key, objects_in_mo):
+        # Get all matching objects for this user in LDAP (note that LDAP can contain
+        # multiple entries in one object.)
         loaded_ldap_object = dataloader.load_ldap_cpr_object(
             changed_employee.cpr_no, json_key
         )
@@ -182,14 +183,14 @@ async def listen_to_changes_in_employees(
             changed_employee.uuid, changed_address.address_type.uuid
         )
 
-        cleanup(json_key, "value", [a[0] for a in addresses_in_mo], "mo_address")
+        cleanup(json_key, "value", "mo_address", [a[0] for a in addresses_in_mo])
 
     elif routing_key.object_type == ObjectType.IT:
         logger.info("[MO] Change registered in the IT object type")
 
         # Get MO IT-user
-        changed_ituser = await dataloader.load_mo_it_user(payload.object_uuid)
-        it_system_type_uuid = changed_ituser.itsystem.uuid
+        changed_it_user = await dataloader.load_mo_it_user(payload.object_uuid)
+        it_system_type_uuid = changed_it_user.itsystem.uuid
         it_system_type = await dataloader.load_mo_it_system(it_system_type_uuid)
 
         it_system_name = json_key = it_system_type["name"]
@@ -197,7 +198,7 @@ async def listen_to_changes_in_employees(
         logger.info(f"Obtained IT system name = {it_system_name}")
 
         # Convert to LDAP
-        mo_object_dict["mo_it_user"] = changed_ituser
+        mo_object_dict["mo_it_user"] = changed_it_user
 
         # Upload to LDAP
         await dataloader.upload_ldap_object(
@@ -208,7 +209,7 @@ async def listen_to_changes_in_employees(
             changed_employee.uuid, it_system_type_uuid
         )
 
-        cleanup(json_key, "user_key", it_users_in_mo, "mo_it_user")
+        cleanup(json_key, "user_key", "mo_it_user", it_users_in_mo)
 
 
 @asynccontextmanager
@@ -341,7 +342,9 @@ def encode_result(result):
     return json_compatible_result
 
 
-def get_address_uuid(lookup_value: str, address_values_in_mo: dict[UUID, str]):
+def get_matching_address_uuid(
+    lookup_value: str, addresses_in_mo_dict: dict[UUID, Address]
+):
     """
     Returns the address uuid belonging to an address value.
 
@@ -357,7 +360,8 @@ def get_address_uuid(lookup_value: str, address_values_in_mo: dict[UUID, str]):
     ------
     If multiple addresses match this value, returns the first match.
     """
-    for uuid, value in address_values_in_mo.items():
+    for uuid, address in addresses_in_mo_dict.items():
+        value = address.value
         if value == lookup_value:
             return uuid
 
@@ -451,26 +455,32 @@ def create_app(**kwargs: Any) -> FastAPI:
                 addresses_in_mo = await dataloader.load_mo_employee_addresses(
                     employee_uuid, converted_objects[0].address_type.uuid
                 )
-                address_values_in_mo = {a[0].uuid: a[0].value for a in addresses_in_mo}
+                addresses_in_mo_dict = {a[0].uuid: a[0] for a in addresses_in_mo}
 
                 # Set uuid if a matching one is found. so an address gets updated
                 # instead of duplicated
                 converted_objects_uuid_checked = []
                 for converted_object in converted_objects:
-                    if converted_object.value in address_values_in_mo.values():
+                    values_in_mo = [a.value for a in addresses_in_mo_dict.values()]
+                    if converted_object.value in values_in_mo:
                         logger.info(
                             (
                                 f"Found matching MO '{json_key}' address with "
                                 f"value='{converted_object.value}'"
                             )
                         )
-                        address_uuid = get_address_uuid(
-                            converted_object.value, address_values_in_mo
+                        matching_address_uuid = get_matching_address_uuid(
+                            converted_object.value, addresses_in_mo_dict
                         )
+                        matching_address = addresses_in_mo_dict[matching_address_uuid]
 
                         address_dict = converted_object.dict()
-                        address_dict["uuid"] = address_uuid
-                        address_dict["user_key"] = str(address_uuid)
+                        address_dict["uuid"] = matching_address_uuid
+                        address_dict["user_key"] = str(matching_address_uuid)
+                        address_dict["validity"] = {
+                            "from_date": matching_address.validity.from_date,
+                            "to_date": matching_address.validity.to_date,
+                        }
 
                         mo_class = converter.import_mo_object_class(json_key)
                         converted_objects_uuid_checked.append(mo_class(**address_dict))
