@@ -12,6 +12,7 @@ from gql import gql
 from gql.client import AsyncClientSession
 from gql.client import SyncClientSession
 from ramodels.mo.details.address import Address
+from ramodels.mo.details.it_system import ITUser
 from ramodels.mo.employee import Employee
 
 from .exceptions import CprNoNotFound
@@ -331,6 +332,44 @@ class DataLoader:
 
         return Employee(**entry)
 
+    async def load_mo_it_system(self, uuid: UUID) -> dict:
+        query = gql(
+            """
+            query ITSystem {
+              itsystems(uuids: "%s") {
+                  name
+              }
+            }
+            """
+            % uuid
+        )
+        graphql_session: AsyncClientSession = self.user_context["gql_client"]
+        result = await graphql_session.execute(query)
+
+        output: dict = result["itsystems"][0]
+        return output
+
+    def load_mo_it_systems(self) -> dict:
+        query = gql(
+            """
+            query ItSystems {
+              itsystems {
+                user_key
+                uuid
+              }
+            }
+            """
+        )
+        graphql_session: SyncClientSession = self.user_context["gql_client_sync"]
+        result = graphql_session.execute(query)
+
+        if len(result["itsystems"]) == 0:
+            output = {}
+        else:
+            output = {d["user_key"]: d for d in result["itsystems"]}
+
+        return output
+
     def load_mo_address_types(self) -> dict:
         query = gql(
             """
@@ -354,6 +393,42 @@ class DataLoader:
             output = {d["name"]: d for d in result["facets"][0]["classes"]}
 
         return output
+
+    async def load_mo_it_user(self, uuid: UUID):
+        graphql_session: AsyncClientSession = self.user_context["gql_client"]
+        query = gql(
+            """
+            query MyQuery {
+              itusers(uuids: "%s") {
+                objects {
+                  uuid
+                  user_key
+                  type
+                  org_unit_uuid
+                  primary_uuid
+                  validity {
+                    from
+                    to
+                  }
+                  employee_uuid
+                  itsystem_uuid
+                }
+              }
+            }
+            """
+            % (uuid)
+        )
+
+        result = await graphql_session.execute(query)
+        entry = result["itusers"][0]["objects"][0]
+        return ITUser.from_simplified_fields(
+            user_key=entry["user_key"],
+            itsystem_uuid=entry["itsystem_uuid"],
+            from_date=entry["validity"]["from"],
+            to_date=entry["validity"]["to"],
+            uuid=uuid,
+            person_uuid=entry["employee_uuid"],
+        )
 
     async def load_mo_address(self, uuid: UUID) -> tuple[Address, dict]:
         """
@@ -448,6 +523,35 @@ class DataLoader:
         for address_uuid in address_uuids:
             mo_address = await self.load_mo_address(address_uuid)
             output.append(mo_address)
+        return output
+
+    async def load_mo_employee_it_users(self, employee_uuid, it_system_uuid):
+        graphql_session: AsyncClientSession = self.user_context["gql_client"]
+        query = gql(
+            """
+            query ItUserQuery {
+              employees(uuids: "%s") {
+                objects {
+                  itusers {
+                    uuid
+                    itsystem_uuid
+                  }
+                }
+              }
+            }
+            """
+            % employee_uuid
+        )
+
+        result = await graphql_session.execute(query)
+
+        output = []
+        for ituser in result["employees"][0]["objects"][0]["itusers"]:
+            if ituser["itsystem_uuid"] == str(it_system_uuid):
+
+                it_user = await self.load_mo_it_user(ituser["uuid"])
+
+                output.append(it_user)
         return output
 
     async def upload_mo_objects(self, objects: list[Any]):

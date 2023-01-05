@@ -36,6 +36,7 @@ from .config import Settings
 from .converters import LdapConverter
 from .converters import read_mapping_json
 from .dataloaders import DataLoader
+from .exceptions import IncorrectMapping
 from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NotSupportedException
 from .ldap import configure_ldap_connection
@@ -66,7 +67,7 @@ def reject_on_failure(func):
     async def modified_func(*args, **kwargs):
         try:
             await func(*args, **kwargs)
-        except NotSupportedException:
+        except (NotSupportedException, IncorrectMapping):
             raise RejectMessage()
 
     modified_func.__wrapped__ = func  # type: ignore
@@ -109,6 +110,43 @@ async def listen_to_changes_in_employees(
     changed_employee = await dataloader.load_mo_employee(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
+    def cleanup(json_key, value_key, objects_in_mo, mo_dict_key):
+        # Get all addresses for this user in LDAP (note that LDAP can contain multiple
+        # addresses in one object.)
+        loaded_ldap_object = dataloader.load_ldap_cpr_object(
+            changed_employee.cpr_no, json_key
+        )
+
+        # Convert to MO so the two are easy to compare
+        objects_in_ldap = converter.from_ldap(loaded_ldap_object, json_key)
+
+        # Format as lists
+        values_in_ldap = sorted([getattr(a, value_key) for a in objects_in_ldap])
+        values_in_mo = sorted([getattr(a, value_key) for a in objects_in_mo])
+
+        logger.info(f"Found following '{json_key}' values in LDAP: {values_in_ldap}")
+        logger.info(f"Found following '{json_key}' values in MO: {values_in_mo}")
+
+        # Clean from LDAP as needed
+        ldap_objects_to_clean = []
+        for ldap_object in objects_in_ldap:
+            if getattr(ldap_object, value_key) not in values_in_mo:
+                ldap_objects_to_clean.append(
+                    converter.to_ldap(
+                        {
+                            "mo_employee": changed_employee,
+                            mo_dict_key: ldap_object,
+                        },
+                        json_key,
+                        dn=loaded_ldap_object.dn,
+                    )
+                )
+
+        if len(ldap_objects_to_clean) == 0:
+            logger.info("No synchronization required")
+        else:
+            dataloader.cleanup_attributes_in_ldap(ldap_objects_to_clean)
+
     mo_object_dict: dict[str, Any] = {"mo_employee": changed_employee}
 
     if routing_key.object_type == ObjectType.EMPLOYEE:
@@ -140,46 +178,37 @@ async def listen_to_changes_in_employees(
             converter.to_ldap(mo_object_dict, json_key), json_key
         )
 
-        # Get all addresses for this user in LDAP (note that LDAP can contain multiple
-        # addresses in one object.)
-        loaded_ldap_address = dataloader.load_ldap_cpr_object(
-            changed_employee.cpr_no, json_key
-        )
-
-        # Convert to MO so the two are easy to compare
-        addresses_in_ldap = converter.from_ldap(loaded_ldap_address, json_key)
-
-        # Get all CURRENT addresses of this type for this user from MO
         addresses_in_mo = await dataloader.load_mo_employee_addresses(
             changed_employee.uuid, changed_address.address_type.uuid
         )
 
-        # Format as lists
-        address_values_in_ldap = sorted([a.value for a in addresses_in_ldap])
-        address_values_in_mo = sorted([a[0].value for a in addresses_in_mo])
+        cleanup(json_key, "value", [a[0] for a in addresses_in_mo], "mo_address")
 
-        logger.info(f"Found the following addresses in LDAP: {address_values_in_ldap}")
-        logger.info(f"Found the following addresses in MO: {address_values_in_mo}")
+    elif routing_key.object_type == ObjectType.IT:
+        logger.info("[MO] Change registered in the IT object type")
 
-        # Clean from LDAP as needed
-        ldap_addresses_to_clean = []
-        for address in addresses_in_ldap:
-            if address.value not in address_values_in_mo:
-                ldap_addresses_to_clean.append(
-                    converter.to_ldap(
-                        {
-                            "mo_employee": changed_employee,
-                            "mo_address": address,
-                        },
-                        json_key,
-                        dn=loaded_ldap_address.dn,
-                    )
-                )
+        # Get MO IT-user
+        changed_ituser = await dataloader.load_mo_it_user(payload.object_uuid)
+        it_system_type_uuid = changed_ituser.itsystem.uuid
+        it_system_type = await dataloader.load_mo_it_system(it_system_type_uuid)
 
-        if len(ldap_addresses_to_clean) == 0:
-            logger.info("No synchronization required")
-        else:
-            dataloader.cleanup_attributes_in_ldap(ldap_addresses_to_clean)
+        it_system_name = json_key = it_system_type["name"]
+
+        logger.info(f"Obtained IT system name = {it_system_name}")
+
+        # Convert to LDAP
+        mo_object_dict["mo_it_user"] = changed_ituser
+
+        # Upload to LDAP
+        await dataloader.upload_ldap_object(
+            converter.to_ldap(mo_object_dict, json_key), json_key
+        )
+
+        it_users_in_mo = await dataloader.load_mo_employee_it_users(
+            changed_employee.uuid, it_system_type_uuid
+        )
+
+        cleanup(json_key, "user_key", it_users_in_mo, "mo_it_user")
 
 
 @asynccontextmanager
@@ -416,7 +445,8 @@ def create_app(**kwargs: Any) -> FastAPI:
             if len(converted_objects) == 0:
                 continue
 
-            if ".Address" in converter.find_mo_object_class(json_key):
+            mo_object_class = converter.find_mo_object_class(json_key).split(".")[-1]
+            if mo_object_class == "Address":
                 # Load addresses already in MO
                 addresses_in_mo = await dataloader.load_mo_employee_addresses(
                     employee_uuid, converted_objects[0].address_type.uuid
@@ -448,6 +478,19 @@ def create_app(**kwargs: Any) -> FastAPI:
                         converted_objects_uuid_checked.append(converted_object)
 
                 converted_objects = converted_objects_uuid_checked
+
+            elif mo_object_class == "ITUser":
+                # If an ITUser already exists, MO throws an error
+                it_users_in_mo = await dataloader.load_mo_employee_it_users(
+                    employee_uuid, converted_objects[0].itsystem.uuid
+                )
+                user_keys_in_mo = [a.user_key for a in it_users_in_mo]
+
+                non_existing_converted_objects = []
+                for converted_object in converted_objects:
+                    if converted_object.user_key not in user_keys_in_mo:
+                        non_existing_converted_objects.append(converted_object)
+                converted_objects = non_existing_converted_objects
 
             logger.info(f"Importing {converted_objects}")
 
