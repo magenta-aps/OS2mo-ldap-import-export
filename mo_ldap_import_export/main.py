@@ -205,6 +205,7 @@ async def listen_to_changes_in_employees(
             converter.to_ldap(mo_object_dict, json_key), json_key
         )
 
+        # Load IT users belonging to this employee
         it_users_in_mo = await dataloader.load_mo_employee_it_users(
             changed_employee.uuid, it_system_type_uuid
         )

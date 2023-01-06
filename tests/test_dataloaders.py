@@ -654,3 +654,116 @@ async def test_load_mo_address_types_not_found(
 
     output = dataloader.load_mo_address_types()
     assert output == {}
+
+
+async def test_load_mo_it_system(dataloader: DataLoader, gql_client: AsyncMock):
+    return_value = {
+        "itsystems": [
+            {"name": "AD"},
+        ]
+    }
+
+    gql_client.execute.return_value = return_value
+
+    output = await asyncio.gather(
+        dataloader.load_mo_it_system(uuid4()),
+    )
+    assert output[0]["name"] == "AD"
+
+
+def test_load_mo_it_systems(dataloader: DataLoader, gql_client_sync: MagicMock):
+    uuid1 = uuid4()
+    uuid2 = uuid4()
+
+    return_value = {
+        "itsystems": [
+            {"user_key": "AD", "uuid": uuid1},
+            {"user_key": "Office365", "uuid": uuid2},
+        ]
+    }
+
+    gql_client_sync.execute.return_value = return_value
+
+    output = dataloader.load_mo_it_systems()
+    assert output["AD"]["uuid"] == uuid1
+    assert output["Office365"]["uuid"] == uuid2
+
+
+def test_load_mo_it_systems_not_found(
+    dataloader: DataLoader, gql_client_sync: MagicMock
+):
+
+    return_value: dict = {"itsystems": []}
+    gql_client_sync.execute.return_value = return_value
+
+    output = dataloader.load_mo_it_systems()
+    assert output == {}
+
+
+async def test_load_mo_it_user(dataloader: DataLoader, gql_client: AsyncMock):
+    uuid1 = uuid4()
+    uuid2 = uuid4()
+    return_value = {
+        "itusers": [
+            {
+                "objects": [
+                    {
+                        "user_key": "foo",
+                        "validity": {"from": "2021-01-01", "to": None},
+                        "employee_uuid": uuid1,
+                        "itsystem_uuid": uuid2,
+                    }
+                ]
+            }
+        ]
+    }
+
+    gql_client.execute.return_value = return_value
+
+    output = await asyncio.gather(
+        dataloader.load_mo_it_user(uuid4()),
+    )
+    assert output[0].user_key == "foo"
+    assert output[0].itsystem.uuid == uuid2
+    assert output[0].person.uuid == uuid1
+    assert output[0].validity.from_date.strftime("%Y-%m-%d") == "2021-01-01"
+
+
+async def test_load_mo_employee_it_users(dataloader: DataLoader, gql_client: AsyncMock):
+
+    uuid1 = uuid4()
+    uuid2 = uuid4()
+    employee_uuid = uuid4()
+    it_system_uuid = uuid4()
+
+    return_value = {
+        "employees": [
+            {
+                "objects": [
+                    {
+                        "itusers": [
+                            {
+                                "uuid": uuid1,
+                                "itsystem_uuid": str(it_system_uuid),
+                            },
+                            {
+                                "uuid": uuid2,
+                                "itsystem_uuid": str(uuid4()),
+                            },
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    gql_client.execute.return_value = return_value
+
+    load_mo_it_user = AsyncMock()
+    dataloader.load_mo_it_user = load_mo_it_user  # type: ignore
+
+    await asyncio.gather(
+        dataloader.load_mo_employee_it_users(employee_uuid, it_system_uuid),
+    )
+
+    load_mo_it_user.assert_called_once_with(uuid1)
