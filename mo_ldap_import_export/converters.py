@@ -74,8 +74,12 @@ class LdapConverter:
         self.settings = self.user_context["settings"]
         self.raw_mapping = self.user_context["mapping"]
         self.dataloader = self.user_context["dataloader"]
+
+        # Note: If new address types or IT systems are added to MO, this app needs
+        # to be rebooted
         self.address_type_info = self.dataloader.load_mo_address_types()
         self.it_system_info = self.dataloader.load_mo_it_systems()
+
         self.overview = self.dataloader.load_ldap_overview()
         self.username_generator = self.user_context["username_generator"]
 
