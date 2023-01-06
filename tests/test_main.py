@@ -146,6 +146,7 @@ def dataloader(sync_dataloader: MagicMock) -> AsyncMock:
     dataloader.load_mo_it_system.return_value = {"name": "AD"}
     dataloader.load_mo_it_user.return_value = test_mo_it_user
     dataloader.load_mo_address_types = sync_dataloader
+    dataloader.load_mo_it_systems = sync_dataloader
     dataloader.load_mo_employee_addresses.return_value = [
         (test_mo_address, {"address_type_name": "Email"})
     ] * 2
@@ -521,6 +522,11 @@ def test_load_address_from_MO_endpoint(test_client: TestClient):
 
 def test_load_address_types_from_MO_endpoint(test_client: TestClient):
     response = test_client.get("/MO/Address_types")
+    assert response.status_code == 202
+
+
+def test_load_it_systems_from_MO_endpoint(test_client: TestClient):
+    response = test_client.get("/MO/IT_systems")
     assert response.status_code == 202
 
 

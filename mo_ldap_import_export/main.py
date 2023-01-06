@@ -617,4 +617,11 @@ def create_app(**kwargs: Any) -> FastAPI:
         result = dataloader.load_mo_address_types()
         return result
 
+    # Get MO IT system types
+    @app.get("/MO/IT_systems", status_code=202, tags=["MO"])
+    async def load_it_systems_from_MO() -> Any:
+
+        result = dataloader.load_mo_it_systems()
+        return result
+
     return app
