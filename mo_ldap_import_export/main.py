@@ -111,7 +111,7 @@ async def listen_to_changes_in_employees(
     changed_employee = await dataloader.load_mo_employee(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
-    def cleanup(json_key, value_key, mo_dict_key, objects_in_mo):
+    def cleanup(json_key, value_key, mo_dict_key, mo_objects_in_mo):
         # Get all matching objects for this user in LDAP (note that LDAP can contain
         # multiple entries in one object.)
         loaded_ldap_object = dataloader.load_ldap_cpr_object(
@@ -123,7 +123,7 @@ async def listen_to_changes_in_employees(
 
         # Format as lists
         values_in_ldap = sorted([getattr(a, value_key) for a in mo_objects_in_ldap])
-        values_in_mo = sorted([getattr(a, value_key) for a in objects_in_mo])
+        values_in_mo = sorted([getattr(a, value_key) for a in mo_objects_in_mo])
 
         logger.info(f"Found following '{json_key}' values in LDAP: {values_in_ldap}")
         logger.info(f"Found following '{json_key}' values in MO: {values_in_mo}")
