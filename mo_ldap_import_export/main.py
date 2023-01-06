@@ -119,10 +119,10 @@ async def listen_to_changes_in_employees(
         )
 
         # Convert to MO so the two are easy to compare
-        objects_in_ldap = converter.from_ldap(loaded_ldap_object, json_key)
+        mo_objects_in_ldap = converter.from_ldap(loaded_ldap_object, json_key)
 
         # Format as lists
-        values_in_ldap = sorted([getattr(a, value_key) for a in objects_in_ldap])
+        values_in_ldap = sorted([getattr(a, value_key) for a in mo_objects_in_ldap])
         values_in_mo = sorted([getattr(a, value_key) for a in objects_in_mo])
 
         logger.info(f"Found following '{json_key}' values in LDAP: {values_in_ldap}")
@@ -130,13 +130,13 @@ async def listen_to_changes_in_employees(
 
         # Clean from LDAP as needed
         ldap_objects_to_clean = []
-        for ldap_object in objects_in_ldap:
-            if getattr(ldap_object, value_key) not in values_in_mo:
+        for mo_object in mo_objects_in_ldap:
+            if getattr(mo_object, value_key) not in values_in_mo:
                 ldap_objects_to_clean.append(
                     converter.to_ldap(
                         {
                             "mo_employee": changed_employee,
-                            mo_dict_key: ldap_object,
+                            mo_dict_key: mo_object,
                         },
                         json_key,
                         dn=loaded_ldap_object.dn,
