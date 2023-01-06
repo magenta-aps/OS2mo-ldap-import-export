@@ -421,8 +421,8 @@ class DataLoader:
             user_key=entry["user_key"],
             itsystem_uuid=entry["itsystem_uuid"],
             from_date=entry["validity"]["from"],
-            to_date=entry["validity"]["to"],
             uuid=uuid,
+            to_date=entry["validity"]["to"],
             person_uuid=entry["employee_uuid"],
         )
 
@@ -475,13 +475,13 @@ class DataLoader:
         entry = result["addresses"][0]["objects"][0]
 
         address = Address.from_simplified_fields(
-            entry["value"],
-            entry["address_type"]["uuid"],
-            entry["validity"]["from"],
-            person_uuid=entry["person"][0]["uuid"],
+            value=entry["value"],
+            address_type_uuid=entry["address_type"]["uuid"],
+            from_date=entry["validity"]["from"],
             uuid=entry["uuid"],
             to_date=entry["validity"]["to"],
             value2=entry["value2"],
+            person_uuid=entry["person"][0]["uuid"],
             visibility_uuid=entry["visibility_uuid"],
         )
 
