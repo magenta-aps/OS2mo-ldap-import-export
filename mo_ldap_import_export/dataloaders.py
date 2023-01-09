@@ -400,6 +400,14 @@ class DataLoader:
         )
 
         result = await graphql_session.execute(query)
+        if len(result["itusers"]) == 0:
+            raise NoObjectsReturnedException(
+                (
+                    "No valid it user found. "
+                    "The uuid does not exist, or belongs to a future/past it user"
+                )
+            )
+
         entry = result["itusers"][0]["objects"][0]
         return ITUser.from_simplified_fields(
             user_key=entry["user_key"],
@@ -501,6 +509,10 @@ class DataLoader:
         )
 
         result = await graphql_session.execute(query)
+
+        if len(result["employees"]) == 0:
+            raise NoObjectsReturnedException("No employees with uuid = {employee_uuid}")
+
         address_uuids = [
             d["uuid"] for d in result["employees"][0]["objects"][0]["addresses"]
         ]
@@ -531,12 +543,13 @@ class DataLoader:
 
         result = await graphql_session.execute(query)
 
+        if len(result["employees"]) == 0:
+            raise NoObjectsReturnedException("No employees with uuid = {employee_uuid}")
+
         output = []
         for it_user_dict in result["employees"][0]["objects"][0]["itusers"]:
             if it_user_dict["itsystem_uuid"] == str(it_system_uuid):
-
                 it_user = await self.load_mo_it_user(it_user_dict["uuid"])
-
                 output.append(it_user)
         return output
 

@@ -111,7 +111,9 @@ async def listen_to_changes_in_employees(
     changed_employee = await dataloader.load_mo_employee(payload.uuid)
     logger.info(f"Found Employee in MO: {changed_employee}")
 
-    def cleanup(json_key, value_key, mo_dict_key, mo_objects_in_mo):
+    def cleanup(
+        json_key: str, value_key: str, mo_dict_key: str, mo_objects_in_mo: list[Any]
+    ):
         # Get all matching objects for this user in LDAP (note that LDAP can contain
         # multiple entries in one object.)
         loaded_ldap_object = dataloader.load_ldap_cpr_object(
@@ -417,7 +419,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Load a single user from LDAP, and import him/her/hir into MO
     @app.get("/Import/{cpr}", status_code=202, tags=["Import"])
     async def import_single_user_from_LDAP(cpr: str) -> Any:
-
         global uuids_to_ignore
         # Get the employee's uuid (if he exists)
         # Note: We could optimize this by loading all relevant employees once. But:
@@ -500,11 +501,11 @@ def create_app(**kwargs: Any) -> FastAPI:
                 )
                 user_keys_in_mo = [a.user_key for a in it_users_in_mo]
 
-                non_existing_converted_objects = []
-                for converted_object in converted_objects:
-                    if converted_object.user_key not in user_keys_in_mo:
-                        non_existing_converted_objects.append(converted_object)
-                converted_objects = non_existing_converted_objects
+                converted_objects = [
+                    converted_object
+                    for converted_object in converted_objects
+                    if converted_object.user_key not in user_keys_in_mo
+                ]
 
             logger.info(f"Importing {converted_objects}")
 
@@ -517,7 +518,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def convert_all_objects_from_ldap(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
-
         result = await dataloader.load_ldap_objects(json_key)
         converted_results = []
         for r in result:
@@ -533,7 +533,6 @@ def create_app(**kwargs: Any) -> FastAPI:
         json_key: Literal[accepted_json_keys],  # type: ignore
         cpr: str,
     ) -> Any:
-
         result = dataloader.load_ldap_cpr_object(cpr, json_key)
         return encode_result(result)
 
@@ -544,7 +543,6 @@ def create_app(**kwargs: Any) -> FastAPI:
         cpr: str,
         response: Response,
     ) -> Any:
-
         result = dataloader.load_ldap_cpr_object(cpr, json_key)
         try:
             return converter.from_ldap(result, json_key)
@@ -560,7 +558,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def load_all_objects_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
     ) -> Any:
-
         result = await dataloader.load_ldap_objects(json_key)
         return encode_result(result)
 
@@ -569,7 +566,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_object_to_LDAP(
         json_key: Literal[accepted_json_keys], ldap_object: LdapObject  # type: ignore
     ) -> Any:
-
         await dataloader.upload_ldap_object(ldap_object, json_key)
 
     # Post an object to MO
@@ -577,7 +573,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def post_object_to_MO(
         json_key: Literal[accepted_json_keys], mo_object_json: dict  # type: ignore
     ) -> None:
-
         mo_object = converter.import_mo_object_class(json_key)
         logger.info(f"Posting {mo_object} = {mo_object_json} to MO")
         await dataloader.upload_mo_objects([mo_object(**mo_object_json)])
@@ -585,42 +580,36 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get a speficic address from MO
     @app.get("/MO/Address/{uuid}", status_code=202, tags=["MO"])
     async def load_address_from_MO(uuid: UUID, request: Request) -> Any:
-
         result = await dataloader.load_mo_address(uuid)
         return result
 
     # Get a speficic person from MO
     @app.get("/MO/Employee/{uuid}", status_code=202, tags=["MO"])
     async def load_employee_from_MO(uuid: UUID, request: Request) -> Any:
-
         result = await dataloader.load_mo_employee(uuid)
         return result
 
     # Get LDAP overview
     @app.get("/LDAP_overview", status_code=202, tags=["LDAP"])
     async def load_overview_from_LDAP() -> Any:
-
         result = dataloader.load_ldap_overview()
         return result
 
     # Get populated LDAP overview
     @app.get("/LDAP_overview/populated", status_code=202, tags=["LDAP"])
     async def load_populated_overview_from_LDAP() -> Any:
-
         result = dataloader.load_ldap_populated_overview()
         return result
 
     # Get MO address types
     @app.get("/MO/Address_types", status_code=202, tags=["MO"])
     async def load_address_types_from_MO() -> Any:
-
         result = dataloader.load_mo_address_types()
         return result
 
     # Get MO IT system types
     @app.get("/MO/IT_systems", status_code=202, tags=["MO"])
     async def load_it_systems_from_MO() -> Any:
-
         result = dataloader.load_mo_it_systems()
         return result
 

@@ -34,7 +34,7 @@
       "user_key": "{{ ldap.msSFU30Name or None }}",
       "itsystem": "{{ dict(uuid=get_it_system_uuid('Active Directory')) }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}"
-            }
+    }
   },
   "mo_to_ldap": {
     "Employee": {
