@@ -159,12 +159,12 @@ class LdapConverter:
         # Check that all mo_to_ldap keys are also in ldap_to_mo
         for json_key in mo_to_ldap_json_keys:
             if json_key not in ldap_to_mo_json_keys:
-                raise IncorrectMapping(f"Missing key in 'ldap_to_mo': '{json_key}'")
+                self.logger.warning(f"Missing key in 'ldap_to_mo': '{json_key}'")
 
         # Check that all ldap_to_mo keys are also in mo_to_ldap
         for json_key in ldap_to_mo_json_keys:
             if json_key not in mo_to_ldap_json_keys:
-                raise IncorrectMapping(f"Missing key in 'mo_to_ldap': '{json_key}'")
+                self.logger.warning(f"Missing key in 'mo_to_ldap': '{json_key}'")
 
     def check_key_validity(self):
         mo_to_ldap_json_keys = self.get_mo_to_ldap_json_keys()
