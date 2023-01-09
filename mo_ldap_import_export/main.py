@@ -191,7 +191,7 @@ async def listen_to_changes_in_employees(
         # Get MO IT-user
         changed_it_user = await dataloader.load_mo_it_user(payload.object_uuid)
         it_system_type_uuid = changed_it_user.itsystem.uuid
-        it_system_type = await dataloader.load_mo_it_system(it_system_type_uuid)
+        it_system_type = converter.get_it_system(it_system_type_uuid)
 
         it_system_name = json_key = it_system_type["name"]
 

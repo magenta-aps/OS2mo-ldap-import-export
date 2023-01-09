@@ -383,8 +383,12 @@ class LdapConverter:
         return address_type_info[address_type]["uuid"]
 
     def get_it_system_uuid(self, it_system):
-        it_system_info = self.it_system_info
-        return it_system_info[it_system]["uuid"]
+        return self.it_system_info[it_system]["uuid"]
+
+    def get_it_system(self, uuid):
+        for it_system in self.it_system_info.values():
+            if it_system["uuid"] == str(uuid):
+                return it_system
 
     @staticmethod
     def str_to_dict(text):

@@ -656,21 +656,6 @@ async def test_load_mo_address_types_not_found(
     assert output == {}
 
 
-async def test_load_mo_it_system(dataloader: DataLoader, gql_client: AsyncMock):
-    return_value = {
-        "itsystems": [
-            {"name": "AD"},
-        ]
-    }
-
-    gql_client.execute.return_value = return_value
-
-    output = await asyncio.gather(
-        dataloader.load_mo_it_system(uuid4()),
-    )
-    assert output[0]["name"] == "AD"
-
-
 def test_load_mo_it_systems(dataloader: DataLoader, gql_client_sync: MagicMock):
     uuid1 = uuid4()
     uuid2 = uuid4()

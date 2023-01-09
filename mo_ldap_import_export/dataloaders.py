@@ -332,23 +332,6 @@ class DataLoader:
 
         return Employee(**entry)
 
-    async def load_mo_it_system(self, uuid: UUID) -> dict:
-        query = gql(
-            """
-            query ITSystem {
-              itsystems(uuids: "%s") {
-                  name
-              }
-            }
-            """
-            % uuid
-        )
-        graphql_session: AsyncClientSession = self.user_context["gql_client"]
-        result = await graphql_session.execute(query)
-
-        output: dict = result["itsystems"][0]
-        return output
-
     def load_mo_it_systems(self) -> dict:
         query = gql(
             """
@@ -356,6 +339,7 @@ class DataLoader:
               itsystems {
                 user_key
                 uuid
+                name
               }
             }
             """
