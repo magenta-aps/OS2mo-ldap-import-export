@@ -242,8 +242,10 @@ def ldap_connection() -> Iterator[MagicMock]:
 
 @pytest.fixture
 def headers(test_client: TestClient) -> dict:
-    token = test_client.post("/login", data={"username": "admin", "password": "admin"})
-    headers = {"Authorization": "Bearer " + token.json()["access_token"]}
+    response = test_client.post(
+        "/login", data={"username": "admin", "password": "admin"}
+    )
+    headers = {"Authorization": "Bearer " + response.json()["access_token"]}
     return headers
 
 
@@ -767,3 +769,21 @@ async def test_load_faulty_username_generator(
     ):
         fastramqpi = create_fastramqpi()
         assert isinstance(fastramqpi, FastRAMQPI)
+
+
+def test_invalid_credentials(test_client: TestClient):
+    response = test_client.post(
+        "/login", data={"username": "admin", "password": "wrong_password"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
+
+
+def test_invalid_username(test_client: TestClient):
+    response = test_client.post(
+        "/login", data={"username": "wrong_username", "password": "admin"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
