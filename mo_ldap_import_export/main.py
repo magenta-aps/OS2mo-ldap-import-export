@@ -419,9 +419,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         password = data.password
 
         user = query_user(user_id)
-        if not user:
-            raise InvalidCredentialsException
-        elif password != user["password"]:
+        if not user or password != user["password"]:
             raise InvalidCredentialsException
 
         access_token = login_manager.create_access_token(data={"sub": user_id})
