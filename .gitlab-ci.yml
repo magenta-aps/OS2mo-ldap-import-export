@@ -44,40 +44,13 @@ include:
 
   # Kører build
   - project: labs/salt-automation
-    file: /gitlab-ci-templates/common/docker-build-meta.v1.yml
+    file: /gitlab-ci-templates/common/docker-build.v1.yml
 
   # Kører automatisk release
   - project: labs/salt-automation
     file: /gitlab-ci-templates/common/docker-release.v1.yml
 
 
-Build:
-  extends:
-    - .build-docker
-  variables:
-    CI_IMAGE: ${IMAGE_SHA}
-    BUILD_DOCKER_EXTRA_FLAGS: --build-arg=COMMIT_SHA=${CI_COMMIT_SHA} --build-arg=COMMIT_TAG=${CI_COMMIT_TAG}
-
-
-
-Release:
-  extends: .release-default
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "54355_initial_image_release"
-      when: on_success
-    - when: never
-  variables:
-    MASTER_BRANCH_NAME: 54355_initial_image_release
-    CI_IMAGE: ${IMAGE_SHA}
-    RELEASE_IMAGE: ${RELEASE_REGISTRY_IMAGE}
-  script:
-    - skopeo copy
-      --src-creds=${CI_REGISTRY_USER}:${CI_BUILD_TOKEN}
-      --dest-creds=${RELEASE_REGISTRY_USER}:${RELEASE_REGISTRY_PASSWORD}
-      "docker://${CI_IMAGE}"
-      "docker://${RELEASE_IMAGE}:${MASTER_BRANCH_NAME}"
 
 
 # Kører config-updater for test
