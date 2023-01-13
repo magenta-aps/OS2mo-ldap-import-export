@@ -39,8 +39,8 @@ include:
   #  file: /gitlab-ci-templates/common/autopub.v1.yml
 
   # Includes til at køre config-updateren, se anvendelse længere nede
-  #- project: labs/salt-automation
-  #  file: /gitlab-ci-templates/common/config-updater-meta.v1.yml
+  - project: labs/salt-automation
+    file: /gitlab-ci-templates/common/config-updater-meta.v1.yml
 
   # Kører build
   - project: labs/salt-automation
@@ -50,20 +50,17 @@ include:
   - project: labs/salt-automation
     file: /gitlab-ci-templates/common/docker-release.v1.yml
 
-
-
-
 # Kører config-updater for test
-#Deploy to Test:
-#  extends: .release-to-test
-#  needs: []
-#  variables:
-#    ENDPOINT: os2mo/flux/ldap_import_export/update-test
+Deploy to Test:
+  extends: .release-to-test
+  needs: []
+  variables:
+    ENDPOINT: os2mo/salt/ldapimportexport/update-test
 
 # Kører config-updater for prod
-#Deploy to Prod:
-#  extends: .release-to-prod
-#  needs: []
-#  variables:
-#    ENDPOINT: os2mo/flux/ldap_import_export/update-prod
+Deploy to Prod:
+  extends: .release-to-prod
+  needs: []
+  variables:
+    ENDPOINT: os2mo/salt/ldapimportexport/update-prod
 
