@@ -305,8 +305,8 @@ unit. Converting the other way around can be done like this:
 ```
 
 Note that `get_or_create_org_unit_uuid` supports full organization paths as input. This
-means, that if the ldap.division field contains a string which reads
-`Magenta APs->Magenta Aarhus`, it will try to get the uuid of the organizational unit 
+means, that if the `ldap.division` field contains a string which reads
+`Magenta APs->Magenta Aarhus`, it will try to get the uuid of the organizational unit
 called `Magenta Aarhus`. In case there are multiple organizational units with this name,
 it will find the right one. If this unit does not exist, it will create it, with
 `Magenta Aps` as its parent. It is important that `ldap.division` contains full paths
@@ -315,7 +315,7 @@ have duplicate names. For example: Every sub-organizational unit in most compani
 an `IT Support` department.
 
 Created organizational units are called `IMPORTED FROM LDAP: {name}`. They have a
-default organizational unit type and level specified in the environment variables as
+default organizational unit type and level specified in the environment variables with
 `DEFAULT_ORG_UNIT_TYPE` and `DEFAULT_ORG_UNIT_LEVEL`. The idea is that users manually go
 in and remove the `IMPORTED FROM LDAP` tag. While they are doing this they can also set
 the proper level and type for the organization.
