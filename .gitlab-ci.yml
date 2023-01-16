@@ -34,10 +34,6 @@ include:
     ref: master
     file: /gitlab-ci-templates/python/pytest.v1.yml
 
-  # Opdaterer automatisk med et nyt tag
-  #- project: labs/salt-automation
-  #  file: /gitlab-ci-templates/common/autopub.v1.yml
-
   # Includes til at køre config-updateren, se anvendelse længere nede
   - project: labs/salt-automation
     file: /gitlab-ci-templates/common/config-updater-meta.v1.yml
@@ -68,4 +64,3 @@ Deploy to Prod:
   extends: .release-to-prod
   variables:
     ENDPOINT: os2mo/salt/ldapimportexport/update-prod
-
