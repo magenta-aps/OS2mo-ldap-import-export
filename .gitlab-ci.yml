@@ -51,6 +51,12 @@ include:
     file: /gitlab-ci-templates/common/docker-release.v1.yml
 
 # Kører config-updater for test
+Deploy to Dev:
+  extends: .release-to-dev
+  variables:
+    ENDPOINT: os2mo/salt/ldapimportexport/update-dev
+
+# Kører config-updater for test
 Deploy to Test:
   extends: .release-to-test
   needs: []
