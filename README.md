@@ -259,7 +259,7 @@ And the other way around:
 
 Note that we have specified the json key equal to `Active Directory`. This key needs
 to be an IT system name in MO. IT system names can be retrieved using
-[GET:MO/IT_systems][get_it_systems]
+[GET:MO/IT_systems][get_it_systems].
 
 #### Filters and globals
 
@@ -268,11 +268,12 @@ the following filters are available:
 
 * `splitfirst`: Splits a string at the first space, returning two elements
   This is convenient for splitting a name into a givenName and a surname
-  and works for names with no spaces (surname will then be empty)
+  and works for names with no spaces (surname will then be empty).
 * `splitlast`: Splits a string at the last space, returning two elements
   This is convenient for splitting a name into a givenName and a surname
-  and works for names with no spaces (givenname will then be empty)
-* `mo_datestring`: Accepts a datetime object and formats it as a string
+  and works for names with no spaces (givenname will then be empty).
+* `mo_datestring`: Accepts a datetime object and formats it as a string.
+* `strip_non_digits`: Removes all but digits from a string.
 
 In addition to filters, a few methods have been made available for the templates.
 These are called using the normal function call syntax:
@@ -281,10 +282,23 @@ These are called using the normal function call syntax:
   "key": "{{ nonejoin(ldap.postalCode, ldap.streetAddress) }}"
 }
 ```
-* `nonejoin`: Joins two or more strings together with comma, omitting any Falsy values 
-  (`None`, `""`, `0`, `False`, `{}` or `[]`)
 * `now`: Returns current datetime
+* `nonejoin`: Joins two or more strings together with comma, omitting any Falsy values
+  (`None`, `""`, `0`, `False`, `{}` or `[]`)
 * `get_address_type_uuid`: Returns the address type uuid for an address type string
+* `get_it_system_uuid`: Returns the it system uuid for an it system string
+* `get_or_create_org_unit_uuid`: Returns the organization unit uuid for an organization
+  unit path string. Note that the input string needs to be the full path to the
+  organization unit, separated by `->`. If this organization unit does not exist, it
+  is created.
+* `get_job_function_uuid`: Returns the job function uuid for a job function string
+* `get_engagement_type_uuid`: Returns the engagement type uuid for an engagement type
+  string
+* `uuid4`: Returns an uuid4
+* `get_org_unit_path_string`: Returns the full path string to an organization unit,
+  given its uuid
+* `get_engagement_type_name`: Returns the name of an engagement type, given its uuid
+* `get_job_function_name`: Returns the name of a job function, given its uuid
 
 
 #### Username generation
