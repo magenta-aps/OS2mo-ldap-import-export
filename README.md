@@ -261,6 +261,65 @@ Note that we have specified the json key equal to `Active Directory`. This key n
 to be an IT system name in MO. IT system names can be retrieved using
 [GET:MO/IT_systems][get_it_systems].
 
+#### Engagement conversion
+Engagement conversion follows the same logic as address conversion. An example of
+an engagement conversion dict is as follows:
+
+```
+  [...]
+  "mo_to_ldap": {
+    "Engagement" : {
+      "objectClass": "user",
+      "employeeID": "{{mo_employee.cpr_no}}",
+      "department": "{{NONE}}",
+      "company": "{{NONE}}",
+      "departmentNumber": "{{mo_engagement.user_key}}",
+      "division": "{{get_org_unit_path_string(mo_engagement.org_unit.uuid)}}",
+      "primaryGroupID": "{{NONE}}",
+      "employeeType": "{{get_engagement_type_name(mo_engagement.engagement_type.uuid)}}",
+      "memberOf": "{{NONE}}",
+      "personalTitle": "{{NONE}}",
+      "title": "{{get_job_function_name(mo_engagement.job_function.uuid)}}"
+    }
+  }
+  [...]
+```
+
+Note the `get_org_unit_path_string` function which we use for ldap.division. This will
+write full organizational paths to ldap, rather than just the name of an organizational
+unit. Converting the other way around can be done like this:
+
+```
+  [...]
+  "ldap_to_mo": {
+    "Engagement": {
+      "objectClass": "ramodels.mo.details.engagement.Engagement",
+      "org_unit": "{{ dict(uuid=get_or_create_org_unit_uuid(ldap.division)) }}",
+      "job_function": "{{ dict(uuid=get_job_function_uuid(ldap.title)) }}",
+      "engagement_type": "{{ dict(uuid=get_engagement_type_uuid(ldap.employeeType)) }}",
+      "user_key": "{{ ldap.departmentNumber or uuid4() }}",
+      "validity": "{{ dict(from_date=now()|mo_datestring) }}"
+    }
+  }
+  [...]
+```
+
+Note that `get_or_create_org_unit_uuid` supports full organization paths as input. This
+means, that if the ldap.division field contains a string which reads
+`Magenta APs->Magenta Aarhus`, it will try to get the uuid of the organizational unit 
+called `Magenta Aarhus`. In case there are multiple organizational units with this name,
+it will find the right one. If this unit does not exist, it will create it, with
+`Magenta Aps` as its parent. It is important that `ldap.division` contains full paths
+to its organizational unit. This is important because organizational units can
+have duplicate names. For example: Every sub-organizational unit in most companies has
+an `IT Support` department.
+
+Created organizational units are called `IMPORTED FROM LDAP: {name}`. They have a
+default organizational unit type and level specified in the environment variables as
+`DEFAULT_ORG_UNIT_TYPE` and `DEFAULT_ORG_UNIT_LEVEL`. The idea is that users manually go
+in and remove the `IMPORTED FROM LDAP` tag. While they are doing this they can also set
+the proper level and type for the organization.
+
 #### Filters and globals
 
 In addition to the [Jinja2's builtin filters][jinja2_filters],

@@ -39,7 +39,7 @@
       "engagement_type": "{{ dict(uuid=get_engagement_type_uuid(ldap.employeeType)) }}",
       "user_key": "{{ ldap.departmentNumber or uuid4() }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}"
-      }
+    }
   },
   "mo_to_ldap": {
     "Employee": {
@@ -70,17 +70,17 @@
       "employeeID": "{{mo_employee.cpr_no}}"
     },
     "Engagement" : {
-    "objectClass": "user",
-    "employeeID": "{{mo_employee.cpr_no}}",
-    "department": "{{NONE}}",
-    "company": "{{NONE}}",
-    "departmentNumber": "{{mo_engagement.user_key}}",
-    "division": "{{get_org_unit_path_string(mo_engagement.org_unit.uuid)}}",
-    "primaryGroupID": "{{NONE}}",
-    "employeeType": "{{get_engagement_type_name(mo_engagement.engagement_type.uuid)}}",
-    "memberOf": "{{NONE}}",
-    "personalTitle": "{{NONE}}",
-    "title": "{{get_job_function_name(mo_engagement.job_function.uuid)}}"
+      "objectClass": "user",
+      "employeeID": "{{mo_employee.cpr_no}}",
+      "department": "{{NONE}}",
+      "company": "{{NONE}}",
+      "departmentNumber": "{{mo_engagement.user_key}}",
+      "division": "{{get_org_unit_path_string(mo_engagement.org_unit.uuid)}}",
+      "primaryGroupID": "{{NONE}}",
+      "employeeType": "{{get_engagement_type_name(mo_engagement.engagement_type.uuid)}}",
+      "memberOf": "{{NONE}}",
+      "personalTitle": "{{NONE}}",
+      "title": "{{get_job_function_name(mo_engagement.job_function.uuid)}}"
     }
   },
   "username_generator": {
