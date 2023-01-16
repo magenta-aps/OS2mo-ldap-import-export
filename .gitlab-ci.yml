@@ -53,21 +53,21 @@ include:
 # Kører config-updater for dev. Kører på semantiske versioner
 Deploy to Dev:
   extends: .release-to-dev
-  needs: ["Build"]
+  needs: ["Build", "Release version"]
   variables:
     ENDPOINT: os2mo/salt/ldapimportexport/update-dev
 
 # Kører config-updater for test. Kører kun scheduleret
 Deploy to Test:
   extends: .release-to-test
-  needs: ["Build"]
+  needs: ["Build", "Release version"]
   variables:
     ENDPOINT: os2mo/salt/ldapimportexport/update-test
 
 # Kører config-updater for prod. Kører kun scheduleret
 Deploy to Prod:
   extends: .release-to-prod
-  needs: ["Build"]
+  needs: ["Build", "Release version"]
   variables:
     ENDPOINT: os2mo/salt/ldapimportexport/update-prod
 
