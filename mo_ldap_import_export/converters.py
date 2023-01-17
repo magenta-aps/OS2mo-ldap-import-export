@@ -316,6 +316,50 @@ class LdapConverter:
                             )
                         )
 
+            # Make sure that all attributes are single-value or multi-value. Not a mix.
+            if len(fields_to_check) > 1:
+                matching_attributes = []
+                for field_to_check in fields_to_check:
+                    for attribute in detected_attributes:
+                        template = self.raw_mapping["mo_to_ldap"][json_key][attribute]
+                        if field_to_check in template:
+                            matching_attributes.append(attribute)
+                            break
+
+                if len(matching_attributes) != len(fields_to_check):
+                    raise IncorrectMapping(
+                        (
+                            "Could not find all attributes belonging to "
+                            f"{fields_to_check}. Only found the following "
+                            f"attributes: {matching_attributes}."
+                        )
+                    )
+
+                matching_single_value_attributes = [
+                    a
+                    for a in matching_attributes
+                    if a in detected_single_value_attributes
+                ]
+                matching_multi_value_attributes = [
+                    a
+                    for a in matching_attributes
+                    if a not in detected_single_value_attributes
+                ]
+
+                if len(matching_single_value_attributes) not in [
+                    0,
+                    len(fields_to_check),
+                ]:
+                    raise IncorrectMapping(
+                        (
+                            f"LDAP Attributes mapping to '{json_key}' are a mix "
+                            "of multi- and single-value. The following attributes are "
+                            f"single-value: {matching_single_value_attributes} "
+                            "while the following are multi-value attributes: "
+                            f"{matching_multi_value_attributes}"
+                        )
+                    )
+
     def check_dar_scope(self):
         self.logger.info("[json check] checking DAR scope")
         ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()

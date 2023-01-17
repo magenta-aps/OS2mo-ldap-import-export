@@ -37,7 +37,7 @@
       "org_unit": "{{ dict(uuid=get_or_create_org_unit_uuid(ldap.division)) }}",
       "job_function": "{{ dict(uuid=get_job_function_uuid(ldap.title)) }}",
       "engagement_type": "{{ dict(uuid=get_engagement_type_uuid(ldap.employeeType)) }}",
-      "user_key": "{{ ldap.departmentNumber or uuid4() }}",
+      "user_key": "{{ ldap.personalTitle or uuid4() }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}"
     }
   },
@@ -74,12 +74,12 @@
       "employeeID": "{{mo_employee.cpr_no}}",
       "department": "{{NONE}}",
       "company": "{{NONE}}",
-      "departmentNumber": "{{mo_engagement.user_key}}",
+      "departmentNumber": "{{NONE}}",
       "division": "{{get_org_unit_path_string(mo_engagement.org_unit.uuid)}}",
       "primaryGroupID": "{{NONE}}",
       "employeeType": "{{get_engagement_type_name(mo_engagement.engagement_type.uuid)}}",
       "memberOf": "{{NONE}}",
-      "personalTitle": "{{NONE}}",
+      "personalTitle": "{{mo_engagement.user_key}}",
       "title": "{{get_job_function_name(mo_engagement.job_function.uuid)}}"
     }
   },

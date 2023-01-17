@@ -613,10 +613,8 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
 
     dataloader = MagicMock()
     dataloader.load_ldap_overview.return_value = {
-        "user": {"attributes": ["attr1", "attr2"]}
+        "user": {"attributes": ["attr1", "attr2", "attr3", "attr4"]}
     }
-    dataloader.single_value = {"attr1": True, "cpr_field": False}
-    converter.dataloader = dataloader
 
     mapping = {
         "mo_to_ldap": {
@@ -624,21 +622,19 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
             "AD": {"attr1": "{{ mo_it_user.user_key }}", "cpr_field": "{{ foo }}"},
             "Engagement": {
                 "attr1": "{{ mo_engagement.user_key }}",
+                "attr2": "{{ mo_engagement.org_unit.uuid }}",
+                "attr3": "{{ mo_engagement.engagement_type.uuid }}",
+                "attr4": "{{ mo_engagement.job_function.uuid }}",
                 "cpr_field": "{{ foo }}",
             },
         }
     }
     converter.raw_mapping = mapping.copy()
+    converter.mapping = mapping.copy()
     converter.mo_address_types = ["Address"]
     converter.mo_it_systems = ["AD"]
 
     with patch(
-        "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
-        return_value=["Address", "AD", "Engagement"],
-    ), patch(
-        "mo_ldap_import_export.converters.LdapConverter.get_ldap_attributes",
-        return_value=["attr1", "cpr_field"],
-    ), patch(
         "mo_ldap_import_export.converters.find_cpr_field",
         return_value="cpr_field",
     ), patch(
@@ -649,15 +645,52 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
         return_value="user",
     ):
         with capture_logs() as cap_logs:
+
+            dataloader.single_value = {
+                "attr1": True,
+                "cpr_field": False,
+                "attr2": True,
+                "attr3": True,
+                "attr4": True,
+            }
+            converter.dataloader = dataloader
+
             converter.check_ldap_attributes()
 
             warnings = [w for w in cap_logs if w["log_level"] == "warning"]
-            assert len(warnings) == 3
+            assert len(warnings) == 6
             for warning in warnings:
                 assert re.match(
                     ".*LDAP attribute cannot contain multiple values.*",
                     warning["event"],
                 )
+        with pytest.raises(IncorrectMapping, match="LDAP Attributes .* are a mix"):
+            dataloader.single_value = {
+                "attr1": True,
+                "cpr_field": False,
+                "attr2": True,
+                "attr3": True,
+                "attr4": False,
+            }
+            converter.dataloader = dataloader
+
+            converter.check_ldap_attributes()
+
+        with pytest.raises(IncorrectMapping, match="Could not find all attributes"):
+
+            mapping = {
+                "mo_to_ldap": {
+                    "Engagement": {
+                        "attr1": "{{ mo_engagement.user_key }}",
+                        "attr2": "{{ mo_engagement.org_unit.uuid }}",
+                        "attr3": "{{ mo_engagement.engagement_type.uuid }}",
+                        "cpr_field": "{{ foo }}",
+                    },
+                }
+            }
+            converter.raw_mapping = mapping.copy()
+            converter.mapping = mapping.copy()
+            converter.check_ldap_attributes()
 
 
 async def test_check_dar_scope(converter: LdapConverter):
