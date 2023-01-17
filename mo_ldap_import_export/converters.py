@@ -482,7 +482,6 @@ class LdapConverter:
                         parent_path
                     )
                     parent_uuid = self.get_org_unit_uuid_from_path(parent_path_string)
-
                     parent = {"uuid": str(parent_uuid), "name": parent_path[-1]}
 
                 uuid = uuid4()
