@@ -288,20 +288,21 @@ class LdapConverter:
             # We like fields which map to these MO objects to be multi-value fields,
             # to avoid data being overwritten if two objects of the same type are
             # added in MO
+            if json_key in self.mo_address_types:
+                fields_to_check = ["mo_address.value"]
+            elif json_key in self.mo_it_systems:
+                fields_to_check = ["mo_it_user.user_key"]
+            elif json_key == "Engagement":
+                fields_to_check = [
+                    "mo_engagement.user_key",
+                    "mo_engagement.org_unit.uuid",
+                    "mo_engagement.engagement_type.uuid",
+                    "mo_engagement.job_function.uuid",
+                ]
+            else:
+                fields_to_check = []
+
             for attribute in detected_single_value_attributes:
-                if json_key in self.mo_address_types:
-                    fields_to_check = ["mo_address.value"]
-                elif json_key in self.mo_it_systems:
-                    fields_to_check = ["mo_it_user.user_key"]
-                elif json_key == "Engagement":
-                    fields_to_check = [
-                        "mo_engagement.user_key",
-                        "mo_engagement.org_unit.uuid",
-                        "mo_engagement.engagement_type.uuid",
-                        "mo_engagement.job_function.uuid",
-                    ]
-                else:
-                    fields_to_check = []
                 template = self.raw_mapping["mo_to_ldap"][json_key][attribute]
                 for field_to_check in fields_to_check:
                     if field_to_check in template:
