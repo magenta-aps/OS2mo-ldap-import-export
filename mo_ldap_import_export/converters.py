@@ -273,6 +273,10 @@ class LdapConverter:
             detected_attributes = self.get_ldap_attributes(json_key)
             self.check_attributes(detected_attributes, accepted_attributes)
 
+            detected_single_value_attributes = [
+                a for a in detected_attributes if self.dataloader.single_value[a]
+            ]
+
             # Check that the CPR field is present. Otherwise we do not know who an
             # Address/Employee/... belongs to.
             if cpr_field not in detected_attributes:
@@ -280,23 +284,27 @@ class LdapConverter:
                     f"'{cpr_field}' attribute not present in mo_to_ldap['{json_key}']"
                 )
 
-            # Check single value fields which map to MO address/it-user data.
-            # We like fields which map to MO address data to be multi-value fields,
-            # to avoid data being overwritten if two addresses of the same type are
+            # Check single value fields which map to MO address/it-user/... objects.
+            # We like fields which map to these MO objects to be multi-value fields,
+            # to avoid data being overwritten if two objects of the same type are
             # added in MO
-            if json_key in self.mo_address_types + self.mo_it_systems:
-                detected_single_value_attributes = [
-                    a for a in detected_attributes if self.dataloader.single_value[a]
-                ]
-
-                for attribute in detected_single_value_attributes:
-                    template = self.mapping["mo_to_ldap"][json_key][attribute]
-                    dummy_dict = {
-                        "mo_address": {"value": 123},
-                        "mo_it_user": {"user_key": 123},
-                        "mo_employee": None,
-                    }
-                    if template.render(dummy_dict) == "123":
+            for attribute in detected_single_value_attributes:
+                if json_key in self.mo_address_types:
+                    fields_to_check = ["mo_address.value"]
+                elif json_key in self.mo_it_systems:
+                    fields_to_check = ["mo_it_user.user_key"]
+                elif json_key == "Engagement":
+                    fields_to_check = [
+                        "mo_engagement.user_key",
+                        "mo_engagement.org_unit.uuid",
+                        "mo_engagement.engagement_type.uuid",
+                        "mo_engagement.job_function.uuid",
+                    ]
+                else:
+                    fields_to_check = []
+                template = self.raw_mapping["mo_to_ldap"][json_key][attribute]
+                for field_to_check in fields_to_check:
+                    if field_to_check in template:
                         self.logger.warning(
                             (
                                 f"[json check] {object_class}['{attribute}'] LDAP "

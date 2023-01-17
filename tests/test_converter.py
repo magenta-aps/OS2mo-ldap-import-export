@@ -11,8 +11,6 @@ from uuid import uuid4
 
 import pytest
 from fastramqpi.context import Context
-from jinja2 import Environment
-from jinja2 import Undefined
 from ramodels.mo import Employee
 from ramodels.mo.details.engagement import Engagement
 from structlog.testing import capture_logs
@@ -619,20 +617,24 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
     }
     dataloader.single_value = {"attr1": True, "cpr_field": False}
     converter.dataloader = dataloader
-    environment = Environment(undefined=Undefined)
 
     mapping = {
         "mo_to_ldap": {
-            "foo": {"attr1": "{{ mo_address.value }}", "cpr_field": "{{ foo }}"}
+            "Address": {"attr1": "{{ mo_address.value }}", "cpr_field": "{{ foo }}"},
+            "AD": {"attr1": "{{ mo_it_user.user_key }}", "cpr_field": "{{ foo }}"},
+            "Engagement": {
+                "attr1": "{{ mo_engagement.user_key }}",
+                "cpr_field": "{{ foo }}",
+            },
         }
     }
-    converter.mapping = converter._populate_mapping_with_templates(mapping, environment)
-    converter.mo_address_types = ["foo"]
-    converter.mo_it_systems = []
+    converter.raw_mapping = mapping.copy()
+    converter.mo_address_types = ["Address"]
+    converter.mo_it_systems = ["AD"]
 
     with patch(
         "mo_ldap_import_export.converters.LdapConverter.get_mo_to_ldap_json_keys",
-        return_value=["foo"],
+        return_value=["Address", "AD", "Engagement"],
     ), patch(
         "mo_ldap_import_export.converters.LdapConverter.get_ldap_attributes",
         return_value=["attr1", "cpr_field"],
@@ -650,11 +652,12 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
             converter.check_ldap_attributes()
 
             warnings = [w for w in cap_logs if w["log_level"] == "warning"]
-            assert len(warnings) == 1
-            assert re.match(
-                ".*LDAP attribute cannot contain multiple values.*",
-                warnings[0]["event"],
-            )
+            assert len(warnings) == 3
+            for warning in warnings:
+                assert re.match(
+                    ".*LDAP attribute cannot contain multiple values.*",
+                    warning["event"],
+                )
 
 
 async def test_check_dar_scope(converter: LdapConverter):
