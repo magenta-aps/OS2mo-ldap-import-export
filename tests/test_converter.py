@@ -835,11 +835,11 @@ def test_get_or_create_org_unit_uuid(converter: LdapConverter):
 
     uuid = str(uuid4())
     converter.org_unit_info = {
-        uuid: {"name": "Magenta APs", "uuid": uuid, "parent": None}
+        uuid: {"name": "Magenta Aps", "uuid": uuid, "parent": None}
     }
 
     # Get an organization UUID
-    assert converter.get_or_create_org_unit_uuid("Magenta APs") == uuid
+    assert converter.get_or_create_org_unit_uuid("Magenta Aps") == uuid
 
     # Create a new organization and return its UUID
     converter.get_or_create_org_unit_uuid("Magenta Aarhus")

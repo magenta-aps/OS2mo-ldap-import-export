@@ -41,8 +41,8 @@ class DataLoader:
         }
 
     def _check_if_empty(self, result: dict):
-        for key in result.keys():
-            if len(result[key]) == 0:
+        for key, value in result.items():
+            if len(value) == 0:
                 raise NoObjectsReturnedException(f"query_result['{key}'] is empty")
 
     def load_ldap_object(self, dn, attributes):

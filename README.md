@@ -306,7 +306,7 @@ unit. Converting the other way around can be done like this:
 
 Note that `get_or_create_org_unit_uuid` supports full organization paths as input. This
 means, that if the `ldap.division` field contains a string which reads
-`Magenta APs->Magenta Aarhus`, it will try to get the uuid of the organizational unit
+`Magenta Aps->Magenta Aarhus`, it will try to get the uuid of the organizational unit
 called `Magenta Aarhus`. In case there are multiple organizational units with this name,
 it will find the right one. If this unit does not exist, it will create it, with
 `Magenta Aps` as its parent. It is important that `ldap.division` contains full paths
