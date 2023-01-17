@@ -868,6 +868,16 @@ async def test_format_converted_engagement_objects(
         from_date="2021-01-01",
     )
 
+    # We do not expect this one the be uploaded, because its user_key exists twice in MO
+    engagement3 = Engagement.from_simplified_fields(
+        org_unit_uuid=uuid4(),
+        person_uuid=uuid4(),
+        job_function_uuid=uuid4(),
+        engagement_type_uuid=uuid4(),
+        user_key="duplicate_key",
+        from_date="2021-01-01",
+    )
+
     engagement1_in_mo = Engagement.from_simplified_fields(
         org_unit_uuid=uuid4(),
         person_uuid=uuid4(),
@@ -877,7 +887,29 @@ async def test_format_converted_engagement_objects(
         from_date="2021-01-01",
     )
 
-    dataloader.load_mo_employee_engagements.return_value = [engagement1_in_mo]
+    engagement2_in_mo = Engagement.from_simplified_fields(
+        org_unit_uuid=uuid4(),
+        person_uuid=uuid4(),
+        job_function_uuid=uuid4(),
+        engagement_type_uuid=uuid4(),
+        user_key="duplicate_key",
+        from_date="2021-01-01",
+    )
+
+    engagement3_in_mo = Engagement.from_simplified_fields(
+        org_unit_uuid=uuid4(),
+        person_uuid=uuid4(),
+        job_function_uuid=uuid4(),
+        engagement_type_uuid=uuid4(),
+        user_key="duplicate_key",
+        from_date="2021-01-01",
+    )
+
+    dataloader.load_mo_employee_engagements.return_value = [
+        engagement1_in_mo,
+        engagement2_in_mo,
+        engagement3_in_mo,
+    ]
 
     user_context = {"converter": converter, "dataloader": dataloader}
 
@@ -885,12 +917,14 @@ async def test_format_converted_engagement_objects(
 
     employee_uuid = uuid4()
 
-    converted_objects = [engagement1, engagement2]
+    converted_objects = [engagement1, engagement2, engagement3]
 
     formatted_objects = await format_converted_objects(
         converted_objects, json_key, employee_uuid, user_context
     )
 
+    assert len(formatted_objects) == 2
+    assert engagement3 not in formatted_objects
     assert formatted_objects[1] == engagement2
     assert formatted_objects[0].uuid == engagement1_in_mo.uuid
     assert formatted_objects[0].user_key == engagement1.user_key

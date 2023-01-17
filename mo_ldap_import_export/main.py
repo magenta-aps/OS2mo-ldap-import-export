@@ -454,8 +454,7 @@ async def format_converted_objects(
         values_in_mo = [getattr(a, value_key) for a in objects_in_mo_dict.values()]
         converted_object_value = getattr(converted_object, value_key)
 
-        # if converted_object.value in values_in_mo:
-        if converted_object_value in values_in_mo:
+        if values_in_mo.count(converted_object_value) == 1:
             logger.info(
                 (
                     f"Found matching MO '{json_key}' with "
@@ -483,8 +482,13 @@ async def format_converted_objects(
 
             mo_class = converter.import_mo_object_class(json_key)
             converted_objects_uuid_checked.append(mo_class(**mo_object_dict_to_upload))
-        else:
+        elif values_in_mo.count(converted_object_value) == 0:
             converted_objects_uuid_checked.append(converted_object)
+        else:
+            logger.warning(
+                f"Could not determine which '{json_key}' MO object "
+                f"{value_key}='{converted_object_value}' belongs to. Skipping"
+            )
 
     return converted_objects_uuid_checked
 
@@ -607,11 +611,12 @@ def create_app(**kwargs: Any) -> FastAPI:
                 converted_objects, json_key, employee_uuid, user_context
             )
 
-            logger.info(f"Importing {converted_objects}")
+            if len(converted_objects) > 0:
+                logger.info(f"Importing {converted_objects}")
 
-            for mo_object in converted_objects:
-                uuids_to_ignore.append(mo_object.uuid)
-            await dataloader.upload_mo_objects(converted_objects)
+                for mo_object in converted_objects:
+                    uuids_to_ignore.append(mo_object.uuid)
+                await dataloader.upload_mo_objects(converted_objects)
 
     # Get all objects from LDAP - Converted to MO
     @app.get("/LDAP/{json_key}/converted", status_code=202, tags=["LDAP"])
