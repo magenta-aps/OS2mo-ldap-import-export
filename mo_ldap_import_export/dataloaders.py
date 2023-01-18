@@ -227,11 +227,22 @@ class DataLoader:
         self.logger.info(f"Failed MODIFY_* operations: {failed}")
         return results
 
-    def make_overview_entry(self, attributes, superiors):
+    def make_overview_entry(self, attributes, superiors, example_value_dict=None):
+
+        attribute_dict = {}
+        for attribute in attributes:
+            details_dict = {
+                "single_value": self.attribute_types[attribute].single_value,
+                "syntax": self.attribute_types[attribute].syntax,
+            }
+            if example_value_dict:
+                details_dict["example_value"] = example_value_dict[attribute]
+
+            attribute_dict[attribute] = details_dict
+
         return {
-            "attributes": attributes,
             "superiors": superiors,
-            "attribute_types": {a: self.attribute_types[a] for a in attributes},
+            "attributes": attribute_dict,
         }
 
     def load_ldap_overview(self):
@@ -247,7 +258,7 @@ class DataLoader:
 
         return output
 
-    def load_ldap_populated_overview(self):
+    def load_ldap_populated_overview(self, ldap_classes=None):
         """
         Like load_ldap_overview but only returns fields which actually contain data
         """
@@ -256,7 +267,10 @@ class DataLoader:
         output = {}
         overview = self.load_ldap_overview()
 
-        for ldap_class in overview.keys():
+        if not ldap_classes:
+            ldap_classes = overview.keys()
+
+        for ldap_class in ldap_classes:
             searchParameters = {
                 "search_filter": f"(objectclass={ldap_class})",
                 "attributes": ["*"],
@@ -265,16 +279,20 @@ class DataLoader:
             responses = paged_search(self.context, searchParameters)
 
             populated_attributes = []
+            example_value_dict = {}
             for response in responses:
                 for attribute, value in response["attributes"].items():
                     if value not in nan_values:
                         populated_attributes.append(attribute)
+
+                        if attribute not in example_value_dict:
+                            example_value_dict[attribute] = value
             populated_attributes = list(set(populated_attributes))
 
             if len(populated_attributes) > 0:
                 superiors = overview[ldap_class]["superiors"]
                 output[ldap_class] = self.make_overview_entry(
-                    populated_attributes, superiors
+                    populated_attributes, superiors, example_value_dict
                 )
 
         return output
