@@ -269,7 +269,7 @@ class LdapConverter:
 
             object_class = self.find_ldap_object_class(json_key)
 
-            accepted_attributes = list(self.overview[object_class]["attributes"].keys())
+            accepted_attributes = self.overview[object_class]["attributes"].keys()
             detected_attributes = self.get_ldap_attributes(json_key)
             self.check_attributes(detected_attributes, accepted_attributes)
 
@@ -387,7 +387,7 @@ class LdapConverter:
         for json_key in self.get_ldap_to_mo_json_keys():
             object_class = self.find_ldap_object_class(json_key)
             accepted_attributes = sorted(
-                set(self.overview[object_class]["attributes"].keys())
+                self.overview[object_class]["attributes"].keys()
             )
             for key, value in raw_mapping[json_key].items():
                 if "ldap." in value:
