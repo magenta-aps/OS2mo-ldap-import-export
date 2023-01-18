@@ -25,7 +25,7 @@ services:
       ./dev-environment/mo_ldap_import_export.env
     volumes:
       - ./cron/crontab:/etc/crontab
-    command: ["supercronic", "/etc/crontab"]
+    command: ["supercronic", "/cron/crontab"]
     networks:
       - os2mo_default
 
