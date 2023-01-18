@@ -233,6 +233,8 @@ class DataLoader:
         attribute_dict = {}
         for attribute in attributes:
             syntax = self.attribute_types[attribute].syntax
+
+            # decoded syntax tuple structure: (oid, kind, name, docs)
             syntax_decoded = oid.decode_syntax(syntax)
             details_dict = {
                 "single_value": self.attribute_types[attribute].single_value,
