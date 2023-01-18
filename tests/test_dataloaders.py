@@ -429,7 +429,7 @@ async def test_make_overview_entry(dataloader: DataLoader):
     superiors = ["sup1", "sup2"]
     entry = dataloader.make_overview_entry(attributes, superiors)
 
-    assert entry["attributes"] == attributes
+    assert list(entry["attributes"].keys()) == attributes
     assert entry["superiors"] == superiors
 
 
@@ -450,10 +450,10 @@ async def test_get_overview(dataloader: DataLoader):
     ):
         output = dataloader.load_ldap_overview()
 
-    assert output["object1"]["attributes"] == ["attr1", "attr2"]
+    assert list(output["object1"]["attributes"].keys()) == ["attr1", "attr2"]
     assert output["object1"]["superiors"] == ["sup1", "sup2"]
-    assert output["object1"]["attribute_types"]["attr1"].single_value is False
-    assert output["object1"]["attribute_types"]["attr2"].single_value is True
+    assert output["object1"]["attributes"]["attr1"]["single_value"] is False
+    assert output["object1"]["attributes"]["attr2"]["single_value"] is True
 
 
 async def test_get_populated_overview(dataloader: DataLoader):
@@ -480,9 +480,9 @@ async def test_get_populated_overview(dataloader: DataLoader):
     ):
         output = dataloader.load_ldap_populated_overview()
 
-    assert output["object1"]["attributes"] == ["attr1"]
+    assert list(output["object1"]["attributes"].keys()) == ["attr1"]
     assert output["object1"]["superiors"] == ["sup1", "sup2"]
-    assert output["object1"]["attribute_types"]["attr1"].single_value is False
+    assert output["object1"]["attributes"]["attr1"]["single_value"] is False
 
 
 async def test_load_mo_address_types(
