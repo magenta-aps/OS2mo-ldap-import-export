@@ -253,7 +253,6 @@ class DataLoader:
         }
 
     def load_ldap_overview(self):
-
         schema = get_ldap_schema(self.ldap_connection)
 
         all_object_classes = sorted(list(schema.object_classes.keys()))
@@ -292,7 +291,6 @@ class DataLoader:
                 for attribute, value in response["attributes"].items():
                     if value not in nan_values:
                         populated_attributes.append(attribute)
-
                         if attribute not in example_value_dict:
                             example_value_dict[attribute] = value
             populated_attributes = list(set(populated_attributes))
