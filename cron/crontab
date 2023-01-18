@@ -1,1 +1,1 @@
-0 0 * * *  /app/import_all.sh
+* * * * *  /cron/import_all.sh
