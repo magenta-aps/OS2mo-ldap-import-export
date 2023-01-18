@@ -12,6 +12,7 @@ from gql import gql
 from gql.client import AsyncClientSession
 from gql.client import SyncClientSession
 from ldap3.core.exceptions import LDAPInvalidValueError
+from ldap3.protocol import oid
 from ramodels.mo.details.address import Address
 from ramodels.mo.details.engagement import Engagement
 from ramodels.mo.details.it_system import ITUser
@@ -231,12 +232,18 @@ class DataLoader:
 
         attribute_dict = {}
         for attribute in attributes:
+            syntax = self.attribute_types[attribute].syntax
+            syntax_decoded = oid.decode_syntax(syntax)
             details_dict = {
                 "single_value": self.attribute_types[attribute].single_value,
-                "syntax": self.attribute_types[attribute].syntax,
+                "syntax": syntax,
             }
+            if syntax_decoded:
+                details_dict["field_type"] = syntax_decoded[2]
+
             if example_value_dict:
-                details_dict["example_value"] = example_value_dict[attribute]
+                if attribute in example_value_dict:
+                    details_dict["example_value"] = example_value_dict[attribute]
 
             attribute_dict[attribute] = details_dict
 
@@ -246,6 +253,7 @@ class DataLoader:
         }
 
     def load_ldap_overview(self):
+
         schema = get_ldap_schema(self.ldap_connection)
 
         all_object_classes = sorted(list(schema.object_classes.keys()))

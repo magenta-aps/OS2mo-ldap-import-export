@@ -128,6 +128,8 @@ def get_attribute_types() -> dict:
     attr2_mock = MagicMock()
     attr1_mock.single_value = False
     attr2_mock.single_value = True
+    attr1_mock.syntax = "1.3.6.1.4.1.1466.115.121.1.7"  # Boolean
+    attr2_mock.syntax = "1.3.6.1.4.1.1466.115.121.1.27"  # Integer
     return {
         "attr1": attr1_mock,
         "attr2": attr2_mock,
@@ -432,6 +434,12 @@ async def test_make_overview_entry(dataloader: DataLoader):
     assert list(entry["attributes"].keys()) == attributes
     assert entry["superiors"] == superiors
 
+    assert entry["attributes"]["attr1"]["single_value"] is False
+    assert entry["attributes"]["attr2"]["single_value"] is True
+
+    assert entry["attributes"]["attr1"]["field_type"] == "Boolean"
+    assert entry["attributes"]["attr2"]["field_type"] == "Integer"
+
 
 async def test_get_overview(dataloader: DataLoader):
 
@@ -454,6 +462,9 @@ async def test_get_overview(dataloader: DataLoader):
     assert output["object1"]["superiors"] == ["sup1", "sup2"]
     assert output["object1"]["attributes"]["attr1"]["single_value"] is False
     assert output["object1"]["attributes"]["attr2"]["single_value"] is True
+
+    assert output["object1"]["attributes"]["attr1"]["field_type"] == "Boolean"
+    assert output["object1"]["attributes"]["attr2"]["field_type"] == "Integer"
 
 
 async def test_get_populated_overview(dataloader: DataLoader):
