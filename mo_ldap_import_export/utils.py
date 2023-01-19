@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 #
 # SPDX-License-Identifier: MPL-2.0
+import datetime
+
+
 # https://stackoverflow.com/questions/547829/how-to-dynamically-load-a-python-class
 def import_class(name):
     components = name.split(".")
@@ -23,3 +26,13 @@ def delete_keys_from_dict(dict_del, lst_keys):
         if type(dict_foo[field]) == dict:
             delete_keys_from_dict(dict_del[field], lst_keys)
     return dict_del
+
+
+# https://www.python.org/download/releases/2.2.3/descrintro/#__new__
+class TimeStampedString(str):
+    create_datetime: datetime.datetime
+
+    def __new__(cls, value):
+        s = str.__new__(cls, value)
+        s.create_datetime = datetime.datetime.now()
+        return s

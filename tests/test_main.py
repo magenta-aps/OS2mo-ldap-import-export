@@ -5,6 +5,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=protected-access
 import asyncio
+import datetime
 import os
 import re
 from collections.abc import Iterator
@@ -38,6 +39,7 @@ from mo_ldap_import_export.main import listen_to_changes
 from mo_ldap_import_export.main import listen_to_changes_in_employees
 from mo_ldap_import_export.main import listen_to_changes_in_org_units
 from mo_ldap_import_export.main import open_ldap_connection
+from mo_ldap_import_export.utils import TimeStampedString
 
 
 @pytest.fixture
@@ -527,9 +529,18 @@ async def test_listen_to_changes_in_employees(
         )
 
     # Simulate an uuid which should be skipped
+    # And an uuid which is too old, so it will be removed from the list
+    old_uuid = TimeStampedString(uuid4())
+    old_uuid.create_datetime = datetime.datetime(2015, 1, 1)
+
+    uuids_to_ignore = [
+        TimeStampedString(payload.object_uuid),  # This uuid should be ignored
+        old_uuid,  # This uuid has been here for too long, and should be removed
+        TimeStampedString(uuid4()),  # This uuid should remain in the list
+    ]
     with patch(
         "mo_ldap_import_export.main.uuids_to_ignore",
-        [payload.object_uuid],
+        uuids_to_ignore,
     ):
         with capture_logs() as cap_logs:
             await asyncio.gather(
@@ -538,7 +549,11 @@ async def test_listen_to_changes_in_employees(
 
             entries = [w for w in cap_logs if w["log_level"] == "info"]
 
-            assert re.match(f".*Ignoring {payload.object_uuid}", entries[0]["event"])
+            assert re.match(
+                f"Removing {old_uuid} from uuids_to_ignore.", entries[0]["event"]
+            )
+            assert re.match(f".*Ignoring {payload.object_uuid}", entries[1]["event"])
+            assert len(uuids_to_ignore) == 1
 
 
 def test_ldap_get_overview_endpoint(test_client: TestClient, headers: dict) -> None:

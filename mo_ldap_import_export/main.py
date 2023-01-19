@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 """Event handling."""
+import datetime
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -50,6 +51,7 @@ from .exceptions import NotSupportedException
 from .ldap import configure_ldap_connection
 from .ldap import ldap_healthcheck
 from .ldap_classes import LdapObject
+from .utils import TimeStampedString
 
 logger = structlog.get_logger()
 fastapi_router = APIRouter()
@@ -64,7 +66,7 @@ help(RequestType)
 """
 
 # UUIDs in this list will be ignored by listen_to_changes ONCE
-uuids_to_ignore: list[UUID] = []
+uuids_to_ignore: list[TimeStampedString] = []
 
 
 def reject_on_failure(func):
@@ -238,13 +240,27 @@ async def listen_to_changes(
     context: Context, payload: PayloadType, **kwargs: Any
 ) -> None:
     global uuids_to_ignore
+    object_uuid = TimeStampedString(payload.object_uuid)
+    now = datetime.datetime.now()
+
+    # Remove old UUIDs from the list of uuids to ignore.
+    for uuid in uuids_to_ignore:
+        age_in_seconds = (now - uuid.create_datetime).total_seconds()
+        if age_in_seconds > 60:
+            logger.info(
+                (
+                    f"Removing {uuid} from uuids_to_ignore. "
+                    f"It is {age_in_seconds} seconds old"
+                )
+            )
+            uuids_to_ignore.remove(uuid)
 
     # If the object was uploaded by us, it does not need to be synchronized.
-    if payload.object_uuid in uuids_to_ignore:
+    if object_uuid in uuids_to_ignore:
         logger.info(f"[listen_to_changes] Ignoring {payload.object_uuid}")
 
         # Remove uuid so it does not get ignored twice.
-        uuids_to_ignore.remove(payload.object_uuid)
+        uuids_to_ignore.remove(object_uuid)
         return None
 
     # If we are not supposed to listen: reject and turn the message into a dead letter.
@@ -618,7 +634,7 @@ def create_app(**kwargs: Any) -> FastAPI:
                 logger.info(f"Importing {converted_objects}")
 
                 for mo_object in converted_objects:
-                    uuids_to_ignore.append(mo_object.uuid)
+                    uuids_to_ignore.append(TimeStampedString(mo_object.uuid))
                 await dataloader.upload_mo_objects(converted_objects)
 
     # Get all objects from LDAP - Converted to MO
