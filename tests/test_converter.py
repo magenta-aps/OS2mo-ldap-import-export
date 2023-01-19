@@ -212,7 +212,7 @@ def test_ldap_to_mo_no_uuid(context: Context) -> None:
 
 def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
     converter = LdapConverter(context)
-    it_users = converter.from_ldap(
+    it_users_with_typo = converter.from_ldap(
         LdapObject(
             dn="",
             msSFU30Name=["foo", "bar"],
@@ -221,14 +221,25 @@ def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
         "Active Directory",
     )
 
-    assert it_users[0].user_key == "foo"
-    assert str(it_users[0].itsystem.uuid) == converter.get_it_system_uuid(
-        "Active Directory"
+    it_users = converter.from_ldap(
+        LdapObject(
+            dn="",
+            msSFU30Name=["foo", "bar"],
+            itSystemName=["Active Directory", "Active Directory"],
+        ),
+        "Active Directory",
     )
+
+    assert it_users[0].user_key == "foo"
+    assert it_users[1].user_key == "bar"
+    ad_uuid = converter.get_it_system_uuid("Active Directory")
+    assert str(it_users[0].itsystem.uuid) == ad_uuid
+    assert str(it_users[1].itsystem.uuid) == ad_uuid
 
     # Only one it user should be converted. The second one cannot be found because
     # "Active Directory_typo" does not exist as an it system in MO
-    assert len(it_users) == 1
+    assert len(it_users_with_typo) == 1
+    assert len(it_users) == 2
 
 
 def test_mo_to_ldap(converter: LdapConverter) -> None:
