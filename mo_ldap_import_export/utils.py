@@ -28,7 +28,6 @@ def delete_keys_from_dict(dict_del, lst_keys):
     return dict_del
 
 
-# https://www.python.org/download/releases/2.2.3/descrintro/#__new__
 class TimeStampedString(str):
     create_datetime: datetime.datetime
 
