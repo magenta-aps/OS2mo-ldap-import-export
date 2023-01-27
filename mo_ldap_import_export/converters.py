@@ -825,6 +825,13 @@ class LdapConverter:
                 }
             )
             mo_dict = {}
+
+            context = {"ldap": ldap_dict}
+            if employee_uuid:
+                context["employee_uuid"] = str(employee_uuid)
+            if org_unit_uuid:
+                context["org_unit_uuid"] = str(org_unit_uuid)
+
             try:
                 mapping = self.mapping["ldap_to_mo"]
             except KeyError:
@@ -835,13 +842,7 @@ class LdapConverter:
                 raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
             for mo_field_name, template in object_mapping.items():
                 try:
-                    value = template.render(
-                        {
-                            "ldap": ldap_dict,
-                            "employee_uuid": str(employee_uuid),
-                            "org_unit_uuid": str(org_unit_uuid),
-                        }
-                    ).strip()
+                    value = template.render(context).strip()
                 except UUIDNotFoundException:
                     continue
                 # TODO: Is it possible to render a dictionary directly?
