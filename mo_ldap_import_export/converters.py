@@ -254,9 +254,6 @@ class LdapConverter:
             self.check_attributes(detected_attributes, accepted_attributes)
             required_attributes = self.get_required_attributes(mo_class)
 
-            # Person uuid is always set automatically and should not be in the template
-            if "person" in required_attributes:
-                required_attributes.remove("person")
             for attribute in required_attributes:
                 if attribute not in detected_attributes:
                     raise IncorrectMapping(
@@ -811,9 +808,7 @@ class LdapConverter:
                 }
             )
             mo_dict = {}
-
             context = {"ldap": ldap_dict, "employee_uuid": str(employee_uuid)}
-
             try:
                 mapping = self.mapping["ldap_to_mo"]
             except KeyError:
