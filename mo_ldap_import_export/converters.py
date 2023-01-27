@@ -24,7 +24,6 @@ from ramodels.mo.organisation_unit import OrganisationUnit
 
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
-from .exceptions import InvalidInputException
 from .exceptions import InvalidNameException
 from .exceptions import NoObjectsReturnedException
 from .exceptions import NotSupportedException
@@ -787,26 +786,13 @@ class LdapConverter:
         return number_of_entries_in_this_ldap_object
 
     def from_ldap(
-        self,
-        ldap_object: LdapObject,
-        json_key: str,
-        employee_uuid: UUID = None,
-        org_unit_uuid: UUID = None,
+        self, ldap_object: LdapObject, json_key: str, employee_uuid: UUID
     ) -> Any:
         """
         uuid : UUID
             Uuid of the employee whom this object belongs to. If None: Generates a new
             uuid
         """
-        if not employee_uuid and not org_unit_uuid:
-            raise InvalidInputException(
-                "Supply either an employee_uuid OR an org_unit_uuid"
-            )
-
-        if employee_uuid and org_unit_uuid:
-            raise InvalidInputException(
-                "Supply either an employee_uuid OR an org_unit_uuid"
-            )
 
         # This is how many MO objects we need to return - a MO object can have only
         # One value per field. Not multiple. LDAP objects however, can have multiple
@@ -826,11 +812,7 @@ class LdapConverter:
             )
             mo_dict = {}
 
-            context = {"ldap": ldap_dict}
-            if employee_uuid:
-                context["employee_uuid"] = str(employee_uuid)
-            if org_unit_uuid:
-                context["org_unit_uuid"] = str(org_unit_uuid)
+            context = {"ldap": ldap_dict, "employee_uuid": str(employee_uuid)}
 
             try:
                 mapping = self.mapping["ldap_to_mo"]
