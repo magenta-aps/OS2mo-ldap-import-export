@@ -251,7 +251,7 @@ async def listen_to_changes(
                 logger.info(
                     (
                         f"Removing timestamp belonging to {uuid} from uuids_to_ignore. "
-                        f"It is {age_in_seconds} seconds old."
+                        f"It is {age_in_seconds} seconds old"
                     )
                 )
                 timestamps.remove(timestamp)
