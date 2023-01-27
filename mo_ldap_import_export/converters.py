@@ -11,6 +11,7 @@ import re
 import string
 from typing import Any
 from typing import Dict
+from uuid import UUID
 from uuid import uuid4
 
 import pandas as pd
@@ -23,6 +24,7 @@ from ramodels.mo.organisation_unit import OrganisationUnit
 
 from .exceptions import CprNoNotFound
 from .exceptions import IncorrectMapping
+from .exceptions import InvalidInputException
 from .exceptions import InvalidNameException
 from .exceptions import NoObjectsReturnedException
 from .exceptions import NotSupportedException
@@ -785,21 +787,31 @@ class LdapConverter:
         return number_of_entries_in_this_ldap_object
 
     def from_ldap(
-        self, ldap_object: LdapObject, json_key: str, employee_uuid=None
+        self,
+        ldap_object: LdapObject,
+        json_key: str,
+        employee_uuid: UUID = None,
+        org_unit_uuid: UUID = None,
     ) -> Any:
         """
         uuid : UUID
             Uuid of the employee whom this object belongs to. If None: Generates a new
             uuid
         """
+        if not employee_uuid and not org_unit_uuid:
+            raise InvalidInputException(
+                "Supply either an employee_uuid OR an org_unit_uuid"
+            )
+
+        if employee_uuid and org_unit_uuid:
+            raise InvalidInputException(
+                "Supply either an employee_uuid OR an org_unit_uuid"
+            )
 
         # This is how many MO objects we need to return - a MO object can have only
         # One value per field. Not multiple. LDAP objects however, can have multiple
         # values per field.
         number_of_entries = self.get_number_of_entries(ldap_object)
-
-        if employee_uuid:
-            employee_uuid = str(employee_uuid)
 
         converted_objects = []
         for entry in range(number_of_entries):
@@ -824,7 +836,11 @@ class LdapConverter:
             for mo_field_name, template in object_mapping.items():
                 try:
                     value = template.render(
-                        {"ldap": ldap_dict, "employee_uuid": employee_uuid}
+                        {
+                            "ldap": ldap_dict,
+                            "employee_uuid": str(employee_uuid),
+                            "org_unit_uuid": str(org_unit_uuid),
+                        }
                     ).strip()
                 except UUIDNotFoundException:
                     continue
