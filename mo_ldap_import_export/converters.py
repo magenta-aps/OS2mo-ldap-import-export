@@ -798,6 +798,9 @@ class LdapConverter:
         # values per field.
         number_of_entries = self.get_number_of_entries(ldap_object)
 
+        if employee_uuid:
+            employee_uuid = str(employee_uuid)
+
         converted_objects = []
         for entry in range(number_of_entries):
 
@@ -821,7 +824,7 @@ class LdapConverter:
             for mo_field_name, template in object_mapping.items():
                 try:
                     value = template.render(
-                        {"ldap": ldap_dict, "employee_uuid": str(employee_uuid)}
+                        {"ldap": ldap_dict, "employee_uuid": employee_uuid}
                     ).strip()
                 except UUIDNotFoundException:
                     continue

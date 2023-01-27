@@ -8,7 +8,7 @@
       "seniority": "{{NONE}}",
       "nickname_givenname": "{{NONE}}",
       "nickname_surname": "{{NONE}}",
-      "uuid": "{{ employee_uuid }}"
+      "uuid": "{{ employee_uuid or NONE }}"
     },
     // Note: This key needs to be a valid MO address type user_key*
     "EmailEmployee": {
@@ -17,7 +17,7 @@
       "type": "address",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_address_type_uuid('EmailEmployee')) }}",
-      "person": "{{ dict(uuid=employee_uuid) }}"
+      "person": "{{ dict(uuid=employee_uuid or NONE) }}"
     },
     // Note: This key needs to be a valid MO address type user_key*
     "LocationEmployee": {
@@ -26,7 +26,7 @@
       "type": "address",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_address_type_uuid('LocationEmployee')) }}",
-      "person": "{{ dict(uuid=employee_uuid) }}"
+      "person": "{{ dict(uuid=employee_uuid or NONE) }}"
     },
     // Note: This key needs to be a valid MO IT-system user_key*
     "Active Directory": {
@@ -34,7 +34,7 @@
       "user_key": "{{ ldap.msSFU30Name or NONE }}",
       "itsystem": "{{ dict(uuid=get_it_system_uuid('Active Directory')) }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}",
-      "person": "{{ dict(uuid=employee_uuid) }}"
+      "person": "{{ dict(uuid=employee_uuid or NONE) }}"
     },
     "Engagement": {
       "objectClass": "ramodels.mo.details.engagement.Engagement",
@@ -43,7 +43,7 @@
       "engagement_type": "{{ dict(uuid=get_engagement_type_uuid(ldap.employeeType)) }}",
       "user_key": "{{ ldap.personalTitle or uuid4() }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}",
-      "person": "{{ dict(uuid=employee_uuid) }}"
+      "person": "{{ dict(uuid=employee_uuid or NONE) }}"
     }
   },
   "mo_to_ldap": {
