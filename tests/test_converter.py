@@ -22,6 +22,7 @@ from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.exceptions import CprNoNotFound
 from mo_ldap_import_export.exceptions import IncorrectMapping
+from mo_ldap_import_export.exceptions import InvalidInputException
 from mo_ldap_import_export.exceptions import InvalidNameException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.exceptions import NotSupportedException
@@ -38,6 +39,7 @@ def context() -> Context:
                 "givenname": "{{ldap.givenName}}",
                 "surname": "{{ldap.sn}}",
                 "cpr_no": "{{ldap.employeeID or None}}",
+                "uuid": "{{ employee_uuid or NONE }}",
             },
             "Email": {
                 "objectClass": "ramodels.mo.details.address.Address",
@@ -49,12 +51,14 @@ def context() -> Context:
                 "address_type": (
                     "{{ dict(uuid=" "'f376deb8-4743-4ca6-a047-3241de8fe9d2') }}"
                 ),
+                "person": "{{ dict(uuid=employee_uuid or NONE) }}",
             },
             "Active Directory": {
                 "objectClass": "ramodels.mo.details.it_system.ITUser",
                 "user_key": "{{ ldap.msSFU30Name or NONE }}",
                 "itsystem": "{{ dict(uuid=get_it_system_uuid(ldap.itSystemName)) }}",
                 "validity": "{{ dict(from_date=now()|mo_datestring) }}",
+                "person": "{{ dict(uuid=employee_uuid or NONE) }}",
             },
         },
         "mo_to_ldap": {
@@ -196,28 +200,6 @@ def test_ldap_to_mo(converter: LdapConverter) -> None:
     assert from_date == datetime.datetime(2019, 1, 1, 0, 0, 0)
 
 
-def test_ldap_to_mo_no_uuid(context: Context) -> None:
-    converter = LdapConverter(context)
-    employee_uuid = uuid4()
-    employee = converter.from_ldap(
-        LdapObject(
-            dn="",
-            name="",
-            givenName="Tester",
-            sn="Testersen",
-            objectGUID="{" + str(uuid.uuid4()) + "}",
-            employeeID="0101011234",  # Must have a CPR number
-        ),
-        "Employee",
-    )[0]
-    assert employee.givenname == "Tester"
-    assert employee.surname == "Testersen"
-    assert employee.uuid is not None
-    assert employee.uuid != employee_uuid
-    # Same uuid as in fixture
-    assert employee.uuid == uuid.UUID(hex="{135c46ae-3b0e-4679-8318-40b73d9cedf3}")
-
-
 def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
     converter = LdapConverter(context)
     it_users_with_typo = converter.from_ldap(
@@ -227,6 +209,7 @@ def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
             itSystemName=["Active Directory", "Active Directory_typo"],
         ),
         "Active Directory",
+        employee_uuid=uuid4(),
     )
 
     it_users = converter.from_ldap(
@@ -236,6 +219,7 @@ def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
             itSystemName=["Active Directory", "Active Directory"],
         ),
         "Active Directory",
+        employee_uuid=uuid4(),
     )
 
     assert it_users[0].user_key == "foo"
@@ -248,6 +232,26 @@ def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
     # "Active Directory_typo" does not exist as an it system in MO
     assert len(it_users_with_typo) == 1
     assert len(it_users) == 2
+
+
+def test_ldap_to_mo_invalid_input(converter: LdapConverter) -> None:
+    with pytest.raises(InvalidInputException):
+
+        converter.from_ldap(
+            LdapObject(dn="foo"),
+            "Employee",
+            employee_uuid=uuid4(),
+            org_unit_uuid=uuid4(),
+        )
+
+    with pytest.raises(InvalidInputException):
+
+        converter.from_ldap(
+            LdapObject(dn="foo"),
+            "Employee",
+            employee_uuid=None,
+            org_unit_uuid=None,
+        )
 
 
 def test_mo_to_ldap(converter: LdapConverter) -> None:
@@ -358,6 +362,7 @@ def test_mapping_loader_failure(context: Context) -> None:
                     employeeID="0101011234",
                 ),
                 "Employee",
+                employee_uuid=uuid4(),
             )[0]
         with pytest.raises(IncorrectMapping):
             obj_dict = {
@@ -476,6 +481,7 @@ def test_template_lenience(context: Context) -> None:
             cpr="1234567890",
         ),
         "Employee",
+        employee_uuid=uuid4(),
     )[0]
 
 
