@@ -820,7 +820,9 @@ class LdapConverter:
                 raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
             for mo_field_name, template in object_mapping.items():
                 try:
-                    value = template.render({"ldap": ldap_dict}).strip()
+                    value = template.render(
+                        {"ldap": ldap_dict, "employee_uuid": str(employee_uuid)}
+                    ).strip()
                 except UUIDNotFoundException:
                     continue
                 # TODO: Is it possible to render a dictionary directly?
@@ -832,19 +834,6 @@ class LdapConverter:
                     mo_dict[mo_field_name] = value
 
             mo_class: Any = self.import_mo_object_class(json_key)
-
-            if not employee_uuid:
-                cpr = mo_dict.get("cpr_no")
-                if cpr:
-                    dataloader = self.context["user_context"]["dataloader"]
-                    employee_uuid = dataloader.find_mo_employee_uuid_sync(cpr)
-
-            if employee_uuid:
-                if "person" in mo_class.schema()["properties"].keys():
-                    mo_dict["person"] = {"uuid": employee_uuid}
-                else:
-                    mo_dict["uuid"] = employee_uuid
-
             required_attributes = self.get_required_attributes(mo_class)
 
             # If all required attributes are present:
