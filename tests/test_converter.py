@@ -22,7 +22,6 @@ from mo_ldap_import_export.converters import read_mapping_json
 from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.exceptions import CprNoNotFound
 from mo_ldap_import_export.exceptions import IncorrectMapping
-from mo_ldap_import_export.exceptions import InvalidInputException
 from mo_ldap_import_export.exceptions import InvalidNameException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.exceptions import NotSupportedException
@@ -232,26 +231,6 @@ def test_ldap_to_mo_uuid_not_found(context: Context) -> None:
     # "Active Directory_typo" does not exist as an it system in MO
     assert len(it_users_with_typo) == 1
     assert len(it_users) == 2
-
-
-def test_ldap_to_mo_invalid_input(converter: LdapConverter) -> None:
-    with pytest.raises(InvalidInputException):
-
-        converter.from_ldap(
-            LdapObject(dn="foo"),
-            "Employee",
-            employee_uuid=uuid4(),
-            org_unit_uuid=uuid4(),
-        )
-
-    with pytest.raises(InvalidInputException):
-
-        converter.from_ldap(
-            LdapObject(dn="foo"),
-            "Employee",
-            employee_uuid=None,
-            org_unit_uuid=None,
-        )
 
 
 def test_mo_to_ldap(converter: LdapConverter) -> None:
