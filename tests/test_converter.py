@@ -882,12 +882,14 @@ def test_get_object_uuid_from_name(converter: LdapConverter):
 
     name = "Skt. Joseph Skole"
     uuid2 = uuid4()
+    # Check that a perfect match will be preferred over a normalized match
     info_dict = {
-        uuid: {"uuid": uuid, "user_key": name},
         uuid2: {"uuid": uuid2, "user_key": name.lower()},
+        uuid: {"uuid": uuid, "user_key": name},
     }
     assert converter.get_object_uuid_from_name(info_dict, name) == uuid
 
+    # Check that if no perfech matches exist, use the first hit
     info_dict = {
         uuid: {"uuid": uuid, "user_key": name.upper()},
         uuid2: {"uuid": uuid2, "user_key": name.lower()},
