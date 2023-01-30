@@ -880,7 +880,6 @@ def test_get_object_uuid_from_name(converter: LdapConverter):
     with pytest.raises(UUIDNotFoundException):
         converter.get_object_uuid_from_name(info_dict, "")
 
-    name = "Skt. Joseph Skole"
     uuid2 = uuid4()
     # Check that a perfect match will be preferred over a normalized match
     info_dict = {
