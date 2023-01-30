@@ -241,7 +241,7 @@ def test_mo_to_ldap(converter: LdapConverter) -> None:
     assert ldap_object.dn == "foo"
 
     with pytest.raises(NotSupportedException):
-        obj_dict = {"mo_address": "foo"}
+        obj_dict = {"mo_employee_address": "foo"}
         converter.to_ldap(obj_dict, "Employee")
 
 
