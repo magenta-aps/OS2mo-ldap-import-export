@@ -888,7 +888,7 @@ def test_get_object_uuid_from_name(converter: LdapConverter):
     }
     assert converter.get_object_uuid_from_name(info_dict, name) == uuid
 
-    # Check that if no perfect matches exist, use the first hit
+    # Check that if no perfect matches exist, use the first match
     info_dict = {
         uuid: {"uuid": uuid, "user_key": name.upper()},
         uuid2: {"uuid": uuid2, "user_key": name.lower()},
