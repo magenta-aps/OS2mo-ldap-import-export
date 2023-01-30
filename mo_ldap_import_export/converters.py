@@ -520,9 +520,13 @@ class LdapConverter:
 
         normalized_name = self.name_normalizer(name)
 
-        names = set([self.name_normalizer(info[name_key]) for info in info_dict.values()])
+        names = set(
+            [self.name_normalizer(info[name_key]) for info in info_dict.values()]
+        )
         if normalized_name not in names:
-            raise UUIDNotFoundException(f"'{normalized_name}' not found in '{info_dict}'")
+            raise UUIDNotFoundException(
+                f"'{normalized_name}' not found in '{info_dict}'"
+            )
 
         candidates = {
             info[name_key]: info["uuid"]
@@ -532,7 +536,7 @@ class LdapConverter:
         if len(candidates) > 0:
             if name in candidates:
                 return candidates[name]
-            return candidates[0]
+            return list(candidates.values())[0]
         else:
             raise UUIDNotFoundException(f"'{name}' not found in '{info_dict}'")
 

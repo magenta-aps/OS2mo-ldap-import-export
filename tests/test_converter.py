@@ -884,16 +884,15 @@ def test_get_object_uuid_from_name(converter: LdapConverter):
     uuid2 = uuid4()
     info_dict = {
         uuid: {"uuid": uuid, "user_key": name},
-        uuid2: {"uuid": uuid2, "user_key": name.lower()}
+        uuid2: {"uuid": uuid2, "user_key": name.lower()},
     }
     assert converter.get_object_uuid_from_name(info_dict, name) == uuid
 
     info_dict = {
         uuid: {"uuid": uuid, "user_key": name.upper()},
-        uuid2: {"uuid": uuid2, "user_key": name.lower()}
+        uuid2: {"uuid": uuid2, "user_key": name.lower()},
     }
     assert converter.get_object_uuid_from_name(info_dict, name) == uuid
-
 
 
 def test_create_org_unit(converter: LdapConverter):
