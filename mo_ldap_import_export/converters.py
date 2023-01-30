@@ -455,7 +455,7 @@ class LdapConverter:
         names = [info[name_key] for info in info_dict.values()]
         if len(set(names)) != len(names):
             raise InvalidNameException(
-                f"Duplicate values found in info_dict['{name_key}'] = {names}"
+                f"Duplicate values found in info_dict['{name_key}'] = {sorted(names)}"
             )
 
     def check_org_unit_info_dict(self):
