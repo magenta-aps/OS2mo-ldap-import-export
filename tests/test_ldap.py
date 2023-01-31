@@ -8,7 +8,9 @@ Created on Fri Oct 28 11:03:16 2022
 import asyncio
 import os
 from collections.abc import Iterator
-from typing import Any, List, Dict
+from typing import Any
+from typing import Dict
+from typing import List
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -346,8 +348,8 @@ async def test_paged_search_no_results(
                 "result": 32,
                 "description": "noSuchObject",
                 "dn": dn,
-                "message": "0000208D: NameErr: DSID-03100245, problem 2001 (NO_OBJECT), "
-                f"data 0, best match of:\n\t'{dn}'\n\x00",
+                "message": "0000208D: NameErr: DSID-03100245, problem 2001 "
+                f"(NO_OBJECT), data 0, best match of:\n\t'{dn}'\n\x00",
                 "referrals": None,
                 "type": "searchResDone",
             }
