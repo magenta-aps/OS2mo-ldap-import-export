@@ -346,7 +346,8 @@ async def test_paged_search_no_results(
                 "result": 32,
                 "description": "noSuchObject",
                 "dn": dn,
-                "message": f"0000208D: NameErr: DSID-03100245, problem 2001 (NO_OBJECT), data 0, best match of:\n\t'{dn}'\n\x00",
+                "message": "0000208D: NameErr: DSID-03100245, problem 2001 (NO_OBJECT), "
+                f"data 0, best match of:\n\t'{dn}'\n\x00",
                 "referrals": None,
                 "type": "searchResDone",
             }
