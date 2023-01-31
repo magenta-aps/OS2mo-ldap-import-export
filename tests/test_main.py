@@ -306,7 +306,9 @@ async def test_open_ldap_connection() -> None:
 def test_ldap_get_all_endpoint(test_client: TestClient, headers: dict) -> None:
     """Test the LDAP get-all endpoint on our app."""
 
-    response = test_client.get("/LDAP/Employee", headers=headers)
+    response = test_client.get(
+        "/LDAP/Employee", headers=headers, params={"entries_to_return": 20}
+    )
     assert response.status_code == 202
 
 
