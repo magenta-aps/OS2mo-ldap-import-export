@@ -584,11 +584,7 @@ def test_ldap_get_attribute_details_endpoint(
 ) -> None:
     """Test the LDAP get endpoint on our app."""
 
-    response = test_client.get(
-        "/LDAP_overview/attribute_details",
-        headers=headers,
-        params={"attribute": "foo"},
-    )
+    response = test_client.get("/LDAP_overview/attribute/foo", headers=headers)
     assert response.status_code == 202
 
 

@@ -743,7 +743,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         return encode_result(ldap_overview.get(ldap_class))
 
     # Get LDAP attribute details
-    @app.get("/LDAP_overview/attribute_details", status_code=202, tags=["LDAP"])
+    @app.get("/LDAP_overview/attribute/{attribute}", status_code=202, tags=["LDAP"])
     async def load_attribute_details_from_LDAP(
         attribute: Literal[accepted_attributes],  # type: ignore
         user=Depends(login_manager),
