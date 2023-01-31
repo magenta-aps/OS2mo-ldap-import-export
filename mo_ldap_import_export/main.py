@@ -682,9 +682,10 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def load_all_objects_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
         user=Depends(login_manager),
+        entries_to_return: int = 20,
     ) -> Any:
         result = await dataloader.load_ldap_objects(json_key)
-        return encode_result(result)
+        return encode_result(result[-entries_to_return:])
 
     # Modify a person in LDAP
     @app.post("/LDAP/{json_key}", tags=["LDAP"])
@@ -749,6 +750,11 @@ def create_app(**kwargs: Any) -> FastAPI:
         user=Depends(login_manager),
     ) -> Any:
         return attribute_types[attribute]
+
+    # Get LDAP object
+    @app.get("/LDAP_overview/object/{dn}", status_code=202, tags=["LDAP"])
+    async def load_object_from_ldap(dn: str, user=Depends(login_manager)) -> Any:
+        return dataloader.load_ldap_object(dn, ["*"])
 
     # Get MO address types
     @app.get("/MO/Address_types", status_code=202, tags=["MO"])
