@@ -18,6 +18,7 @@ import structlog
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import FastAPI
+from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi import status
@@ -682,7 +683,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def load_all_objects_from_LDAP(
         json_key: Literal[accepted_json_keys],  # type: ignore
         user=Depends(login_manager),
-        entries_to_return: int = 20,
+        entries_to_return: int = Query(ge=1),
     ) -> Any:
         result = await dataloader.load_ldap_objects(json_key)
         return encode_result(result[-entries_to_return:])
