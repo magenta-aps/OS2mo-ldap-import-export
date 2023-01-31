@@ -8,7 +8,7 @@ Created on Fri Oct 28 11:03:16 2022
 import asyncio
 import os
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, List, Dict
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -335,7 +335,7 @@ async def test_paged_search_no_results(
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    expected_results = []
+    expected_results: List[Dict] = []
 
     # Mock LDAP connection
     ldap_connection.response = expected_results
