@@ -1196,3 +1196,28 @@ async def test_format_converted_org_unit_address_objects_identical_to_mo(
 
     assert formatted_objects[0].value == "bar"
     assert len(formatted_objects) == 1
+
+
+async def test_format_converted_address_objects_without_person_or_org_unit(
+    converter: MagicMock, dataloader: AsyncMock
+):
+
+    converter.get_mo_attributes.return_value = ["value", "address_type"]
+    converter.find_mo_object_class.return_value = "Address"
+    converter.import_mo_object_class.return_value = Address
+
+    user_context = {"converter": converter, "dataloader": dataloader}
+
+    # These addresses have neither an org unit uuid or person uuid. we cannot convert
+    # them
+    address_type_uuid = uuid4()
+    address1 = Address.from_simplified_fields("foo", address_type_uuid, "2021-01-01")
+    address2 = Address.from_simplified_fields("bar", address_type_uuid, "2021-01-01")
+
+    converted_objects = [address1, address2]
+
+    formatted_objects = await format_converted_objects(
+        converted_objects, "Address", user_context
+    )
+
+    assert len(formatted_objects) == 0
