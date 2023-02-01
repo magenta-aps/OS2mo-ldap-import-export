@@ -600,7 +600,9 @@ class LdapConverter:
                     name=self.imported_org_unit_tag + name,
                     org_unit_type_uuid=self.default_org_unit_type_uuid,
                     org_unit_level_uuid=self.default_org_unit_level_uuid,
-                    from_date=datetime.datetime.now().strftime("%Y-%m-%dT00:00:00"),
+                    from_date=datetime.datetime(1960, 1, 1).strftime(
+                        "%Y-%m-%dT00:00:00"
+                    ),
                     parent_uuid=parent_uuid,
                     uuid=uuid,
                 )
