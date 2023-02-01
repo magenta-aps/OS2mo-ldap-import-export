@@ -241,7 +241,7 @@ async def listen_to_changes_in_org_units(
         affected_employees = await dataloader.load_mo_employees_in_org_unit(
             payload.uuid
         )
-        logger.info("[MO] Found {len(affected_employees)} affected employees")
+        logger.info(f"[MO] Found {len(affected_employees)} affected employees")
 
         for affected_employee in affected_employees:
             mo_object_dict = {
@@ -479,6 +479,14 @@ async def format_converted_objects(converted_objects, json_key, user_context):
                 converted_objects[0].org_unit.uuid,
                 converted_objects[0].address_type.uuid,
             )
+        else:
+            logger.info(
+                (
+                    "Could not format converted objects: "
+                    "An address needs to have either a person uuid OR an org unit uuid"
+                )
+            )
+            return []
         value_key = "value"
         objects_in_mo = [o[0] for o in addresses_in_mo]
     # Load engagements already in MO
@@ -676,6 +684,7 @@ def create_app(**kwargs: Any) -> FastAPI:
                 break
 
             logger.info(f"Loaded {loaded_object.dn}")
+
             converted_objects = converter.from_ldap(
                 loaded_object, json_key, employee_uuid=employee_uuid
             )
