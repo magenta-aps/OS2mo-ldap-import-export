@@ -361,6 +361,9 @@ These are called using the normal function call syntax:
 * `get_engagement_type_name`: Returns the name of an engagement type, given its uuid
 * `get_job_function_name`: Returns the name of a job function, given its uuid
 
+Finally, the following global variables can be used:
+
+* `employee_uuid`: uuid of the employee matching the converted object's cpr number.
 
 #### Username generation
 If a user is created in MO, the tool will try to find the matching user in LDAP using
