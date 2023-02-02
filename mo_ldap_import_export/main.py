@@ -81,10 +81,10 @@ def reject_on_failure(func):
         try:
             await func(*args, **kwargs)
         except (
-            NotSupportedException,
-            IncorrectMapping,
-            TransportQueryError,
-            NoObjectsReturnedException,
+            NotSupportedException,  # For features that a not supported: Abort
+            IncorrectMapping,  # If the json dict is incorrectly configured: Abort
+            TransportQueryError,  # In case an ldap entry cannot be uploaded: Abort
+            NoObjectsReturnedException,  # In case an object is deleted halfway: Abort
         ) as e:
             logger.exception(e)
             raise RejectMessage()
