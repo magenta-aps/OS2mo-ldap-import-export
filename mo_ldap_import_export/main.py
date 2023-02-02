@@ -297,6 +297,7 @@ async def listen_to_changes(
                 timestamps.remove(timestamp)
 
     # If the object was uploaded by us, it does not need to be synchronized.
+    # Unless the serviceType is org_unit: Those potentially map to multiple employees.
     if (
         payload.object_uuid in uuids_to_ignore
         and uuids_to_ignore[payload.object_uuid]
