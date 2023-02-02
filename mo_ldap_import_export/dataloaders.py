@@ -410,11 +410,11 @@ class DataLoader:
 
         result = await graphql_session.execute(query)
         self._check_if_empty(result)
-        employees = []
-        for engagement in result["org_units"][0]["objects"][0]["engagements"]:
-            employee = await self.load_mo_employee(engagement["employee_uuid"])
-            employees.append(employee)
-        return employees
+        output = []
+        for engagement_entry in result["org_units"][0]["objects"][0]["engagements"]:
+            employee = await self.load_mo_employee(engagement_entry["employee_uuid"])
+            output.append(employee)
+        return output
 
     def load_mo_facet(self, user_key) -> dict:
         query = gql(
