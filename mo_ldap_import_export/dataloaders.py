@@ -695,13 +695,9 @@ class DataLoader:
         result = await graphql_session.execute(query)
         self._check_if_empty(result)
 
-        address_uuids = [
-            d["uuid"] for d in result["employees"][0]["objects"][0]["addresses"]
-        ]
-
         output = []
-        for address_uuid in address_uuids:
-            mo_address = await self.load_mo_address(address_uuid)
+        for address in result["employees"][0]["objects"][0]["addresses"]:
+            mo_address = await self.load_mo_address(address["uuid"])
             output.append(mo_address)
         return output
 
