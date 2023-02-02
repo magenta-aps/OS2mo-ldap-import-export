@@ -560,12 +560,13 @@ async def format_converted_objects(converted_objects, json_key, user_context):
 
             # If an object is identical to the one already there, it does not need
             # to be uploaded.
-            if converted_object_uuid_checked != matching_object:
-                converted_objects_uuid_checked.append(converted_object_uuid_checked)
-            else:
+            if converted_object_uuid_checked == matching_object:
                 logger.info(
                     "Converted object is identical to existing object. Skipping."
                 )
+            else:
+                converted_objects_uuid_checked.append(converted_object_uuid_checked)
+
         elif values_in_mo.count(converted_object_value) == 0:
             converted_objects_uuid_checked.append(converted_object)
         else:
