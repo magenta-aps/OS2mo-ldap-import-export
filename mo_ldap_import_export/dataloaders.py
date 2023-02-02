@@ -697,8 +697,8 @@ class DataLoader:
 
         output = []
         for address_entry in result["employees"][0]["objects"][0]["addresses"]:
-            mo_address = await self.load_mo_address(address_entry["uuid"])
-            output.append(mo_address)
+            address = await self.load_mo_address(address_entry["uuid"])
+            output.append(address)
         return output
 
     async def load_mo_org_unit_addresses(
@@ -728,8 +728,8 @@ class DataLoader:
 
         output = []
         for address_entry in result["org_units"][0]["objects"][0]["addresses"]:
-            mo_address = await self.load_mo_address(address_entry["uuid"])
-            output.append(mo_address)
+            address = await self.load_mo_address(address_entry["uuid"])
+            output.append(address)
         return output
 
     async def load_mo_employee_it_users(self, employee_uuid, it_system_uuid):
