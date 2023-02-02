@@ -411,8 +411,8 @@ class DataLoader:
         result = await graphql_session.execute(query)
         self._check_if_empty(result)
         employees = []
-        for entry in result["org_units"][0]["objects"][0]["engagements"]:
-            employee = await self.load_mo_employee(entry["employee_uuid"])
+        for engagement in result["org_units"][0]["objects"][0]["engagements"]:
+            employee = await self.load_mo_employee(engagement["employee_uuid"])
             employees.append(employee)
         return employees
 
