@@ -48,6 +48,7 @@ from .converters import read_mapping_json
 from .dataloaders import DataLoader
 from .exceptions import IncorrectMapping
 from .exceptions import MultipleObjectsReturnedException
+from .exceptions import NoObjectsReturnedException
 from .exceptions import NotSupportedException
 from .ldap import cleanup
 from .ldap import configure_ldap_connection
@@ -79,7 +80,12 @@ def reject_on_failure(func):
     async def modified_func(*args, **kwargs):
         try:
             await func(*args, **kwargs)
-        except (NotSupportedException, IncorrectMapping, TransportQueryError) as e:
+        except (
+            NotSupportedException,
+            IncorrectMapping,
+            TransportQueryError,
+            NoObjectsReturnedException,
+        ) as e:
             logger.exception(e)
             raise RejectMessage()
 

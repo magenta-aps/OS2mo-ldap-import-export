@@ -359,11 +359,7 @@ class DataLoader:
         query = gql(
             """
             query SinlgeEmployee {
-              employees(
-                  uuids:"%s"
-                  to_date: null
-                  from_date: null
-                ) {
+              employees(uuids:"%s") {
                 objects {
                     uuid
                     cpr_no
@@ -395,9 +391,7 @@ class DataLoader:
         query = gql(
             """
             query EmployeeOrgUnitUUIDs {
-              org_units(
-                  uuids: "%s"
-                ) {
+              org_units(uuids: "%s") {
                 objects {
                   engagements {
                     employee_uuid
@@ -514,11 +508,7 @@ class DataLoader:
         query = gql(
             """
             query MyQuery {
-              itusers(
-                  uuids: "%s"
-                  to_date: null
-                  from_date: null
-                  ) {
+              itusers(uuids: "%s") {
                 objects {
                   user_key
                   validity {
@@ -560,11 +550,7 @@ class DataLoader:
         query = gql(
             """
             query SingleAddress {
-              addresses(
-                  uuids: "%s"
-                  to_date: null
-                  from_date: null
-                  ) {
+              addresses(uuids: "%s") {
                 objects {
                   value: name
                   value2
@@ -620,11 +606,7 @@ class DataLoader:
         query = gql(
             """
             query SingleEngagement {
-              engagements(
-                  uuids: "%s"
-                  to_date: null
-                  from_date: null
-                ) {
+              engagements(uuids: "%s") {
                 objects {
                   user_key
                   extension_1
