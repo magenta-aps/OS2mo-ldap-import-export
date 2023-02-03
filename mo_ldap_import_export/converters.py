@@ -452,7 +452,7 @@ class LdapConverter:
                 # And the corresponding item needs to be a dict with an uuid key
                 if (
                     "uuid=" not in mapping_dict[uuid_key].replace(" ", "")
-                    or "dict" not in mapping_dict[uuid_key]
+                    or "dict(" not in mapping_dict[uuid_key]
                 ):
                     raise IncorrectMapping(
                         (
