@@ -1016,6 +1016,21 @@ def test_check_uuid_refs_in_mo_objects(converter: LdapConverter):
         converter.check_uuid_refs_in_mo_objects()
 
     with pytest.raises(
+        IncorrectMapping,
+        match="Either 'person' or 'org_unit' key needs to be present.*Not both",
+    ):
+        converter.raw_mapping = converter.mapping = {
+            "ldap_to_mo": {
+                "EmailEmployee": {
+                    "objectClass": "ramodels.mo.details.address.Address",
+                    "person": "{{ dict(uuid=employee_uuid or NONE) }}",
+                    "org_unit": "{{ dict(uuid=employee_uuid or NONE) }}",
+                }
+            }
+        }
+        converter.check_uuid_refs_in_mo_objects()
+
+    with pytest.raises(
         IncorrectMapping, match="needs to be a dict with 'uuid' as one of it's keys"
     ):
         converter.raw_mapping = converter.mapping = {

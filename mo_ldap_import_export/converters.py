@@ -420,9 +420,14 @@ class LdapConverter:
         for json_key in self.get_ldap_to_mo_json_keys():
             object_class = self.import_mo_object_class(json_key)
             mapping_dict = raw_mapping[json_key]
+            schema = object_class.schema()
+            if "required" in schema:
+                required_attributes = object_class.schema()["required"]
+            else:
+                required_attributes = []
 
             # If we are dealing with an object that links to a person/org_unit
-            if "person" in object_class.schema()["properties"]:
+            if "person" in schema["properties"]:
                 # either person or org_unit needs to be in the dict
                 if "person" not in mapping_dict and "org_unit" not in mapping_dict:
                     raise IncorrectMapping(
@@ -431,11 +436,22 @@ class LdapConverter:
                             f"ldap_to_mo['{json_key}']"
                         )
                     )
+                if "person" in mapping_dict and "org_unit" in mapping_dict:
+                    if not (
+                        "person" in required_attributes
+                        and "org_unit" in required_attributes
+                    ):
+                        raise IncorrectMapping(
+                            (
+                                "Either 'person' or 'org_unit' key needs to be present "
+                                f"in ldap_to_mo['{json_key}']. Not both"
+                            )
+                        )
                 uuid_key = "person" if "person" in mapping_dict else "org_unit"
 
                 # And the corresponding item needs to be a dict with an uuid key
                 if (
-                    "uuid" not in mapping_dict[uuid_key]
+                    "uuid=" not in mapping_dict[uuid_key].replace(" ", "")
                     or "dict" not in mapping_dict[uuid_key]
                 ):
                     raise IncorrectMapping(
