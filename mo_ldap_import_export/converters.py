@@ -450,10 +450,7 @@ class LdapConverter:
                 uuid_key = "person" if "person" in mapping_dict else "org_unit"
 
                 # And the corresponding item needs to be a dict with an uuid key
-                if (
-                    "uuid=" not in mapping_dict[uuid_key].replace(" ", "")
-                    or "dict(" not in mapping_dict[uuid_key]
-                ):
+                if "dict(uuid=" not in mapping_dict[uuid_key].replace(" ", ""):
                     raise IncorrectMapping(
                         (
                             f"ldap_to_mo['{json_key}']['{uuid_key}'] needs to be a "
