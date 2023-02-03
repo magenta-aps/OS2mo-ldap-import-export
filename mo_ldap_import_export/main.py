@@ -155,9 +155,9 @@ async def listen_to_changes_in_employees(
         # Get MO IT-user
         changed_it_user = await dataloader.load_mo_it_user(payload.object_uuid)
         it_system_type_uuid = changed_it_user.itsystem.uuid
-        it_system_name = json_key = converter.get_it_system_name(it_system_type_uuid)
+        json_key = converter.get_it_system_name(it_system_type_uuid)
 
-        logger.info(f"Obtained IT system name = {it_system_name}")
+        logger.info(f"Obtained IT system name = {json_key}")
         mo_object_dict["mo_employee_it_user"] = changed_it_user
 
         # Convert & Upload to LDAP
