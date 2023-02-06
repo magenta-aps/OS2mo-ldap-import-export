@@ -38,7 +38,9 @@ def read_mapping_json(filename: str) -> Any:
         data = "\n".join(file.readlines())
         data = re.sub("//[^\n]*", "", data)  # Line comments
         data = re.sub(r"/\*.*\*/", "", data, flags=re.DOTALL)  # Block comments
-        data = re.sub(",(\s*[}\]])", "\\1", data)  # remove trailing commas after the last element in a list or dict
+        data = re.sub(
+            ",(\s*[}\]])", "\\1", data
+        )  # remove trailing commas after the last element in a list or dict
         return json.loads(data)
 
 
