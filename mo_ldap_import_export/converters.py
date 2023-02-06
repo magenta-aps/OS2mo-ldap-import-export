@@ -36,8 +36,8 @@ from .utils import import_class
 def read_mapping_json(filename: str) -> Any:
     with open(filename, "r") as file:
         data = "\n".join(file.readlines())
-        data = re.sub("//[^\n]*", "", data)  # Line comments
         data = re.sub(r"/\*.*\*/", "", data, flags=re.DOTALL)  # Block comments
+        data = re.sub("//[^\n]*", "", data)  # Line comments
         data = re.sub(
             ",(\s*[}\]])", "\\1", data
         )  # remove trailing commas after the last element in a list or dict
