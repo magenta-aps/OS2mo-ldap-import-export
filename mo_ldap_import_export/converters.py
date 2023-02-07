@@ -313,8 +313,7 @@ class LdapConverter:
                 fields_with_ldap_reference = []
                 for field in fields_to_check:
                     mo_field = field.split(".")[1]
-                    raw_mapping = self.raw_mapping["ldap_to_mo"][json_key][mo_field]
-                    if "ldap." in raw_mapping:
+                    if "ldap." in self.raw_mapping["ldap_to_mo"][json_key][mo_field]:
                         fields_with_ldap_reference.append(field)
 
                 return fields_with_ldap_reference
