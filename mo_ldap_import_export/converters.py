@@ -304,9 +304,9 @@ class LdapConverter:
             # We like fields which map to these MO objects to be multi-value fields,
             # to avoid data being overwritten if two objects of the same type are
             # added in MO
-            def get_fields_to_check(fields_to_check):
+            def filter_fields_to_check(fields_to_check):
                 """
-                A field only needs to be checked, if we use information from LDAP in
+                A field only needs to be checked if we use information from LDAP in
                 the 'ldap_to_mo' mapping. If we do not, we also do not need to make
                 sure that we are writing information to LDAP for this field.
                 """
@@ -319,11 +319,13 @@ class LdapConverter:
                 return fields_with_ldap_reference
 
             if json_key in self.mo_address_types:
-                fields_to_check = get_fields_to_check(["mo_employee_address.value"])
+                fields_to_check = filter_fields_to_check(["mo_employee_address.value"])
             elif json_key in self.mo_it_systems:
-                fields_to_check = get_fields_to_check(["mo_employee_it_user.user_key"])
+                fields_to_check = filter_fields_to_check(
+                    ["mo_employee_it_user.user_key"]
+                )
             elif json_key == "Engagement":
-                fields_to_check = get_fields_to_check(
+                fields_to_check = filter_fields_to_check(
                     [
                         "mo_employee_engagement.user_key",
                         "mo_employee_engagement.org_unit.uuid",
