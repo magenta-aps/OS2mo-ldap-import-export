@@ -912,7 +912,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def synchronize_todays_events(
         user=Depends(login_manager),
         date: str = datetime.datetime.today().strftime("%Y-%m-%d"),
-        publish_amqp_messages: bool = True,
+        publish_amqp_messages: bool = True,  # For test purposes.
     ) -> Any:
 
         # Load all objects
