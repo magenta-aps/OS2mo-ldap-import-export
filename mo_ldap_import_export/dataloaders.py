@@ -736,7 +736,9 @@ class DataLoader:
         return True if result["engagements"][0]["objects"][0]["is_primary"] else False
 
     async def load_mo_engagement(
-        self, uuid: UUID, current_objects_only: bool = True
+        self,
+        uuid: UUID,
+        current_objects_only: bool = True,
     ) -> Engagement:
         query = gql(
             """
