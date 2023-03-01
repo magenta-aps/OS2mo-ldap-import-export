@@ -1051,6 +1051,7 @@ class DataLoader:
             uuid=str(uuid),
         )
         if mo_objects:
+            # Note: load_all_mo_objects checks if len==1
             return mo_objects[0]
         else:
             return None
