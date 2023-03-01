@@ -1046,6 +1046,13 @@ class DataLoader:
         return output
 
     async def load_mo_object(self, uuid: str, add_validity=False):
+        """
+        Returns a mo object as dictionary
+
+        Notes
+        -------
+        returns None if the object is not a current object
+        """
         mo_objects = await self.load_all_mo_objects(
             add_validity=add_validity,
             uuid=str(uuid),
