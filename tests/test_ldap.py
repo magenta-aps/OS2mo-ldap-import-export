@@ -649,10 +649,8 @@ async def test_cleanup_no_export_False(
     internal_amqpsystem: AsyncMock,
     user_context: dict,
 ):
-
     converter.__export_to_ldap__.return_value = False
 
-    # We would expect that no synchronization is required
     args = dict(
         json_key="Address",
         value_key="value",
