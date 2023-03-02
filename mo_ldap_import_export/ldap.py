@@ -375,7 +375,7 @@ async def cleanup(
 
     if not converter.__export_to_ldap__(json_key):
         logger.info(f"__export_to_ldap__ == False for json_key = '{json_key}'")
-        return None
+        return
 
     # Get all matching objects for this user in LDAP (note that LDAP can contain
     # multiple entries in one object.)
