@@ -52,14 +52,16 @@ class IgnoreMe:
                     timestamps.remove(timestamp)
 
     def add(self, str_to_add: Union[str, UUID]):
-        str_to_add = str(str_to_add)
+        if type(str_to_add) is not str:
+            str_to_add = str(str_to_add)
         if str_to_add in self.ignore_dict:
             self.ignore_dict[str(str_to_add)].append(datetime.datetime.now())
         else:
             self.ignore_dict[str(str_to_add)] = [datetime.datetime.now()]
 
     def check(self, str_to_check: Union[str, UUID]):
-        str_to_check = str(str_to_check)
+        if type(str_to_check) is not str:
+            str_to_check = str(str_to_check)
         self.clean()
 
         if str_to_check in self.ignore_dict and self.ignore_dict[str_to_check]:
