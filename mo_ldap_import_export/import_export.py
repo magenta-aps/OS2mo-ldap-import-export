@@ -67,7 +67,6 @@ class IgnoreMe:
         self.clean()
 
         if str_to_check in self.ignore_dict and self.ignore_dict[str_to_check]:
-
             # Remove timestamp so it does not get ignored twice.
             oldest_timestamp = min(self.ignore_dict[str_to_check])
             self.ignore_dict[str_to_check].remove(oldest_timestamp)
