@@ -601,7 +601,7 @@ async def test_import_single_object_from_LDAP_ignore_twice(
     )
 
     uuids_to_ignore = IgnoreMe()
-    uuids_to_ignore.ignore_dict = {str(uuid): [datetime.datetime.now()]}  # type: ignore
+    uuids_to_ignore.ignore_dict = {str(uuid): [datetime.datetime.now()]}
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
     await asyncio.gather(sync_tool.import_single_user("0101011234", context))
