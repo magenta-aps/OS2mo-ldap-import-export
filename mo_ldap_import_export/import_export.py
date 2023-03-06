@@ -36,7 +36,7 @@ class IgnoreMe:
         return len(self.ignore_dict)
 
     def clean(self):
-        # Remove all timestamps which have been in ignore_dict for more than x seconds.
+        # Remove all timestamps which have been in the ignore dict for more than 60 sec.
         now = datetime.datetime.now()
         for str_to_ignore, timestamps in self.ignore_dict.items():
             for timestamp in timestamps:
@@ -52,6 +52,7 @@ class IgnoreMe:
                     timestamps.remove(timestamp)
 
     def add(self, str_to_add: Union[str, UUID]):
+        # Add a string to the ignore dict
         if type(str_to_add) is not str:
             str_to_add = str(str_to_add)
         if str_to_add in self.ignore_dict:
@@ -60,6 +61,7 @@ class IgnoreMe:
             self.ignore_dict[str(str_to_add)] = [datetime.datetime.now()]
 
     def check(self, str_to_check: Union[str, UUID]):
+        # Raise ignoreChanges if the string to check is in self.ignore_dict
         if type(str_to_check) is not str:
             str_to_check = str(str_to_check)
         self.clean()
