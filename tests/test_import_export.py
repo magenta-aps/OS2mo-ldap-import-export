@@ -605,7 +605,7 @@ async def test_import_single_object_from_LDAP_ignore_twice(
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
     await asyncio.gather(sync_tool.import_single_user("0101011234", context))
-    assert len(sync_tool.uuids_to_ignore[str(uuid)]) == 2
+    assert len(sync_tool.uuids_to_ignore[uuid]) == 2
 
 
 async def test_import_single_object_from_LDAP_but_import_equals_false(
