@@ -56,9 +56,9 @@ class IgnoreMe:
         if type(str_to_add) is not str:
             str_to_add = str(str_to_add)
         if str_to_add in self.ignore_dict:
-            self.ignore_dict[str(str_to_add)].append(datetime.datetime.now())
+            self.ignore_dict[str_to_add].append(datetime.datetime.now())
         else:
-            self.ignore_dict[str(str_to_add)] = [datetime.datetime.now()]
+            self.ignore_dict[str_to_add] = [datetime.datetime.now()]
 
     def check(self, str_to_check: Union[str, UUID]):
         # Raise ignoreChanges if the string to check is in self.ignore_dict
