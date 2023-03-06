@@ -248,7 +248,7 @@ async def test_listen_to_changes_in_employees(
         str(old_uuid): [datetime.datetime(2020, 1, 1)],
         # This uuid should remain in the list
         str(uuid_which_should_remain): [datetime.datetime.now()],
-    }  # type: ignore
+    }
 
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
