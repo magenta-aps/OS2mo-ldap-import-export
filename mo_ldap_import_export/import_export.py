@@ -22,11 +22,15 @@ from .exceptions import NotSupportedException
 from .ldap import cleanup
 
 
+def initialize_uuids_to_ignore() -> dict[UUID, list[datetime.datetime]]:
+    return {}
+
+
 class SyncTool:
     def __init__(self, context: Context):
 
         # UUIDs in this list will be ignored by listen_to_changes ONCE
-        self.uuids_to_ignore: dict[UUID, list[datetime.datetime]] = {}
+        self.uuids_to_ignore = initialize_uuids_to_ignore()
 
         self.logger = structlog.get_logger()
         self.context = context
