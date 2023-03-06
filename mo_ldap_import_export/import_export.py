@@ -39,7 +39,7 @@ class SyncTool:
         return {}
 
     def clean_ignore_dict(self, ignore_dict, max_age_in_seconds):
-        # Remove all timestamps which have been in this dict for more than 60 seconds.
+        # Remove all timestamps which have been in this dict for more than x seconds.
         now = datetime.datetime.now()
         for str_to_ignore, timestamps in ignore_dict.items():
             for timestamp in timestamps:
@@ -54,8 +54,14 @@ class SyncTool:
                     )
                     timestamps.remove(timestamp)
 
-    @staticmethod
-    def check_ignore_dict(str_to_check: str, ignore_dict: dict):
+    def check_ignore_dict(
+        self,
+        str_to_check: str,
+        ignore_dict: dict,
+        max_age_in_seconds: int,
+    ):
+        self.clean_ignore_dict(ignore_dict, max_age_in_seconds)
+
         if str_to_check in ignore_dict and ignore_dict[str_to_check]:
 
             # Remove timestamp so it does not get ignored twice.
@@ -80,13 +86,10 @@ class SyncTool:
 
         self.logger.info("[MO] Registered change in the employee model")
 
-        # Remove all timestamps which have been in this dict for more than 60 seconds.
-        self.clean_ignore_dict(self.uuids_to_ignore, 60)
-
         # If the object was uploaded by us, it does not need to be synchronized.
         # Note that this is not necessary in listen_to_changes_in_org_units. Because
         # those changes potentially map to multiple employees
-        self.check_ignore_dict(str(payload.object_uuid), self.uuids_to_ignore)
+        self.check_ignore_dict(str(payload.object_uuid), self.uuids_to_ignore, 60)
 
         # Get MO employee
         changed_employee = await self.dataloader.load_mo_employee(
