@@ -8,7 +8,6 @@ Created on Fri Mar  3 09:46:15 2023
 """
 import datetime
 from typing import Any
-from uuid import UUID
 from uuid import uuid4
 
 import structlog
@@ -17,26 +16,59 @@ from ramqp.mo.models import MORoutingKey
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
 
+from .exceptions import IgnoreChanges
 from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NotSupportedException
 from .ldap import cleanup
-
-
-def initialize_uuids_to_ignore() -> dict[UUID, list[datetime.datetime]]:
-    return {}
 
 
 class SyncTool:
     def __init__(self, context: Context):
 
         # UUIDs in this list will be ignored by listen_to_changes ONCE
-        self.uuids_to_ignore = initialize_uuids_to_ignore()
+        self.uuids_to_ignore = self.initialize_ignore_dict()
 
         self.logger = structlog.get_logger()
         self.context = context
         self.user_context = self.context["user_context"]
         self.dataloader = self.user_context["dataloader"]
         self.converter = self.user_context["converter"]
+
+    @staticmethod
+    def initialize_ignore_dict() -> dict[str, list[datetime.datetime]]:
+        return {}
+
+    def clean_ignore_dict(self, ignore_dict, max_age_in_seconds):
+        # Remove all timestamps which have been in this dict for more than 60 seconds.
+        now = datetime.datetime.now()
+        for str_to_ignore, timestamps in ignore_dict.items():
+            for timestamp in timestamps:
+                age_in_seconds = (now - timestamp).total_seconds()
+                if age_in_seconds > max_age_in_seconds:
+                    self.logger.info(
+                        (
+                            f"Removing timestamp belonging to {str_to_ignore} "
+                            "from ignore_dict. "
+                            f"It is {age_in_seconds} seconds old"
+                        )
+                    )
+                    timestamps.remove(timestamp)
+
+    @staticmethod
+    def check_ignore_dict(str_to_check: str, ignore_dict: dict):
+        if str_to_check in ignore_dict and ignore_dict[str_to_check]:
+
+            # Remove timestamp so it does not get ignored twice.
+            oldest_timestamp = min(ignore_dict[str_to_check])
+            ignore_dict[str_to_check].remove(oldest_timestamp)
+            raise IgnoreChanges(f"[check_ignore_dict] Ignoring {str_to_check}")
+
+    @staticmethod
+    def add_to_ignore_dict(str_to_add: str, ignore_dict: dict):
+        if str_to_add in ignore_dict:
+            ignore_dict[str_to_add].append(datetime.datetime.now())
+        else:
+            ignore_dict[str_to_add] = [datetime.datetime.now()]
 
     async def listen_to_changes_in_employees(
         self,
@@ -49,35 +81,12 @@ class SyncTool:
         self.logger.info("[MO] Registered change in the employee model")
 
         # Remove all timestamps which have been in this dict for more than 60 seconds.
-        now = datetime.datetime.now()
-        for uuid, timestamps in self.uuids_to_ignore.items():
-            for timestamp in timestamps:
-                age_in_seconds = (now - timestamp).total_seconds()
-                if age_in_seconds > 60:
-                    self.logger.info(
-                        (
-                            f"Removing timestamp belonging to {uuid} "
-                            "from uuids_to_ignore. "
-                            f"It is {age_in_seconds} seconds old"
-                        )
-                    )
-                    timestamps.remove(timestamp)
+        self.clean_ignore_dict(self.uuids_to_ignore, 60)
 
         # If the object was uploaded by us, it does not need to be synchronized.
         # Note that this is not necessary in listen_to_changes_in_org_units. Because
         # those changes potentially map to multiple employees
-        if (
-            payload.object_uuid in self.uuids_to_ignore
-            and self.uuids_to_ignore[payload.object_uuid]
-        ):
-            self.logger.info(
-                f"[listen_to_changes] Ignoring {routing_key}-{payload.object_uuid}"
-            )
-
-            # Remove timestamp so it does not get ignored twice.
-            oldest_timestamp = min(self.uuids_to_ignore[payload.object_uuid])
-            self.uuids_to_ignore[payload.object_uuid].remove(oldest_timestamp)
-            return None
+        self.check_ignore_dict(str(payload.object_uuid), self.uuids_to_ignore)
 
         # Get MO employee
         changed_employee = await self.dataloader.load_mo_employee(
@@ -473,10 +482,6 @@ class SyncTool:
                 self.logger.info(f"Importing {converted_objects}")
 
                 for mo_object in converted_objects:
-                    if mo_object.uuid in self.uuids_to_ignore:
-                        self.uuids_to_ignore[mo_object.uuid].append(
-                            datetime.datetime.now()
-                        )
-                    else:
-                        self.uuids_to_ignore[mo_object.uuid] = [datetime.datetime.now()]
+                    self.add_to_ignore_dict(str(mo_object.uuid), self.uuids_to_ignore)
+
                 await self.dataloader.upload_mo_objects(converted_objects)

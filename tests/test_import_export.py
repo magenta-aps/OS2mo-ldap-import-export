@@ -16,6 +16,7 @@ from ramodels.mo.employee import Employee
 from ramqp.mo.models import MORoutingKey
 from structlog.testing import capture_logs
 
+from mo_ldap_import_export.exceptions import IgnoreChanges
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NotSupportedException
 from mo_ldap_import_export.import_export import SyncTool
@@ -239,36 +240,36 @@ async def test_listen_to_changes_in_employees(
 
     uuids_to_ignore = {
         # This uuid should be ignored (once)
-        payload.object_uuid: [datetime.datetime.now(), datetime.datetime.now()],
+        str(payload.object_uuid): [datetime.datetime.now(), datetime.datetime.now()],
         # This uuid has been here for too long, and should be removed
-        old_uuid: [datetime.datetime(2020, 1, 1)],
+        str(old_uuid): [datetime.datetime(2020, 1, 1)],
         # This uuid should remain in the list
-        uuid_which_should_remain: [datetime.datetime.now()],
+        str(uuid_which_should_remain): [datetime.datetime.now()],
     }
 
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
     with capture_logs() as cap_logs:
-        await asyncio.gather(
-            sync_tool.listen_to_changes_in_employees(
-                payload,
-                routing_key=mo_routing_key,
-                delete=False,
-                current_objects_only=True,
-            ),
-        )
+        with pytest.raises(IgnoreChanges, match=f".*Ignoring .*{payload.object_uuid}"):
+            await asyncio.gather(
+                sync_tool.listen_to_changes_in_employees(
+                    payload,
+                    routing_key=mo_routing_key,
+                    delete=False,
+                    current_objects_only=True,
+                ),
+            )
 
         entries = [w for w in cap_logs if w["log_level"] == "info"]
 
         assert re.match(
-            f"Removing timestamp belonging to {old_uuid} from uuids_to_ignore.",
+            f"Removing timestamp belonging to {old_uuid}",
             entries[1]["event"],
         )
-        assert re.match(f".*Ignoring .*{payload.object_uuid}", entries[2]["event"])
         assert len(uuids_to_ignore) == 3
-        assert len(uuids_to_ignore[old_uuid]) == 0
-        assert len(uuids_to_ignore[uuid_which_should_remain]) == 1
-        assert len(uuids_to_ignore[payload.object_uuid]) == 1
+        assert len(uuids_to_ignore[str(old_uuid)]) == 0
+        assert len(uuids_to_ignore[str(uuid_which_should_remain)]) == 1
+        assert len(uuids_to_ignore[str(payload.object_uuid)]) == 1
 
 
 async def test_format_converted_engagement_objects(
@@ -596,11 +597,11 @@ async def test_import_single_object_from_LDAP_ignore_twice(
         {"user_context": {"dataloader": dataloader, "converter": converter}}
     )
 
-    uuids_to_ignore = {uuid: [datetime.datetime.now()]}
+    uuids_to_ignore = {str(uuid): [datetime.datetime.now()]}
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
     await asyncio.gather(sync_tool.import_single_user("0101011234", context))
-    assert len(sync_tool.uuids_to_ignore[uuid]) == 2
+    assert len(sync_tool.uuids_to_ignore[str(uuid)]) == 2
 
 
 async def test_import_single_object_from_LDAP_but_import_equals_false(
