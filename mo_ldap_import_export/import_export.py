@@ -65,6 +65,12 @@ class IgnoreMe:
             self.ignore_dict[str_to_check].remove(oldest_timestamp)
             raise IgnoreChanges(f"[check_ignore_dict] Ignoring {str_to_check}")
 
+    def __getitem__(self, key):
+        return self.ignore_dict[str(key)]
+
+    def __len__(self):
+        return len(self.ignore_dict)
+
 
 class SyncTool:
     def __init__(self, context: Context):

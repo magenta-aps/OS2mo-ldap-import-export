@@ -19,6 +19,7 @@ from structlog.testing import capture_logs
 from mo_ldap_import_export.exceptions import IgnoreChanges
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NotSupportedException
+from mo_ldap_import_export.import_export import IgnoreMe
 from mo_ldap_import_export.import_export import SyncTool
 from mo_ldap_import_export.ldap_classes import LdapObject
 
@@ -238,14 +239,16 @@ async def test_listen_to_changes_in_employees(
     old_uuid = uuid4()
     uuid_which_should_remain = uuid4()
 
-    uuids_to_ignore = {
+    uuids_to_ignore = IgnoreMe()
+
+    uuids_to_ignore.ignore_dict = {
         # This uuid should be ignored (once)
         str(payload.object_uuid): [datetime.datetime.now(), datetime.datetime.now()],
         # This uuid has been here for too long, and should be removed
         str(old_uuid): [datetime.datetime(2020, 1, 1)],
         # This uuid should remain in the list
         str(uuid_which_should_remain): [datetime.datetime.now()],
-    }
+    }  # type: ignore
 
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
@@ -267,9 +270,9 @@ async def test_listen_to_changes_in_employees(
             entries[1]["event"],
         )
         assert len(uuids_to_ignore) == 3
-        assert len(uuids_to_ignore[str(old_uuid)]) == 0
-        assert len(uuids_to_ignore[str(uuid_which_should_remain)]) == 1
-        assert len(uuids_to_ignore[str(payload.object_uuid)]) == 1
+        assert len(uuids_to_ignore[old_uuid]) == 0
+        assert len(uuids_to_ignore[uuid_which_should_remain]) == 1
+        assert len(uuids_to_ignore[payload.object_uuid]) == 1
 
 
 async def test_format_converted_engagement_objects(
@@ -597,7 +600,8 @@ async def test_import_single_object_from_LDAP_ignore_twice(
         {"user_context": {"dataloader": dataloader, "converter": converter}}
     )
 
-    uuids_to_ignore = {str(uuid): [datetime.datetime.now()]}
+    uuids_to_ignore = IgnoreMe()
+    uuids_to_ignore.ignore_dict = {str(uuid): [datetime.datetime.now()]}  # type: ignore
     sync_tool.uuids_to_ignore = uuids_to_ignore
 
     await asyncio.gather(sync_tool.import_single_user("0101011234", context))
