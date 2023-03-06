@@ -78,7 +78,6 @@ class SyncTool:
     def __init__(self, context: Context):
 
         # UUIDs in this list will be ignored by listen_to_changes ONCE
-        # self.uuids_to_ignore = self.initialize_ignore_dict()
         self.uuids_to_ignore = IgnoreMe()
 
         self.logger = structlog.get_logger()
