@@ -8,6 +8,8 @@ Created on Fri Mar  3 09:46:15 2023
 """
 import datetime
 from typing import Any
+from typing import Union
+from uuid import UUID
 from uuid import uuid4
 
 import structlog
@@ -22,26 +24,15 @@ from .exceptions import NotSupportedException
 from .ldap import cleanup
 
 
-class SyncTool:
-    def __init__(self, context: Context):
-
-        # UUIDs in this list will be ignored by listen_to_changes ONCE
-        self.uuids_to_ignore = self.initialize_ignore_dict()
-
+class IgnoreMe:
+    def __init__(self):
+        self.ignore_dict: dict[str, list[datetime.datetime]] = {}
         self.logger = structlog.get_logger()
-        self.context = context
-        self.user_context = self.context["user_context"]
-        self.dataloader = self.user_context["dataloader"]
-        self.converter = self.user_context["converter"]
 
-    @staticmethod
-    def initialize_ignore_dict() -> dict[str, list[datetime.datetime]]:
-        return {}
-
-    def clean_ignore_dict(self, ignore_dict, max_age_in_seconds):
-        # Remove all timestamps which have been in this dict for more than x seconds.
+    def clean(self, max_age_in_seconds: int):
+        # Remove all timestamps which have been in ignore_dict for more than x seconds.
         now = datetime.datetime.now()
-        for str_to_ignore, timestamps in ignore_dict.items():
+        for str_to_ignore, timestamps in self.ignore_dict.items():
             for timestamp in timestamps:
                 age_in_seconds = (now - timestamp).total_seconds()
                 if age_in_seconds > max_age_in_seconds:
@@ -54,27 +45,39 @@ class SyncTool:
                     )
                     timestamps.remove(timestamp)
 
-    def check_ignore_dict(
-        self,
-        str_to_check: str,
-        ignore_dict: dict,
-        max_age_in_seconds: int,
-    ):
-        self.clean_ignore_dict(ignore_dict, max_age_in_seconds)
+    def add(self, str_to_add: Union[str, UUID]):
+        if type(str_to_add) is not str:
+            str_to_add = str(str_to_add)
+        if str_to_add in self.ignore_dict:
+            self.ignore_dict[str_to_add].append(datetime.datetime.now())
+        else:
+            self.ignore_dict[str_to_add] = [datetime.datetime.now()]
 
-        if str_to_check in ignore_dict and ignore_dict[str_to_check]:
+    def check(self, str_to_check: Union[str, UUID], max_age_in_seconds: int):
+        if type(str_to_check) is not str:
+            str_to_check = str(str_to_check)
+        self.clean(max_age_in_seconds)
+
+        if str_to_check in self.ignore_dict and self.ignore_dict[str_to_check]:
 
             # Remove timestamp so it does not get ignored twice.
-            oldest_timestamp = min(ignore_dict[str_to_check])
-            ignore_dict[str_to_check].remove(oldest_timestamp)
+            oldest_timestamp = min(self.ignore_dict[str_to_check])
+            self.ignore_dict[str_to_check].remove(oldest_timestamp)
             raise IgnoreChanges(f"[check_ignore_dict] Ignoring {str_to_check}")
 
-    @staticmethod
-    def add_to_ignore_dict(str_to_add: str, ignore_dict: dict):
-        if str_to_add in ignore_dict:
-            ignore_dict[str_to_add].append(datetime.datetime.now())
-        else:
-            ignore_dict[str_to_add] = [datetime.datetime.now()]
+
+class SyncTool:
+    def __init__(self, context: Context):
+
+        # UUIDs in this list will be ignored by listen_to_changes ONCE
+        # self.uuids_to_ignore = self.initialize_ignore_dict()
+        self.uuids_to_ignore = IgnoreMe()
+
+        self.logger = structlog.get_logger()
+        self.context = context
+        self.user_context = self.context["user_context"]
+        self.dataloader = self.user_context["dataloader"]
+        self.converter = self.user_context["converter"]
 
     async def listen_to_changes_in_employees(
         self,
@@ -89,7 +92,7 @@ class SyncTool:
         # If the object was uploaded by us, it does not need to be synchronized.
         # Note that this is not necessary in listen_to_changes_in_org_units. Because
         # those changes potentially map to multiple employees
-        self.check_ignore_dict(str(payload.object_uuid), self.uuids_to_ignore, 60)
+        self.uuids_to_ignore.check(payload.object_uuid, 60)
 
         # Get MO employee
         changed_employee = await self.dataloader.load_mo_employee(
@@ -485,6 +488,6 @@ class SyncTool:
                 self.logger.info(f"Importing {converted_objects}")
 
                 for mo_object in converted_objects:
-                    self.add_to_ignore_dict(str(mo_object.uuid), self.uuids_to_ignore)
+                    self.uuids_to_ignore.add(mo_object.uuid)
 
                 await self.dataloader.upload_mo_objects(converted_objects)
