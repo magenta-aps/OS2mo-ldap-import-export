@@ -29,13 +29,19 @@ class IgnoreMe:
         self.ignore_dict: dict[str, list[datetime.datetime]] = {}
         self.logger = structlog.get_logger()
 
-    def clean(self, max_age_in_seconds: int):
+    def __getitem__(self, key):
+        return self.ignore_dict[str(key)]
+
+    def __len__(self):
+        return len(self.ignore_dict)
+
+    def clean(self):
         # Remove all timestamps which have been in ignore_dict for more than x seconds.
         now = datetime.datetime.now()
         for str_to_ignore, timestamps in self.ignore_dict.items():
             for timestamp in timestamps:
                 age_in_seconds = (now - timestamp).total_seconds()
-                if age_in_seconds > max_age_in_seconds:
+                if age_in_seconds > 60:
                     self.logger.info(
                         (
                             f"Removing timestamp belonging to {str_to_ignore} "
@@ -46,17 +52,15 @@ class IgnoreMe:
                     timestamps.remove(timestamp)
 
     def add(self, str_to_add: Union[str, UUID]):
-        if type(str_to_add) is not str:
-            str_to_add = str(str_to_add)
+        str_to_add = str(str_to_add)
         if str_to_add in self.ignore_dict:
-            self.ignore_dict[str_to_add].append(datetime.datetime.now())
+            self.ignore_dict[str(str_to_add)].append(datetime.datetime.now())
         else:
-            self.ignore_dict[str_to_add] = [datetime.datetime.now()]
+            self.ignore_dict[str(str_to_add)] = [datetime.datetime.now()]
 
-    def check(self, str_to_check: Union[str, UUID], max_age_in_seconds: int):
-        if type(str_to_check) is not str:
-            str_to_check = str(str_to_check)
-        self.clean(max_age_in_seconds)
+    def check(self, str_to_check: Union[str, UUID]):
+        str_to_check = str(str_to_check)
+        self.clean()
 
         if str_to_check in self.ignore_dict and self.ignore_dict[str_to_check]:
 
@@ -64,12 +68,6 @@ class IgnoreMe:
             oldest_timestamp = min(self.ignore_dict[str_to_check])
             self.ignore_dict[str_to_check].remove(oldest_timestamp)
             raise IgnoreChanges(f"[check_ignore_dict] Ignoring {str_to_check}")
-
-    def __getitem__(self, key):
-        return self.ignore_dict[str(key)]
-
-    def __len__(self):
-        return len(self.ignore_dict)
 
 
 class SyncTool:
@@ -98,7 +96,7 @@ class SyncTool:
         # If the object was uploaded by us, it does not need to be synchronized.
         # Note that this is not necessary in listen_to_changes_in_org_units. Because
         # those changes potentially map to multiple employees
-        self.uuids_to_ignore.check(payload.object_uuid, 60)
+        self.uuids_to_ignore.check(payload.object_uuid)
 
         # Get MO employee
         changed_employee = await self.dataloader.load_mo_employee(
