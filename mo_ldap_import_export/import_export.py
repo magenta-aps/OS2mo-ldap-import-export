@@ -38,15 +38,16 @@ class IgnoreMe:
     def clean(self):
         # Remove all timestamps which have been in the ignore dict for more than 60 sec.
         now = datetime.datetime.now()
+        max_age = 60  # seconds
+        cutoff = now - datetime.timedelta(seconds=max_age)
         for str_to_ignore, timestamps in self.ignore_dict.items():
             for timestamp in timestamps:
-                age_in_seconds = (now - timestamp).total_seconds()
-                if age_in_seconds > 60:
+                if timestamp < cutoff:
                     self.logger.info(
                         (
-                            f"Removing timestamp belonging to {str_to_ignore} "
+                            f"Removing {timestamp} belonging to {str_to_ignore} "
                             "from ignore_dict. "
-                            f"It is {age_in_seconds} seconds old"
+                            f"It is more than {max_age} seconds old"
                         )
                     )
                     timestamps.remove(timestamp)

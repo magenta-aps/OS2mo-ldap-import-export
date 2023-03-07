@@ -266,7 +266,7 @@ async def test_listen_to_changes_in_employees(
         entries = [w for w in cap_logs if w["log_level"] == "info"]
 
         assert re.match(
-            f"Removing timestamp belonging to {old_uuid} from ignore_dict",
+            f"Removing .* belonging to {old_uuid} from ignore_dict",
             entries[1]["event"],
         )
         assert len(uuids_to_ignore) == 3
