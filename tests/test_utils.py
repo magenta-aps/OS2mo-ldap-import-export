@@ -143,6 +143,8 @@ async def test_listener():
             "Registered change for LDAP object",
             str(messages[0]["event"]),
         )
+        event_loop.create_task.assert_called()
+        sync_tool.import_single_user.assert_called_with("010101-1234")
 
         assert re.match(
             "Got event without cpr",
