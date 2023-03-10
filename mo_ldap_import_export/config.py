@@ -132,5 +132,5 @@ class Settings(BaseSettings):
     )
 
     poll_time: float = Field(
-        5, description="Time between calls to LDAP to search for updates"
+        5, description="Seconds between calls to LDAP to search for updates"
     )
