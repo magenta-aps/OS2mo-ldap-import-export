@@ -261,9 +261,9 @@ class DataLoader:
                 # Only add if nothing is there yet. Otherwise we risk adding an
                 # ignore-command for every modified parameter
                 #
-                # Also: even if an LDAP object gets modified by us twice within a couple
-                # of seconds, it should still only be ignored once; Because we only
-                # retrieve the latest state of the LDAP object when polling
+                # Also: even if an LDAP attribute gets modified by us twice within a
+                # couple of seconds, it should still only be ignored once; Because we
+                # only retrieve the latest state of the LDAP object when polling
                 if not self.sync_tool.dns_to_ignore[dn]:
                     self.sync_tool.dns_to_ignore.add(dn)
 
