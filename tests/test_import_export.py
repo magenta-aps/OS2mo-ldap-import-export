@@ -673,9 +673,7 @@ async def test_import_single_object_from_LDAP_ignore_dn(
     ldap_object = LdapObject(dn=dn_to_ignore)
     dataloader.load_ldap_cpr_object.return_value = ldap_object
 
-    dns_to_ignore = IgnoreMe()
-    dns_to_ignore.add(dn_to_ignore)
-    sync_tool.dns_to_ignore = dns_to_ignore
+    sync_tool.dns_to_ignore.add(dn_to_ignore)
 
     with capture_logs() as cap_logs:
         await asyncio.gather(sync_tool.import_single_user("0101011234"))
