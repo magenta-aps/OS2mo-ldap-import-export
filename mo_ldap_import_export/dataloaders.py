@@ -253,6 +253,7 @@ class DataLoader:
             response = self.ldap_connection.result
             self.logger.info(f"[modify_ldap] Response: {response}")
 
+            # If successful, the importer should ignore this DN
             if response["description"] == "success":
                 # Clean all old entries
                 self.sync_tool.dns_to_ignore.clean()
