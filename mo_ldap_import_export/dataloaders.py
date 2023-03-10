@@ -231,8 +231,7 @@ class DataLoader:
         if len(list_of_changes) != 1:
             raise InvalidChangeDict("Exactly one change can be submitted at a time")
 
-        value_to_modify = list_of_changes[0][1]
-        ldap_command = list_of_changes[0][0]
+        ldap_command, value_to_modify = list_of_changes[0]
         if type(value_to_modify) is list:
             if len(value_to_modify) == 1:
                 value_to_modify = value_to_modify[0]
