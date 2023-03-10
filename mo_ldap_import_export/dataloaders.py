@@ -366,7 +366,7 @@ class DataLoader:
             # attribute is not set. In that case this function will just set the cpr no.
             # attribute in LDAP.
             existing_object = self.load_ldap_cpr_object(
-                object_to_modify.dict()[cpr_field], json_key
+                getattr(object_to_modify, cpr_field), json_key
             )
             object_to_modify.dn = existing_object.dn
             self.logger.info(f"Found existing object: {existing_object.dn}")
@@ -390,7 +390,7 @@ class DataLoader:
             ]
 
         for parameter_to_modify in parameters_to_modify:
-            value = object_to_modify.dict()[parameter_to_modify]
+            value = getattr(object_to_modify, parameter_to_modify)
             value_to_modify: list[str] = [] if value is None else [value]
 
             if delete:
