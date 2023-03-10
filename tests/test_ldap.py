@@ -744,7 +744,7 @@ def test_poller_invalidQuery(
     load_settings_overrides: Dict[str, str], ldap_connection: MagicMock
 ) -> None:
     def listener(event):
-        print("foo")
+        pass
 
     # Event without modifyTimeStamp makes it impossible to determine if it
     # is duplicate - so we expect a warning
