@@ -210,7 +210,14 @@ class DataLoader:
 
         return ldap_object
 
-    def modify_ldap(self, dn: str, changes: dict):
+    def modify_ldap(
+        self,
+        dn: str,
+        changes: Union[
+            dict[str, list[tuple[str, list[str]]]],
+            dict[str, list[tuple[str, str]]],
+        ],
+    ):
         """
         Modifies LDAP and adds the dn to dns_to_ignore
         """
@@ -384,7 +391,7 @@ class DataLoader:
 
         for parameter_to_modify in parameters_to_modify:
             value = object_to_modify.dict()[parameter_to_modify]
-            value_to_modify = [] if value is None else [value]
+            value_to_modify: list[str] = [] if value is None else [value]
 
             if delete:
                 changes = {parameter_to_modify: [("MODIFY_DELETE", value_to_modify)]}
