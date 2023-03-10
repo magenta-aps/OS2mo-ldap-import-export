@@ -668,11 +668,9 @@ async def test_import_single_object_from_LDAP_ignore_twice(
 async def test_import_single_object_from_LDAP_ignore_dn(
     converter: MagicMock, dataloader: AsyncMock, sync_tool: SyncTool
 ) -> None:
-
     dn_to_ignore = "CN=foo"
     ldap_object = LdapObject(dn=dn_to_ignore)
     dataloader.load_ldap_cpr_object.return_value = ldap_object
-
     sync_tool.dns_to_ignore.add(dn_to_ignore)
 
     with capture_logs() as cap_logs:
