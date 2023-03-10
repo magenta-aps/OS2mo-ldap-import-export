@@ -224,12 +224,12 @@ class DataLoader:
         # Checks
         attributes = list(changes.keys())
         if len(attributes) != 1:
-            raise InvalidChangeDict("Exactly one attribute can be changed at the time")
+            raise InvalidChangeDict("Exactly one attribute can be changed at a time")
 
         attribute = attributes[0]
         list_of_changes = changes[attribute]
         if len(list_of_changes) != 1:
-            raise InvalidChangeDict("Exactly one change can be submitted at the time")
+            raise InvalidChangeDict("Exactly one change can be submitted at a time")
 
         value_to_modify = list_of_changes[0][1]
         ldap_command = list_of_changes[0][0]
@@ -239,7 +239,7 @@ class DataLoader:
             elif len(value_to_modify) == 0:
                 value_to_modify = ""
             else:
-                raise InvalidChangeDict("Exactly one value can be changed at the time")
+                raise InvalidChangeDict("Exactly one value can be changed at a time")
 
         # Compare to LDAP
         value_exists = self.ldap_connection.compare(dn, attribute, value_to_modify)

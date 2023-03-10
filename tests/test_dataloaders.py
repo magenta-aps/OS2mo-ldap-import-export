@@ -1605,7 +1605,7 @@ async def test_modify_ldap(
 
     # Validate that our checks work
     with pytest.raises(
-        InvalidChangeDict, match="Exactly one attribute can be changed at the time"
+        InvalidChangeDict, match="Exactly one attribute can be changed at a time"
     ):
         changes = {
             "parameter_to_modify": [("MODIFY_ADD", "value_to_modify")],
@@ -1615,7 +1615,7 @@ async def test_modify_ldap(
 
     # Validate that our checks work
     with pytest.raises(
-        InvalidChangeDict, match="Exactly one change can be submitted at the time"
+        InvalidChangeDict, match="Exactly one change can be submitted at a time"
     ):
         changes = {
             "parameter_to_modify": [
@@ -1627,7 +1627,7 @@ async def test_modify_ldap(
 
     # Validate that our checks work
     with pytest.raises(
-        InvalidChangeDict, match="Exactly one value can be changed at the time"
+        InvalidChangeDict, match="Exactly one value can be changed at a time"
     ):
         changes = {
             "parameter_to_modify": [
