@@ -17,7 +17,9 @@ from typing import Union
 from uuid import UUID
 from uuid import uuid4
 
+import panel as pn
 import structlog
+from bokeh.embed import server_document
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import FastAPI
@@ -27,6 +29,7 @@ from fastapi import Response
 from fastapi import status
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.templating import Jinja2Templates
 from fastapi_login import LoginManager
 from fastapi_login.exceptions import InvalidCredentialsException
 from fastramqpi.context import Context
@@ -342,6 +345,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     settings = Settings(**kwargs)
 
     app = fastramqpi.get_app()
+
     app.include_router(fastapi_router)
 
     login_manager = LoginManager(
@@ -769,5 +773,26 @@ def create_app(**kwargs: Any) -> FastAPI:
 
         # media_type here sets the media type of the actual response sent to the client.
         return Response(content=image_bytes, media_type="image/png")
+
+    templates = Jinja2Templates(
+        directory=os.path.join(os.path.dirname(__file__), "templates")
+    )
+
+    @app.get("/grph")
+    async def bkapp_page(request: Request):
+        script = server_document("http://127.0.0.1:3993/grph")
+        return templates.TemplateResponse(
+            "base.html", {"request": request, "script": script}
+        )
+
+    from .sliders.pn_app import createApp
+
+    pn.serve(
+        {"/grph": createApp},
+        port=8001,
+        allow_websocket_origin=["127.0.0.1:3993"],
+        address="127.0.0.1",
+        show=False,
+    )
 
     return app

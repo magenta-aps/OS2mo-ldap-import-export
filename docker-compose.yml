@@ -17,6 +17,7 @@ services:
       - os2mo_default
     ports:
       - "8000:8000"
+      - "3993:3993"
 
   mo_ldap_import_export-cron:
     container_name: mo_ldap_ie-cron
