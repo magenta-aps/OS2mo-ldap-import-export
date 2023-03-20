@@ -1555,14 +1555,18 @@ async def test_load_mo_object(dataloader: DataLoader):
         "mo_ldap_import_export.dataloaders.DataLoader.load_all_mo_objects",
         return_value=["obj1"],
     ):
-        result = await asyncio.gather(dataloader.load_mo_object("uuid"))
+        result = await asyncio.gather(
+            dataloader.load_mo_object("uuid", ObjectType.EMPLOYEE)
+        )
         assert result[0] == "obj1"
 
     with patch(
         "mo_ldap_import_export.dataloaders.DataLoader.load_all_mo_objects",
         return_value=[],
     ):
-        result = await asyncio.gather(dataloader.load_mo_object("uuid"))
+        result = await asyncio.gather(
+            dataloader.load_mo_object("uuid", ObjectType.EMPLOYEE)
+        )
         assert result[0] is None
 
 
