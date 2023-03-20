@@ -978,7 +978,10 @@ class DataLoader:
         return output
 
     async def load_all_mo_objects(
-        self, add_validity=False, uuid="", object_types_to_try=[]
+        self,
+        add_validity=False,
+        uuid="",
+        object_types_to_try=[],
     ) -> list[dict]:
         """
         Returns a list of dictionaries. One for each object in MO of one of the
