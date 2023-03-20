@@ -1440,7 +1440,9 @@ async def test_load_all_mo_objects_specify_uuid(
 
     gql_client.execute.side_effect = return_values
 
-    output = await asyncio.gather(dataloader.load_all_mo_objects(uuid=employee_uuid))
+    output = await asyncio.gather(
+        dataloader.load_all_mo_objects(uuid=str(employee_uuid))
+    )
     assert output[0][0]["uuid"] == employee_uuid
     assert len(output[0]) == 1
 
@@ -1461,7 +1463,7 @@ async def test_load_all_mo_objects_specify_uuid_multiple_results(
     gql_client.execute.side_effect = return_values
 
     with pytest.raises(MultipleObjectsReturnedException):
-        await dataloader.load_all_mo_objects(uuid=uuid)
+        await dataloader.load_all_mo_objects(uuid=str(uuid))
 
 
 async def test_load_all_mo_objects_invalid_query(
