@@ -358,6 +358,7 @@ async def cleanup(
     mo_objects_in_mo: list[Any],
     user_context: dict,
     employee: Employee,
+    routing_key: MORoutingKey,
 ):
     """
     Cleans entries from LDAP
@@ -428,20 +429,22 @@ async def cleanup(
     if len(values_in_ldap) == 0 and len(values_in_mo) > 0:
         for mo_object_in_mo in mo_objects_in_mo:
             uuid = mo_object_in_mo.uuid
-            mo_object = await dataloader.load_mo_object(uuid=str(uuid))
-            routing_key = MORoutingKey.build(
+            mo_object = await dataloader.load_mo_object(
+                str(uuid), routing_key.object_type
+            )
+            routing_key_to_publish = MORoutingKey.build(
                 service_type=mo_object["service_type"],
                 object_type=mo_object["object_type"],
                 request_type=RequestType.REFRESH,
             )
             payload = mo_object["payload"]
 
-            logger.info(f"Publishing {routing_key}")
+            logger.info(f"Publishing {routing_key_to_publish}")
             logger.info(f"with payload.uuid = {payload.uuid}")
             logger.info(f"and payload.object_uuid = {payload.object_uuid}")
 
             await internal_amqpsystem.publish_message(
-                str(routing_key), jsonable_encoder(payload)
+                str(routing_key_to_publish), jsonable_encoder(payload)
             )
 
 

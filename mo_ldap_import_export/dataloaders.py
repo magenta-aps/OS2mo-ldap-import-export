@@ -54,6 +54,18 @@ class DataLoader:
         self._mo_to_ldap_attributes = []
         self._sync_tool = None
 
+        self.object_type_dict = {
+            "employees": ObjectType.EMPLOYEE,
+            "org_units": ObjectType.ORG_UNIT,
+            "addresses": ObjectType.ADDRESS,
+            "itusers": ObjectType.IT,
+            "engagements": ObjectType.ENGAGEMENT,
+        }
+
+        self.object_type_dict_inv = {
+            str(v): k for k, v in self.object_type_dict.items()
+        }
+
     def _check_if_empty(self, result: dict):
         for key, value in result.items():
             if len(value) == 0:
@@ -965,7 +977,9 @@ class DataLoader:
             output.append(engagement)
         return output
 
-    async def load_all_mo_objects(self, add_validity=False, uuid="") -> list[dict]:
+    async def load_all_mo_objects(
+        self, add_validity=False, uuid="", object_types_to_try=[]
+    ) -> list[dict]:
         """
         Returns a list of dictionaries. One for each object in MO of one of the
         following types:
@@ -1006,13 +1020,12 @@ class DataLoader:
 
         result: dict = {}
         warnings: list[str] = []
-        for object_type in [
-            "employees",
-            "org_units",
-            "addresses",
-            "itusers",
-            "engagements",
-        ]:
+
+        for object_type in (
+            self.object_type_dict.keys()
+            if not object_types_to_try
+            else object_types_to_try
+        ):
 
             if object_type in ["employees", "org_units"]:
                 additional_uuids = ""
@@ -1036,14 +1049,6 @@ class DataLoader:
         if not result:
             for warning in warnings:
                 self.logger.warning(warning)
-
-        object_type_dict = {
-            "employees": ObjectType.EMPLOYEE,
-            "org_units": ObjectType.ORG_UNIT,
-            "addresses": ObjectType.ADDRESS,
-            "itusers": ObjectType.IT,
-            "engagements": ObjectType.ENGAGEMENT,
-        }
 
         output = []
 
@@ -1081,7 +1086,7 @@ class DataLoader:
                     time=datetime.datetime.now(),
                 )
 
-                mo_object["object_type"] = object_type_dict[object_type]
+                mo_object["object_type"] = self.object_type_dict[object_type]
                 mo_object["service_type"] = service_type
 
                 output.append(mo_object)
@@ -1093,7 +1098,12 @@ class DataLoader:
 
         return output
 
-    async def load_mo_object(self, uuid: str, add_validity=False):
+    async def load_mo_object(
+        self,
+        uuid: str,
+        object_type: ObjectType,
+        add_validity: bool = False,
+    ):
         """
         Returns a mo object as dictionary
 
@@ -1104,6 +1114,7 @@ class DataLoader:
         mo_objects = await self.load_all_mo_objects(
             add_validity=add_validity,
             uuid=str(uuid),
+            object_types_to_try=[self.object_type_dict_inv[str(object_type)]],
         )
         if mo_objects:
             # Note: load_all_mo_objects checks if len==1
