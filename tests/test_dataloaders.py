@@ -1533,6 +1533,17 @@ async def test_load_all_mo_objects_only_TransportQueryErrors(
         assert len(warnings) == 5
 
 
+async def test_load_all_mo_objects_invalid_object_type_to_try(
+    dataloader: DataLoader, gql_client: AsyncMock
+):
+    with pytest.raises(KeyError):
+        await asyncio.gather(
+            dataloader.load_all_mo_objects(
+                object_types_to_try=["non_existing_object_type"]
+            )
+        )
+
+
 async def test_shared_attribute(dataloader: DataLoader):
 
     converter = MagicMock()

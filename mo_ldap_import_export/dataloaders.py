@@ -996,7 +996,8 @@ class DataLoader:
 
         If "uuid" is specified, only returns objects matching this uuid. If
         object_types_to_try is also specified, only tries matching the given uuid to
-        this object type
+        this object type. object_types_to_try needs to be a list with strings matching
+        self.object_type_dict.keys()
         """
 
         query_template = """
@@ -1025,6 +1026,12 @@ class DataLoader:
 
         result: dict = {}
         warnings: list[str] = []
+
+        for object_type_to_try in object_types_to_try:
+            if object_type_to_try not in self.object_type_dict:
+                raise KeyError(
+                    f"{object_type_to_try} is not in {self.object_type_dict}"
+                )
 
         for object_type in (
             self.object_type_dict.keys()
