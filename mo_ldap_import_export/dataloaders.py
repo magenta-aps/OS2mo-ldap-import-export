@@ -979,9 +979,9 @@ class DataLoader:
 
     async def load_all_mo_objects(
         self,
-        add_validity=False,
-        uuid="",
-        object_types_to_try=[],
+        add_validity: bool = False,
+        uuid: str = "",
+        object_types_to_try: list[str] = [],
     ) -> list[dict]:
         """
         Returns a list of dictionaries. One for each object in MO of one of the
@@ -994,7 +994,9 @@ class DataLoader:
 
         Also adds AMQP object type, service type and payload to the dicts.
 
-        If "uuid" is specified, only returns objects matching this uuid.
+        If "uuid" is specified, only returns objects matching this uuid. If
+        object_types_to_try is also specified, only tries matching the given uuid to
+        this object type
         """
 
         query_template = """
