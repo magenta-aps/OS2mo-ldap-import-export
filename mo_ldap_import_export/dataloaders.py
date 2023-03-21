@@ -1034,12 +1034,10 @@ class DataLoader:
                     f"{object_type_to_try} is not in {self.object_type_dict.keys()}"
                 )
 
-        for object_type in (
-            self.object_type_dict.keys()
-            if not object_types_to_try
-            else object_types_to_try
-        ):
+        if not object_types_to_try:
+            object_types_to_try = list(self.object_type_dict.keys())
 
+        for object_type in object_types_to_try:
             if object_type in ["employees", "org_units"]:
                 additional_uuids = ""
             else:
