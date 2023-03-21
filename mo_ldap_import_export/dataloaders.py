@@ -1031,7 +1031,7 @@ class DataLoader:
         for object_type_to_try in object_types_to_try:
             if object_type_to_try not in self.object_type_dict:
                 raise KeyError(
-                    f"{object_type_to_try} is not in {self.object_type_dict}"
+                    f"{object_type_to_try} is not in {self.object_type_dict.keys()}"
                 )
 
         for object_type in (
