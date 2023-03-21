@@ -982,7 +982,7 @@ class DataLoader:
         self,
         add_validity: bool = False,
         uuid: str = "",
-        object_types_to_try: list[str] = [],
+        object_types_to_try: tuple = (),
     ) -> list[dict]:
         """
         Returns a list of dictionaries. One for each object in MO of one of the
@@ -997,7 +997,7 @@ class DataLoader:
 
         If "uuid" is specified, only returns objects matching this uuid.
         If "object_types_to_try" is also specified, only tries matching the given uuid
-        to this object type. "object_types_to_try" needs to be a list with strings
+        to these object types. "object_types_to_try" needs to be a tuple with strings
         matching self.object_type_dict.keys()
         """
 
@@ -1035,7 +1035,7 @@ class DataLoader:
                 )
 
         if not object_types_to_try:
-            object_types_to_try = list(self.object_type_dict.keys())
+            object_types_to_try = tuple(self.object_type_dict.keys())
 
         for object_type in object_types_to_try:
             if object_type in ["employees", "org_units"]:
@@ -1125,7 +1125,7 @@ class DataLoader:
         mo_objects = await self.load_all_mo_objects(
             add_validity=add_validity,
             uuid=str(uuid),
-            object_types_to_try=[self.object_type_dict_inv[str(object_type)]],
+            object_types_to_try=(self.object_type_dict_inv[str(object_type)],),
         )
         if mo_objects:
             # Note: load_all_mo_objects checks if len==1
