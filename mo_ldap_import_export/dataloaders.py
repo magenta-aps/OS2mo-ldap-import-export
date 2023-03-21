@@ -982,7 +982,7 @@ class DataLoader:
         self,
         add_validity: bool = False,
         uuid: str = "",
-        object_types_to_try: tuple = (),
+        object_types_to_try: tuple[str, ...] = (),
     ) -> list[dict]:
         """
         Returns a list of dictionaries. One for each object in MO of one of the
