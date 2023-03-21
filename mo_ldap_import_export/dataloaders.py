@@ -995,10 +995,10 @@ class DataLoader:
 
         Also adds AMQP object type, service type and payload to the dicts.
 
-        If "uuid" is specified, only returns objects matching this uuid. If
-        object_types_to_try is also specified, only tries matching the given uuid to
-        this object type. object_types_to_try needs to be a list with strings matching
-        self.object_type_dict.keys()
+        If "uuid" is specified, only returns objects matching this uuid.
+        If "object_types_to_try" is also specified, only tries matching the given uuid
+        to this object type. "object_types_to_try" needs to be a list with strings
+        matching self.object_type_dict.keys()
         """
 
         query_template = """
