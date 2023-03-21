@@ -27,10 +27,8 @@ from ldap3 import Server
 from more_itertools import collapse
 from ramodels.mo.details.address import Address
 from ramodels.mo.employee import Employee
-from ramqp.mo.models import MORoutingKey
 from ramqp.mo.models import ObjectType
 from ramqp.mo.models import PayloadType
-from ramqp.mo.models import RequestType
 from ramqp.mo.models import ServiceType
 from structlog.testing import capture_logs
 
@@ -503,21 +501,11 @@ def user_context(
     return user_context
 
 
-@pytest.fixture()
-def cleanup_routing_key():
-    return MORoutingKey.build(
-        service_type=ServiceType.EMPLOYEE,
-        object_type=ObjectType.ADDRESS,
-        request_type=RequestType.REFRESH,
-    )
-
-
 async def test_cleanup(
     dataloader: AsyncMock,
     converter: MagicMock,
     internal_amqpsystem: AsyncMock,
     user_context: dict,
-    cleanup_routing_key: MORoutingKey,
 ):
 
     # There is one address in MO
@@ -551,7 +539,7 @@ async def test_cleanup(
         mo_objects_in_mo=mo_objects_in_mo,
         user_context=user_context,
         employee=Employee(cpr_no="0101011234"),
-        routing_key=cleanup_routing_key,
+        object_type=ObjectType.ADDRESS,
     )
 
     await asyncio.gather(cleanup(**args))  # type:ignore
@@ -564,7 +552,6 @@ async def test_cleanup_no_sync_required(
     converter: MagicMock,
     internal_amqpsystem: AsyncMock,
     user_context: dict,
-    cleanup_routing_key: MORoutingKey,
 ):
 
     # There is one address in MO
@@ -593,7 +580,7 @@ async def test_cleanup_no_sync_required(
         mo_objects_in_mo=mo_objects_in_mo,
         user_context=user_context,
         employee=Employee(cpr_no="0101011234"),
-        routing_key=cleanup_routing_key,
+        object_type=ObjectType.ADDRESS,
     )
 
     with capture_logs() as cap_logs:
@@ -610,7 +597,6 @@ async def test_cleanup_refresh_mo_object(
     converter: MagicMock,
     internal_amqpsystem: AsyncMock,
     user_context: dict,
-    cleanup_routing_key: MORoutingKey,
 ):
 
     # There is one address in MO
@@ -633,7 +619,7 @@ async def test_cleanup_refresh_mo_object(
         mo_objects_in_mo=mo_objects_in_mo,
         user_context=user_context,
         employee=Employee(cpr_no="0101011234"),
-        routing_key=cleanup_routing_key,
+        object_type=ObjectType.ADDRESS,
     )
 
     object_uuid = str(mo_objects_in_mo[0].uuid)
@@ -667,7 +653,6 @@ async def test_cleanup_no_export_False(
     converter: MagicMock,
     internal_amqpsystem: AsyncMock,
     user_context: dict,
-    cleanup_routing_key: MORoutingKey,
 ):
     converter.__export_to_ldap__.return_value = False
 
@@ -678,7 +663,7 @@ async def test_cleanup_no_export_False(
         mo_objects_in_mo=[],
         user_context=user_context,
         employee=Employee(cpr_no="0101011234"),
-        routing_key=cleanup_routing_key,
+        object_type=ObjectType.ADDRESS,
     )
 
     with capture_logs() as cap_logs:
