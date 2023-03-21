@@ -54,6 +54,7 @@ class DataLoader:
         self._mo_to_ldap_attributes = []
         self._sync_tool = None
 
+        # Relate graphQL object type names to AMQP routing key object types
         self.object_type_dict = {
             "employees": ObjectType.EMPLOYEE,
             "org_units": ObjectType.ORG_UNIT,
