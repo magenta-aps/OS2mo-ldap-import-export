@@ -468,6 +468,7 @@ class SyncTool:
         """
         Imports a single user from LDAP
         """
+        logger.info(f"Importing user with cpr={cpr}")
         try:
             validate_cpr(cpr)
         except ValueError:
@@ -482,9 +483,6 @@ class SyncTool:
         # - We don't need the additional speed. This is meant as a one-time import
         # - We won't gain much; This is an asynchronous request. The code moves on while
         #   we are waiting for MO's response
-        logger.info(f"Importing user with cpr={cpr}")
-        detected_json_keys = self.converter.get_ldap_to_mo_json_keys()
-
         employee_uuid = await self.dataloader.find_mo_employee_uuid(cpr)
         if not employee_uuid:
             logger.info("Employee not found in MO - generating employee uuid")
