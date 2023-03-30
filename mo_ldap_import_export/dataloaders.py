@@ -1140,3 +1140,28 @@ class DataLoader:
 
         model_client = self.user_context["model_client"]
         return cast(list[Any | None], await model_client.upload(objects))
+
+    async def load_mo_cpr_numbers(self) -> list[str]:
+        """
+        Load all cpr numbers in MO
+        """
+        query = gql(
+            """
+            query AllCprNumbers {
+              employees {
+                objects {
+                  cpr_no
+                }
+              }
+            }
+            """
+        )
+
+        result = await self.query_mo(query)
+
+        output = []
+        for employee_dict in result["employees"]:
+            cpr = employee_dict["objects"][0]["cpr_no"]
+            if cpr:
+                output.append(cpr)
+        return output

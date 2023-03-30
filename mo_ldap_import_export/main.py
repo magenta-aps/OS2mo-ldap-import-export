@@ -63,6 +63,7 @@ from .ldap import setup_listener
 from .ldap_classes import LdapObject
 from .logging import logger
 from .utils import countdown
+from .utils import generate_cpr_numbers
 from .utils import listener
 from .utils import mo_datestring_to_utc
 
@@ -590,6 +591,110 @@ def create_app(**kwargs: Any) -> FastAPI:
             except ValueError:
                 formatted_result[entry.dn] = cpr
         return formatted_result
+
+    class PopulateQueryParams:
+        def __init__(
+            self,
+            overwrite: bool = Query(
+                False,
+                description=(
+                    (
+                        f"if set to 'True', overwrites values in the "
+                        f"LDAP '{converter.cpr_field}' attribute; "
+                        "If there is already something there"
+                    )
+                ),
+            ),
+            write_to_LDAP: bool = Query(
+                True,
+                description=(
+                    (
+                        "If set to 'False', "
+                        "Does not modify LDAP. Instead it just shows you "
+                        "what would have been modified if 'write_to_ldap' was 'True'"
+                    )
+                ),
+            ),
+            dn_to_upload: str = Query(
+                "",
+                description=(
+                    (
+                        "If set to a dn, "
+                        "only generates and uploads a cpr number for "
+                        "that particular dn to LDAP"
+                    )
+                ),
+            ),
+        ):
+            self.overwrite = overwrite
+            self.write_to_LDAP = write_to_LDAP
+            self.dn_to_upload = dn_to_upload
+
+    @app.post("/Populate_cpr_number_field", status_code=202, tags=["Import"])
+    async def populate_cpr_number_field(
+        user=Depends(login_manager),
+        params: PopulateQueryParams = Depends(),
+    ) -> Any:
+        cpr_field = converter.cpr_field
+
+        if not dataloader.single_value[cpr_field]:
+            logger.info("'{cpr_field}' is not a single-value field")
+            return
+
+        ldap_objects = await dataloader.load_ldap_objects("Employee")
+
+        cpr_numbers_in_ldap = []
+        ldap_dns_with_empty_cpr_field = []
+        ldap_dns_with_invalid_cpr_field = []
+
+        for ldap_object in ldap_objects:
+            cpr = getattr(ldap_object, cpr_field)
+
+            if not cpr:
+                ldap_dns_with_empty_cpr_field.append(ldap_object.dn)
+            elif type(cpr) is str:
+                try:
+                    cpr_numbers_in_ldap.append(validate_cpr(cpr))
+                except ValueError:
+                    ldap_dns_with_invalid_cpr_field.append(ldap_object.dn)
+            else:
+                ldap_dns_with_invalid_cpr_field.append(ldap_object.dn)
+
+        logger.info(
+            (
+                f"Found {len(ldap_dns_with_empty_cpr_field)} "
+                "ldap objects with empty cpr_field"
+            )
+        )
+        logger.info(
+            (
+                f"Found {len(ldap_dns_with_invalid_cpr_field)} "
+                "ldap objects with invalid cpr_field"
+            )
+        )
+
+        ldap_dns_to_modify = ldap_dns_with_empty_cpr_field
+        if params.overwrite:
+            ldap_dns_to_modify += ldap_dns_with_invalid_cpr_field
+
+        cpr_numbers_in_mo = await dataloader.load_mo_cpr_numbers()
+
+        synthesized_cpr_numbers = generate_cpr_numbers(
+            len(ldap_dns_to_modify),
+            existing_cpr_numbers=cpr_numbers_in_mo + cpr_numbers_in_ldap,
+        )
+
+        # Upload synthesized cpr numbers
+        for dn in ldap_dns_to_modify:
+            if params.dn_to_upload and params.dn_to_upload != dn:
+                continue
+
+            cpr = synthesized_cpr_numbers.pop(0)
+            ldap_object = LdapObject(**{"dn": dn, cpr_field: cpr})
+
+            logger.info(f"Uploading {ldap_object}")
+            if params.write_to_LDAP:
+                await dataloader.modify_ldap_object(ldap_object, "Employee")
 
     # Modify a person in LDAP
     @app.post("/LDAP/{json_key}", tags=["LDAP"])

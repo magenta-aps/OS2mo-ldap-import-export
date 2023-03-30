@@ -154,3 +154,25 @@ async def countdown(
         )
         await asyncio.sleep(min(update_interval, seconds_remaining))
         seconds_remaining -= update_interval
+
+
+def generate_cpr_numbers(n, existing_cpr_numbers=[]):
+    """
+    Generates 'n' cpr numbers. the generated cpr numbers are not in the list of
+    existing cpr numbers
+    """
+
+    today = datetime.date.today()
+    generated_cpr_numbers: list[str] = []
+    i = 0
+
+    while len(generated_cpr_numbers) < n:
+        cpr = today.strftime("%d%m%y") + "%.4d" % i
+        if cpr not in existing_cpr_numbers:
+            generated_cpr_numbers.append(cpr)
+
+        i += 1
+        if i > 9999:
+            i = 0
+            today += datetime.timedelta(days=1)
+    return generated_cpr_numbers

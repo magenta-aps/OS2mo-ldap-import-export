@@ -17,6 +17,7 @@ from mo_ldap_import_export.utils import add_filter_to_query
 from mo_ldap_import_export.utils import countdown
 from mo_ldap_import_export.utils import datetime_to_ldap_timestamp
 from mo_ldap_import_export.utils import delete_keys_from_dict
+from mo_ldap_import_export.utils import generate_cpr_numbers
 from mo_ldap_import_export.utils import import_class
 from mo_ldap_import_export.utils import listener
 from mo_ldap_import_export.utils import mo_datestring_to_utc
@@ -169,3 +170,25 @@ async def test_countdown():
     await countdown(0, "foo")
     t2 = time.time()
     assert (t2 - t1) < 0.1
+
+
+def test_generate_cpr_numbers():
+
+    today = datetime.date.today()
+    tomorrow = today + datetime.timedelta(days=1)
+
+    generated_cpr_numbers = generate_cpr_numbers(1)
+
+    assert len(generated_cpr_numbers) == 1
+    assert generated_cpr_numbers[0] == (today.strftime("%d%m%y") + "0000")
+
+    generated_cpr_numbers = generate_cpr_numbers(
+        1, existing_cpr_numbers=generated_cpr_numbers
+    )
+
+    assert len(generated_cpr_numbers) == 1
+    assert generated_cpr_numbers[0] == (today.strftime("%d%m%y") + "0001")
+
+    generated_cpr_numbers = generate_cpr_numbers(9999 + 2)
+    assert generated_cpr_numbers[-1] == (tomorrow.strftime("%d%m%y") + "0000")
+    assert len(generated_cpr_numbers) == 9999 + 2
