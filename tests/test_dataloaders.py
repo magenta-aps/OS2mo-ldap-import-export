@@ -1662,3 +1662,17 @@ async def test_modify_ldap(
     changes = {"parameter_to_modify": [("MODIFY_DELETE", "foo")]}
     response = dataloader.modify_ldap(dn, changes)
     assert response == {"description": "success"}
+
+
+async def test_load_mo_cpr_numbers(dataloader: DataLoader, gql_client: AsyncMock):
+    return_value: dict = {
+        "employees": [
+            {"objects": [{"cpr_no": "010101-1234"}]},
+            {"objects": [{"cpr_no": ""}]},
+        ],
+    }
+    gql_client.execute.return_value = return_value
+
+    result = (await asyncio.gather(dataloader.load_mo_cpr_numbers()))[0]
+    assert len(result) == 1
+    assert result[0] == "010101-1234"

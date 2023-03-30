@@ -688,3 +688,98 @@ def test_get_invalid_cpr_numbers_from_LDAP_endpoint(
     result = response.json()
     assert "bar" in result
     assert result["bar"] == "ja"
+
+
+def test_populate_cpr_number_field_endpoint_invalid_cpr_field(
+    test_client: TestClient,
+    headers: dict,
+    dataloader: AsyncMock,
+    converter: MagicMock,
+):
+    converter.cpr_field = "employeeID"
+
+    dataloader.single_value = {"employeeID": False}
+
+    with capture_logs() as cap_logs:
+        response = test_client.post("/Populate_cpr_number_field", headers=headers)
+        assert response.status_code == 202
+
+        messages = [w for w in cap_logs if w["log_level"] == "info"]
+        assert "not a single-value field" in messages[-1]["event"]
+
+
+def test_populate_cpr_number_field_endpoint(
+    test_client: TestClient,
+    headers: dict,
+    dataloader: AsyncMock,
+    converter: MagicMock,
+):
+    converter.cpr_field = "employeeID"
+    dataloader.single_value = {"employeeID": True}
+
+    ldap_objects = [
+        LdapObject(dn="1", employeeID="invalid_cpr"),
+        LdapObject(dn="2", employeeID="0102031234"),
+        LdapObject(dn="3", employeeID="0102031235"),
+        LdapObject(dn="4", employeeID=[]),
+        LdapObject(dn="5", employeeID=123456),
+    ]
+
+    dataloader.load_ldap_objects.return_value = ldap_objects
+    dataloader.load_mo_cpr_numbers.return_value = ["0102031235"]
+
+    # Check that we write the proper log messages
+    # Check that only the empty ldap object is modified
+    with capture_logs() as cap_logs:
+        response = test_client.post("/Populate_cpr_number_field", headers=headers)
+        assert response.status_code == 202
+
+        messages = [w for w in cap_logs if w["log_level"] == "info"]
+        assert "Found 1 ldap objects with empty cpr_field" in str(messages)
+        assert "Found 2 ldap objects with invalid cpr_field" in str(messages)
+
+        calls = dataloader.modify_ldap_object.mock_calls
+        assert len(calls) == 1
+        assert calls[0].args[0].dn == "4"
+
+    # Check that the invalid ones are also modified
+    params: dict = {
+        "overwrite": True,
+    }
+
+    dataloader.modify_ldap_object.reset_mock()
+    response = test_client.post(
+        "/Populate_cpr_number_field?overwrite=True", headers=headers, params=params
+    )
+    assert response.status_code == 202
+
+    calls = dataloader.modify_ldap_object.mock_calls
+
+    assert len(calls) == 3
+    dns = [c.args[0].dn for c in calls]
+    assert "1" in dns
+    assert "4" in dns
+    assert "5" in dns
+
+    # Check that only the object with dn="4" is modified
+    params = {"overwrite": True, "dn_to_upload": "4"}
+
+    dataloader.modify_ldap_object.reset_mock()
+    response = test_client.post(
+        "/Populate_cpr_number_field?overwrite=True", headers=headers, params=params
+    )
+    assert response.status_code == 202
+    calls = dataloader.modify_ldap_object.mock_calls
+    assert len(calls) == 1
+    assert calls[0].args[0].dn == "4"
+
+    # Check that no objects are modified
+    params = {"overwrite": True, "dn_to_upload": "4", "write_to_LDAP": False}
+
+    dataloader.modify_ldap_object.reset_mock()
+    response = test_client.post(
+        "/Populate_cpr_number_field?overwrite=True", headers=headers, params=params
+    )
+    assert response.status_code == 202
+    calls = dataloader.modify_ldap_object.mock_calls
+    assert len(calls) == 0
