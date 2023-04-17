@@ -74,6 +74,10 @@ def find_cpr_field(mapping):
 
 
 def find_ldap_it_system(mapping, mo_it_systems):
+    """
+    Loop over all of MO's IT-systems and determine if one of them contains the AD-DN
+    as a user_key
+    """
     ldap_it_system = None
     for user_key in mo_it_systems:
         if user_key in mapping["ldap_to_mo"]:
