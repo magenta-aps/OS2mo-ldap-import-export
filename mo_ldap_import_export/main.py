@@ -307,7 +307,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     logger.info("Initializing converters")
     converter = LdapConverter(fastramqpi.get_context())
     fastramqpi.add_context(cpr_field=converter.cpr_field)
-    fastramqpi.add_context(ldap_it_system_user_key=converter.ldap_it_system_user_key)
+    fastramqpi.add_context(ldap_it_system_user_key=converter.ldap_it_system)
     fastramqpi.add_context(converter=converter)
 
     logger.info("Initializing internal AMQP system")

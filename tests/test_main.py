@@ -162,7 +162,7 @@ def test_client(app: FastAPI) -> Iterator[TestClient]:
 
 @pytest.fixture
 def test_client_no_cpr(app: FastAPI, converter: MagicMock) -> Iterator[TestClient]:
-    """Fixture to construct a FastAPI test-client.
+    """Fixture to construct a FastAPI test-client. where cpr_field = None
 
     Note:
         The app does not do lifecycle management.

@@ -73,19 +73,18 @@ def find_cpr_field(mapping):
     return cpr_field
 
 
-def find_ldap_it_system(mapping, mo_it_systems):
+def find_ldap_it_system(mapping, mo_it_system_user_keys):
     """
     Loop over all of MO's IT-systems and determine if one of them contains the AD-DN
     as a user_key
     """
     ldap_it_system = None
-    for user_key in mo_it_systems:
-        if user_key in mapping["ldap_to_mo"]:
-            template = mapping["ldap_to_mo"][user_key]["user_key"]
-
+    for mo_it_system_user_key in mo_it_system_user_keys:
+        if mo_it_system_user_key in mapping["ldap_to_mo"]:
+            template = mapping["ldap_to_mo"][mo_it_system_user_key]["user_key"]
             dn = template.render({"ldap": {"distinguishedName": "CN=foo"}})
             if dn == "CN=foo":
-                ldap_it_system = user_key
+                ldap_it_system = mo_it_system_user_key
                 logger.info(f"Found LDAP IT-system: '{ldap_it_system}'")
                 break
 
@@ -139,10 +138,7 @@ class LdapConverter:
 
         self.check_mapping()
         self.cpr_field = find_cpr_field(self.mapping)
-        self.ldap_it_system_user_key = find_ldap_it_system(
-            self.mapping,
-            self.mo_it_systems,
-        )
+        self.ldap_it_system = find_ldap_it_system(self.mapping, self.mo_it_systems)
 
     def load_info_dicts(self):
         # Note: If new address types or IT systems are added to MO, these dicts need

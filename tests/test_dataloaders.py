@@ -149,7 +149,6 @@ def context(
             "gql_client_sync": gql_client_sync,
             "sync_tool": sync_tool,
             "username_generator": username_generator,
-            "ldap_it_system_user_key": "AD",
         },
     }
 
