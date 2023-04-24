@@ -1785,3 +1785,20 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.load_mo_employee.return_value = Employee(cpr_no=None)
     with pytest.raises(DNNotFound):
         await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+
+
+def test_load_ldap_attribute_values(dataloader: DataLoader):
+    responses = [
+        {"attributes": {"foo": 1}},
+        {"attributes": {"foo": "2"}},
+        {"attributes": {"foo": []}},
+    ]
+    with patch(
+        "mo_ldap_import_export.dataloaders.paged_search",
+        return_value=responses,
+    ):
+        values = dataloader.load_ldap_attribute_values("foo")
+        assert "1" in values
+        assert "2" in values
+        assert "[]" in values
+        assert len(values) == 3
