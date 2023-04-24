@@ -1003,7 +1003,7 @@ async def test_check_ldap_to_mo_references(converter: LdapConverter):
     ):
         with pytest.raises(
             IncorrectMapping,
-            match="Non existing attribute detected",
+            match="Attribute 'nonExistingAttribute' not allowed",
         ):
             converter.check_ldap_to_mo_references()
 

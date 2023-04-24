@@ -215,7 +215,7 @@ class LdapConverter:
             ):
                 raise IncorrectMapping(
                     (
-                        f"attribute '{attribute}' not allowed."
+                        f"Attribute '{attribute}' not allowed."
                         f" Allowed attributes are {accepted_attributes}"
                     )
                 )
