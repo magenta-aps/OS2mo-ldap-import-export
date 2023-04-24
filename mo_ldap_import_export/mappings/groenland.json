@@ -91,20 +91,17 @@
       "objectClass": "user",
       "__export_to_ldap__": true,
       "mail": "{{mo_employee_address.value}}",
-      "employeeID": "{{mo_employee.cpr_no}}"
     },
     "PhoneEmployee": {
       "objectClass": "user",
       "__export_to_ldap__": true,
       "telephoneNumber": "{{mo_employee_address.value}}",
-      "employeeID": "{{mo_employee.cpr_no}}",
     },
     "AdressePostEmployee": {
       "objectClass": "user",
       "__export_to_ldap__": true,
       "streetAddress": "{{mo_employee_address.value|splitlast(',')|first|trim}}",
       "l": "{{mo_employee_address.value|splitlast(',')|last|trim}}",
-      "employeeID": "{{mo_employee.cpr_no}}"
     },
   },
   "username_generator": {
