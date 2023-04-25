@@ -207,7 +207,10 @@ class DataLoader:
         return sorted(set([str(r["attributes"][attribute]) for r in responses]))
 
     def load_ldap_cpr_object(
-        self, cpr_no: str, json_key: str, additional_attributes: list[str] = []
+        self,
+        cpr_no: str,
+        json_key: str,
+        additional_attributes: list[str] = [],
     ) -> LdapObject:
         """
         Loads an ldap object which can be found using a cpr number lookup
@@ -339,7 +342,9 @@ class DataLoader:
                 self.modify_ldap(dn, changes)
 
     async def load_ldap_objects(
-        self, json_key: str, additional_attributes: list[str] = []
+        self,
+        json_key: str,
+        additional_attributes: list[str] = [],
     ) -> list[LdapObject]:
         """
         Returns list with desired ldap objects
