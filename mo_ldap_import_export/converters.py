@@ -117,7 +117,6 @@ class LdapConverter:
         self.default_org_unit_type_uuid = self.get_org_unit_type_uuid(
             self.settings.default_org_unit_type
         )
-
         self.default_org_unit_level_uuid = self.get_org_unit_level_uuid(
             self.settings.default_org_unit_level
         )
