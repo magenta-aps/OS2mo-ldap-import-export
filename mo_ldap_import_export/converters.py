@@ -731,8 +731,8 @@ class LdapConverter:
         }
         if len(candidates) > 0:
             if user_key in candidates:
-                return str(candidates[user_key])
-            return str(list(candidates.values())[0])
+                return candidates[user_key]
+            return list(candidates.values())[0]
         else:
             raise UUIDNotFoundException(f"'{user_key}' not found in '{info_dict}'")
 
