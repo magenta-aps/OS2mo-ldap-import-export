@@ -691,10 +691,10 @@ class LdapConverter:
             if info_dict_name != "org_unit_info":
                 self.check_info_dict_for_duplicates(info_dict)
 
-            for item in info_dict.values():
-                if "uuid" not in item:
+            for info in info_dict.values():
+                if "uuid" not in info:
                     raise IncorrectMapping("'uuid' key not found in info-dict")
-                uuid = item["uuid"]
+                uuid = info["uuid"]
                 if type(uuid) != str:
                     raise IncorrectMapping(f"{uuid} is not a string")
                 if not is_guid(uuid):
