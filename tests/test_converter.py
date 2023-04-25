@@ -1361,3 +1361,7 @@ def test_check_info_dicts(converter: LdapConverter):
             "my_info_dict": {uuid: {"uuid": uuid4(), "user_key": "foo"}}
         }
         converter.check_info_dicts()
+
+    with pytest.raises(IncorrectMapping, match="'uuid' key not found"):
+        converter.all_info_dicts = {"my_info_dict": {uuid: {"user_key": "foo"}}}
+        converter.check_info_dicts()

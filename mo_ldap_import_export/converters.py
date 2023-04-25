@@ -692,6 +692,8 @@ class LdapConverter:
                 self.check_info_dict_for_duplicates(info_dict)
 
             for item in info_dict.values():
+                if "uuid" not in item:
+                    raise IncorrectMapping("'uuid' key not found in info-dict")
                 uuid = item["uuid"]
                 if type(uuid) != str:
                     raise IncorrectMapping(f"{uuid} is not a string")
