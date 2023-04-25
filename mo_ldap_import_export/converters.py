@@ -25,6 +25,7 @@ from .exceptions import IncorrectMapping
 from .exceptions import InvalidNameException
 from .exceptions import NotSupportedException
 from .exceptions import UUIDNotFoundException
+from .ldap import is_guid
 from .ldap_classes import LdapObject
 from .logging import logger
 from .utils import delete_keys_from_dict
@@ -691,6 +692,13 @@ class LdapConverter:
             if info_dict_name != "org_unit_info":
                 self.check_info_dict_for_duplicates(info_dict)
 
+            for item in info_dict.values():
+                uuid = item["uuid"]
+                if type(uuid) != str:
+                    raise IncorrectMapping(f"{uuid} is not a string")
+                if not is_guid(uuid):
+                    raise IncorrectMapping(f"{uuid} is not an uuid")
+
         self.check_org_unit_info_dict()
 
     @staticmethod
@@ -722,8 +730,8 @@ class LdapConverter:
         }
         if len(candidates) > 0:
             if user_key in candidates:
-                return candidates[user_key]
-            return list(candidates.values())[0]
+                return str(candidates[user_key])
+            return str(list(candidates.values())[0])
         else:
             raise UUIDNotFoundException(f"'{user_key}' not found in '{info_dict}'")
 
