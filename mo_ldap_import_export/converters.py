@@ -148,7 +148,12 @@ class LdapConverter:
         # Note: If new address types or IT systems are added to MO, these dicts need
         # to be re-initialized
         logger.info("[info dict loader] Loading info dicts")
-        self.address_type_info = self.dataloader.load_mo_address_types()
+        self.employee_address_type_info = (
+            self.dataloader.load_mo_employee_addresses_types()
+        )
+        self.org_unit_address_type_info = (
+            self.dataloader.load_mo_org_unit_address_types()
+        )
         self.it_system_info = self.dataloader.load_mo_it_systems()
         self.visibility_info = self.dataloader.load_mo_visibility()
 
@@ -161,7 +166,15 @@ class LdapConverter:
 
         self.primary_type_info = self.dataloader.load_mo_primary_types()
 
-        self.mo_address_types = [a["user_key"] for a in self.address_type_info.values()]
+        self.mo_employee_address_types = [
+            a["user_key"] for a in self.employee_address_type_info.values()
+        ]
+        self.mo_org_unit_address_types = [
+            a["user_key"] for a in self.org_unit_address_type_info.values()
+        ]
+        self.mo_address_types = list(
+            set(self.mo_employee_address_types + self.mo_org_unit_address_types)
+        )
         self.mo_it_systems = [a["user_key"] for a in self.it_system_info.values()]
 
         self.all_info_dicts = {
@@ -442,10 +455,18 @@ class LdapConverter:
         for json_key in ldap_to_mo_json_keys:
             mo_class = self.find_mo_object_class(json_key)
             if ".Address" in mo_class:
-                uuid = self.get_object_uuid_from_user_key(
-                    self.address_type_info, json_key
-                )
-                if self.address_type_info[uuid]["scope"] == "DAR":
+                try:
+                    uuid = self.get_object_uuid_from_user_key(
+                        self.employee_address_type_info, json_key
+                    )
+                    info_dict = self.employee_address_type_info
+                except UUIDNotFoundException:
+                    uuid = self.get_object_uuid_from_user_key(
+                        self.org_unit_address_type_info, json_key
+                    )
+                    info_dict = self.org_unit_address_type_info
+
+                if info_dict[uuid]["scope"] == "DAR":
                     raise IncorrectMapping(
                         f"'{json_key}' maps to an address with scope = 'DAR'"
                     )
@@ -739,8 +760,15 @@ class LdapConverter:
         else:
             raise UUIDNotFoundException(f"'{user_key}' not found in '{info_dict}'")
 
-    def get_address_type_uuid(self, address_type: str) -> str:
-        return self.get_object_uuid_from_user_key(self.address_type_info, address_type)
+    def get_employee_address_type_uuid(self, address_type: str) -> str:
+        return self.get_object_uuid_from_user_key(
+            self.employee_address_type_info, address_type
+        )
+
+    def get_org_unit_address_type_uuid(self, address_type: str) -> str:
+        return self.get_object_uuid_from_user_key(
+            self.org_unit_address_type_info, address_type
+        )
 
     def get_it_system_uuid(self, it_system: str) -> str:
         return self.get_object_uuid_from_user_key(self.it_system_info, it_system)
@@ -791,8 +819,11 @@ class LdapConverter:
             self.org_unit_level_info, org_unit_level
         )
 
-    def get_address_type_user_key(self, uuid: str):
-        return self.get_object_user_key_from_uuid(self.address_type_info, uuid)
+    def get_employee_address_type_user_key(self, uuid: str):
+        return self.get_object_user_key_from_uuid(self.employee_address_type_info, uuid)
+
+    def get_org_unit_address_type_user_key(self, uuid: str):
+        return self.get_object_user_key_from_uuid(self.org_unit_address_type_info, uuid)
 
     def get_it_system_user_key(self, uuid: str):
         return self.get_object_user_key_from_uuid(self.it_system_info, uuid)
@@ -993,7 +1024,8 @@ class LdapConverter:
         globals_dict = {
             "now": datetime.datetime.utcnow,
             "nonejoin": self.nonejoin,
-            "get_address_type_uuid": self.get_address_type_uuid,
+            "get_employee_address_type_uuid": self.get_employee_address_type_uuid,
+            "get_org_unit_address_type_uuid": self.get_org_unit_address_type_uuid,
             "get_it_system_uuid": self.get_it_system_uuid,
             "get_or_create_org_unit_uuid": self.get_or_create_org_unit_uuid,
             "get_job_function_uuid": self.get_job_function_uuid,

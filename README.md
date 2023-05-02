@@ -197,7 +197,7 @@ Converting the other way around can be done as follows:
       "value": "{{ldap.mail or None}}",
       "type": "address",
       "validity": "{{ dict(from_date = ldap.mail_validity_from or now()|mo_datestring) }}",
-      "address_type": "{{ dict(uuid=get_address_type_uuid('EmailEmployee')) }}",
+      "address_type": "{{ dict(uuid=get_employee_address_type_uuid('EmailEmployee')) }}",
       "person": "{{ dict(uuid=employee_uuid or NONE) }}"
     },
   }
@@ -207,8 +207,9 @@ Converting the other way around can be done as follows:
 Note the `address_type` field. This attribute must contain a dict, as specified by
 `ramodels.mo.details.address.Address`. Furthermore the uuid must be a valid address type
 uuid. Valid address type uuids can be obtained by calling
-[GET:MO/Address_types][get_address_types] or by using the `get_address_type_uuid`
-[global](#filters-and-globals) function in the template.
+[GET:MO/Address_types][get_address_types] or by using the 
+`get_employee_address_type_uuid` [global](#filters-and-globals) function
+in the template.
 
 Furthermore, the object must contain a `person` entry, which refers to the employee uuid
 for this which address is to be imported. In this example, we use the `employee_uuid`
@@ -252,7 +253,7 @@ And the other way around:
       "value": "{{ ldap.postalAddress or NONE }}",
       "type": "address",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}",
-      "address_type": "{{ dict(uuid=get_address_type_uuid('LocationUnit')) }}",
+      "address_type": "{{ dict(uuid=get_org_unit_address_type_uuid('LocationUnit')) }}",
       "org_unit": "{{ dict(uuid=get_or_create_org_unit_uuid(ldap.division)) }}"
     },
   }
@@ -513,7 +514,10 @@ These are called using the normal function call syntax. For example:
 * `now`: Returns current datetime
 * `nonejoin`: Joins two or more strings together with comma, omitting any Falsy values
   (`None`, `""`, `0`, `False`, `{}` or `[]`)
-* `get_address_type_uuid`: Returns the address type uuid for an address type string
+* `get_employee_address_type_uuid`: Returns the address type uuid for an address type
+  user_key
+* `get_org_unit_address_type_uuid`: Returns the address type uuid for an address type
+  user_key
 * `get_it_system_uuid`: Returns the it system uuid for an it system string
 * `get_or_create_org_unit_uuid`: Returns the organization unit uuid for an organization
   unit path string. Note that the input string needs to be the full path to the
