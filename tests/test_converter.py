@@ -572,7 +572,12 @@ def test_check_attributes(converter: LdapConverter):
 
 def test_get_accepted_json_keys(converter: LdapConverter):
     output = converter.get_accepted_json_keys()
-    assert output == ["Employee", "Engagement", "Email", "Post", "Active Directory"]
+    assert len(output) == 5
+    assert "Employee" in output
+    assert "Engagement" in output
+    assert "Email" in output
+    assert "Post" in output
+    assert "Active Directory" in output
 
 
 def test_nonejoin(converter: LdapConverter):
@@ -880,7 +885,7 @@ async def test_check_dar_scope(converter: LdapConverter):
     uuid1 = str(uuid4())
     uuid2 = str(uuid4())
     employee_address_type_info = {
-        uuid1: {"scope": "TEXT", "user_key": "foo", "uuid": uuid2},
+        uuid1: {"scope": "TEXT", "user_key": "foo", "uuid": uuid1},
     }
     org_unit_address_type_info = {
         uuid2: {"scope": "DAR", "user_key": "bar", "uuid": uuid2},
