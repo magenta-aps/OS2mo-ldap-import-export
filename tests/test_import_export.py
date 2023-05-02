@@ -151,6 +151,7 @@ async def test_listen_to_change_in_org_unit_address_not_supported(
     converter.org_unit_address_type_info = {
         str(address.address_type.uuid): {"user_key": "LocationUnit"}
     }
+    converter.get_org_unit_address_type_user_key.return_value = "LocationUnit"
 
     with pytest.raises(NotSupportedException):
         await sync_tool.listen_to_changes_in_org_units(
