@@ -456,15 +456,11 @@ class LdapConverter:
             mo_class = self.find_mo_object_class(json_key)
             if ".Address" in mo_class:
                 try:
-                    uuid = self.get_object_uuid_from_user_key(
-                        self.employee_address_type_info, json_key
-                    )
                     info_dict = self.employee_address_type_info
+                    uuid = self.get_object_uuid_from_user_key(info_dict, json_key)
                 except UUIDNotFoundException:
-                    uuid = self.get_object_uuid_from_user_key(
-                        self.org_unit_address_type_info, json_key
-                    )
                     info_dict = self.org_unit_address_type_info
+                    uuid = self.get_object_uuid_from_user_key(info_dict, json_key)
 
                 if info_dict[uuid]["scope"] == "DAR":
                     raise IncorrectMapping(
