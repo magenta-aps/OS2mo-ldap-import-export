@@ -166,14 +166,14 @@ class LdapConverter:
 
         self.primary_type_info = self.dataloader.load_mo_primary_types()
 
-        self.mo_employee_address_types = [
+        mo_employee_address_types = [
             a["user_key"] for a in self.employee_address_type_info.values()
         ]
-        self.mo_org_unit_address_types = [
+        mo_org_unit_address_types = [
             a["user_key"] for a in self.org_unit_address_type_info.values()
         ]
         self.mo_address_types = list(
-            set(self.mo_employee_address_types + self.mo_org_unit_address_types)
+            set(mo_employee_address_types + mo_org_unit_address_types)
         )
         self.mo_it_systems = [a["user_key"] for a in self.it_system_info.values()]
 
