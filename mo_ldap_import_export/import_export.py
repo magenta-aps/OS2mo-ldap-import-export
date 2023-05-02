@@ -330,9 +330,9 @@ class SyncTool:
                 current_objects_only=current_objects_only,
             )
             address_type_uuid = str(changed_address.address_type.uuid)
-            json_key = self.converter.org_unit_address_type_info[address_type_uuid][
-                "user_key"
-            ]
+            json_key = self.converter.get_org_unit_address_type_user_key(
+                address_type_uuid
+            )
 
             logger.info(f"Obtained address type user key = {json_key}")
 
