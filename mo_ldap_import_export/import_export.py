@@ -295,6 +295,7 @@ class SyncTool:
                 dn,
             )
 
+    @wait_for_change_to_finish
     async def process_employee_address(
         self,
         affected_employee,
