@@ -516,10 +516,10 @@ These are called using the normal function call syntax. For example:
 * `now`: Returns current datetime
 * `nonejoin`: Joins two or more strings together with comma, omitting any Falsy values
   (`None`, `""`, `0`, `False`, `{}` or `[]`)
-* `get_employee_address_type_uuid`: Returns the address type uuid for an address type
-  user_key
-* `get_org_unit_address_type_uuid`: Returns the address type uuid for an address type
-  user_key
+* `get_employee_address_type_uuid`: Returns the address type uuid for an employee
+  address type user_key
+* `get_org_unit_address_type_uuid`: Returns the address type uuid for an org-unit
+  address type user_key
 * `get_it_system_uuid`: Returns the it system uuid for an it system string
 * `get_or_create_org_unit_uuid`: Returns the organization unit uuid for an organization
   unit path string. Note that the input string needs to be the full path to the
