@@ -183,7 +183,8 @@ An example of an address conversion dict is as follows:
 
 Note that the `Email` key must be a
 valid OS2mo address type name. OS2mo address types can be retrieved by calling
-[GET:MO/Address_types][get_address_types]. In this example, it is recommended that 
+[GET:MO/Address_types_employee][get_employee_address_types].
+In this example, it is recommended that
 LDAP's `mail` attribute is a multi-value field.
 
 Converting the other way around can be done as follows:
@@ -207,7 +208,7 @@ Converting the other way around can be done as follows:
 Note the `address_type` field. This attribute must contain a dict, as specified by
 `ramodels.mo.details.address.Address`. Furthermore the uuid must be a valid address type
 uuid. Valid address type uuids can be obtained by calling
-[GET:MO/Address_types][get_address_types] or by using the 
+[GET:MO/Address_types_employee][get_employee_address_types] or by using the
 `get_employee_address_type_uuid` [global](#filters-and-globals) function
 in the template.
 
@@ -221,7 +222,8 @@ for this which address is to be imported. In this example, we use the `employee_
 For post addresses, it is required to use an address type in OS2mo with `scope` != `DAR`.
 The reason for this is that we cannot expect an LDAP server to have the same address
 format as DAR. The scope of address types in OS2mo can be retrieved using
-[GET:MO/Address_types][get_address_types].
+[GET:MO/Address_types_employee][get_employee_address_types]
+and [GET:MO/Address_types_org_unit][get_org_unit_address_types].
 
 ##### Organization unit address conversion
 
@@ -651,7 +653,8 @@ The application is configured with three CRON jobs, which run on a periodic sche
 
 [swagger]:http://localhost:8000/docs
 [get_overview]:http://localhost:8000/docs#/LDAP/load_overview_from_LDAP_LDAP_overview_get
-[get_address_types]:http://localhost:8000/docs#/MO/load_address_types_from_MO_MO_Address_types_get
+[get_employee_address_types]:http://localhost:8000/docs#/MO/load_employee_address_types_from_MO_MO_Address_types_employee_get
+[get_org_unit_address_types]:http://localhost:8000/docs#/MO/load_org_unit_address_types_from_MO_MO_Address_types_org_unit_get
 [get_it_systems]:http://localhost:8000/docs#/MO/load_it_systems_from_MO_MO_IT_systems_get
 [get_primary_types]:http://localhost:8000/docs#/MO/load_primary_types_from_MO_MO_Primary_types_get
 [post_reload_info_dicts]:http://localhost:8000/docs#/Maintenance/reload_info_dicts_reload_info_dicts_post

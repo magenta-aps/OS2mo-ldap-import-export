@@ -149,7 +149,7 @@ class LdapConverter:
         # to be re-initialized
         logger.info("[info dict loader] Loading info dicts")
         self.employee_address_type_info = (
-            self.dataloader.load_mo_employee_addresses_types()
+            self.dataloader.load_mo_employee_address_types()
         )
         self.org_unit_address_type_info = (
             self.dataloader.load_mo_org_unit_address_types()
@@ -559,7 +559,7 @@ class LdapConverter:
 
     def check_get_uuid_functions(self):
 
-        # List of all 'get_uuid' functions. For example "get_address_type_uuid("
+        # List of all 'get_uuid' functions. For example "get_it_system_uuid("
         get_uuid_function_strings = [
             f + "("
             for f in dir(self)

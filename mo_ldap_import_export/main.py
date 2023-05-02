@@ -703,7 +703,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Get MO address types
     @app.get("/MO/Address_types_employee", status_code=202, tags=["MO"])
     async def load_employee_address_types_from_MO(user=Depends(login_manager)) -> Any:
-        result = dataloader.load_mo_employee_addresses_types()
+        result = dataloader.load_mo_employee_address_types()
         return result
 
     # Get MO IT system types
