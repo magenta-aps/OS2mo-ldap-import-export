@@ -128,10 +128,8 @@ class SyncTool:
             self.uuids_in_progress.append(uuid)
             try:
                 await func(self, *args, **kwargs)
+            finally:
                 self.uuids_in_progress.remove(uuid)
-            except Exception:
-                self.uuids_in_progress.remove(uuid)
-                raise
 
         return modified_func
 
