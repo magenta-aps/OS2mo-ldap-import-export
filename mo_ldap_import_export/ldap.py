@@ -13,6 +13,7 @@ from typing import Callable
 from typing import cast
 from typing import ContextManager
 from typing import Dict
+from typing import Iterable
 from typing import Union
 from uuid import UUID
 
@@ -410,9 +411,9 @@ async def cleanup(
     ldap_objects_to_clean = []
     for attribute in attributes:
         values_in_ldap = getattr(ldap_object, attribute)
-        values_in_mo = [
-            getattr(o, attribute) for o in converted_mo_objects if attribute in o.dict()
-        ]
+        values_in_mo: Iterable = filter(
+            None, [getattr(o, attribute, None) for o in converted_mo_objects]
+        )
 
         if type(values_in_ldap) is not list:
             values_in_ldap = [values_in_ldap] if values_in_ldap else []
