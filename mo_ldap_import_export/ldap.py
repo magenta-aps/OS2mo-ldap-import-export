@@ -13,7 +13,6 @@ from typing import Callable
 from typing import cast
 from typing import ContextManager
 from typing import Dict
-from typing import Iterable
 from typing import Union
 from uuid import UUID
 
@@ -411,8 +410,8 @@ async def cleanup(
     ldap_objects_to_clean = []
     for attribute in attributes:
         values_in_ldap = getattr(ldap_object, attribute)
-        values_in_mo: Iterable = filter(
-            None, [getattr(o, attribute, None) for o in converted_mo_objects]
+        values_in_mo: list[Any] = list(
+            filter(None, [getattr(o, attribute, None) for o in converted_mo_objects])
         )
 
         if type(values_in_ldap) is not list:
@@ -421,7 +420,7 @@ async def cleanup(
         # If a value is in LDAP but NOT in MO, it needs to be cleaned
         for value_in_ldap in values_in_ldap:
             if value_in_ldap not in values_in_mo:
-                logger.info(f"{attribute}='{value_in_ldap}' needs cleaning")
+                logger.info(f"{attribute} = '{value_in_ldap}' needs cleaning")
                 ldap_objects_to_clean.append(
                     LdapObject(**{"dn": dn, attribute: value_in_ldap})
                 )
@@ -430,10 +429,9 @@ async def cleanup(
         # This can happen, if we delete an address in MO, and another address already
         # exists in MO. In that case the other address should be written to LDAP,
         # after the first one is deleted from LDAP
-        for value_in_mo in values_in_mo:
-            if not values_in_ldap and value_in_mo not in values_in_ldap:
-                logger.info(f"{attribute}='{value_in_mo}' needs to be written to LDAP")
-                uuids_to_publish = [o.uuid for o in mo_objects]
+        if not values_in_ldap and values_in_mo:
+            logger.info(f"attribute = '{attribute}' needs to be written to LDAP")
+            uuids_to_publish = [o.uuid for o in mo_objects]
 
     # Clean from LDAP
     if len(ldap_objects_to_clean) == 0:
