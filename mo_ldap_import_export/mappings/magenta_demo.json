@@ -83,6 +83,7 @@
     "Employee": {
       "objectClass": "user",
       "__export_to_ldap__": true,
+      "__convert__": "{{check_sd_employee_number(mo_employee.uuid)}}",
       "givenName": "{{mo_employee.givenname}}",
       "sn": "{{mo_employee.surname}}",
       "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",

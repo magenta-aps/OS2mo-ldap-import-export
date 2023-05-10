@@ -123,7 +123,7 @@ class LdapConverter:
 
         mapping = delete_keys_from_dict(
             self.raw_mapping,
-            ["objectClass", "__import_to_mo__", "__export_to_ldap__"],
+            ["objectClass", "__import_to_mo__", "__export_to_ldap__", "__convert__"],
         )
 
         environment = Environment(undefined=Undefined)
@@ -143,6 +143,18 @@ class LdapConverter:
         self.check_mapping()
         self.cpr_field = find_cpr_field(self.mapping)
         self.ldap_it_system = find_ldap_it_system(self.mapping, self.mo_it_systems)
+
+        raw_conversion_flag_templates: dict = {"ldap_to_mo": {}, "mo_to_ldap": {}}
+        for conversion in ["ldap_to_mo", "mo_to_ldap"]:
+            for json_key in self.get_json_keys(conversion):
+                raw_conversion_flag_templates[conversion][json_key] = self.raw_mapping[
+                    conversion
+                ][json_key].get("__convert__", "{{True}}")
+
+        self.conversion_flag_templates = self._populate_mapping_with_templates(
+            raw_conversion_flag_templates,
+            environment,
+        )
 
     def load_info_dicts(self):
         # Note: If new address types or IT systems are added to MO, these dicts need
@@ -1014,6 +1026,14 @@ class LdapConverter:
     def filter_remove_curly_brackets(text: str) -> str:
         return text.replace("{", "").replace("}", "")
 
+    def check_sd_employee_number(self, employee_uuid):
+        sd_employee_number = "9124578"
+
+        if sd_employee_number.startswith("9"):
+            return False
+        else:
+            return True
+
     def _populate_mapping_with_templates(
         self, mapping: Dict[str, Any], environment: Environment
     ):
@@ -1036,6 +1056,7 @@ class LdapConverter:
             "get_or_create_engagement_type_uuid": (
                 self.get_or_create_engagement_type_uuid
             ),
+            "check_sd_employee_number": self.check_sd_employee_number,
         }
         for key, value in mapping.items():
             if type(value) == str:
@@ -1045,6 +1066,22 @@ class LdapConverter:
             elif type(value) == dict:
                 mapping[key] = self._populate_mapping_with_templates(value, environment)
         return mapping
+
+    def convert_this_object_to_ldap(self, json_key, mo_object_dict):
+        return (
+            self.conversion_flag_templates["mo_to_ldap"][json_key]
+            .render(mo_object_dict)
+            .lower()
+            == "true"
+        )
+
+    def convert_this_object_to_mo(self, json_key, context):
+        return (
+            self.conversion_flag_templates["ldap_to_mo"][json_key]
+            .render(context)
+            .lower()
+            == "true"
+        )
 
     def to_ldap(self, mo_object_dict: dict, json_key: str, dn: str) -> LdapObject:
         """
@@ -1075,9 +1112,11 @@ class LdapConverter:
                 "Only cpr-indexed objects are supported by to_ldap"
             )
 
+        convert_this_object = self.convert_this_object_to_ldap(json_key, mo_object_dict)
+
         for ldap_field_name, template in object_mapping.items():
             rendered_item = template.render(mo_object_dict)
-            if rendered_item:
+            if rendered_item and convert_this_object:
                 ldap_object[ldap_field_name] = rendered_item
 
         ldap_object["dn"] = dn
@@ -1135,6 +1174,9 @@ class LdapConverter:
                 object_mapping = mapping[json_key]
             except KeyError:
                 raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
+
+            convert_this_object = self.convert_this_object_to_mo(json_key, context)
+
             for mo_field_name, template in object_mapping.items():
                 try:
                     value = template.render(context).strip()
@@ -1162,7 +1204,7 @@ class LdapConverter:
                             )
                         )
 
-                if value:
+                if value and convert_this_object:
                     mo_dict[mo_field_name] = value
 
             mo_class: Any = self.import_mo_object_class(json_key)
