@@ -173,7 +173,5 @@ async def test_countdown():
 
 def test_combine_dn_strings():
     assert combine_dn_strings(["CN=Nick", "", "DC=bar"]) == "CN=Nick,DC=bar"
-    assert (
-        combine_dn_strings(["CN=Nick", "OU=foo", "DC=bar"]) == "CN=Nick,OU=foo,DC=bar"
-    )
+    assert combine_dn_strings(["CN=Nick", "OU=f", "DC=bar"]) == "CN=Nick,OU=f,DC=bar"
     assert combine_dn_strings(["CN=Nick", "DC=bar"]) == "CN=Nick,DC=bar"
