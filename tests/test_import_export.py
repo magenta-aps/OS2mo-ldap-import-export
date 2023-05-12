@@ -789,12 +789,15 @@ async def test_import_single_object_from_LDAP_force(
     ldap_object = LdapObject(dn=dn_to_ignore)
     dataloader.load_ldap_object.return_value = ldap_object
     sync_tool.dns_to_ignore.add(dn_to_ignore)
+    sync_tool.dns_to_ignore.add(dn_to_ignore)  # Ignore this DN twice
 
     uuid = uuid4()
     mo_object_mock = MagicMock
     mo_object_mock.uuid = uuid
     converter.from_ldap.return_value = [mo_object_mock]
 
+    assert len(sync_tool.uuids_to_ignore[uuid]) == 0
+    await asyncio.gather(sync_tool.import_single_user("CN=foo", force=False))
     assert len(sync_tool.uuids_to_ignore[uuid]) == 0
     await asyncio.gather(sync_tool.import_single_user("CN=foo", force=True))
     assert len(sync_tool.uuids_to_ignore[uuid]) == 1
