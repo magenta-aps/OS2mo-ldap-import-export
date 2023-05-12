@@ -723,9 +723,7 @@ class DataLoader:
                     # This is done below.
                     logger.info("LDAP it-system not found - Generating DN")
                     dn = username_generator.generate_dn(employee)
-                    await self.sync_tool.import_single_user(
-                        dn, check_dns_to_ignore=False
-                    )
+                    await self.sync_tool.import_single_user(dn, force=True)
                     return dn
 
         # If there are multiple LDAP-it-users: Make some noise until this is fixed in MO
@@ -752,7 +750,7 @@ class DataLoader:
                 person_uuid=uuid,
             )
             await self.upload_mo_objects([it_user])
-            await self.sync_tool.import_single_user(dn, check_dns_to_ignore=False)
+            await self.sync_tool.import_single_user(dn, force=True)
             return dn
         # If the LDAP-it-system is not configured and the user also does not have a cpr-
         # Number we can end up here.

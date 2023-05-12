@@ -599,12 +599,18 @@ class SyncTool:
         return converted_objects_uuid_checked
 
     @wait_for_import_to_finish
-    async def import_single_user(self, dn: str, check_dns_to_ignore=True):
+    async def import_single_user(self, dn: str, force=False):
         """
         Imports a single user from LDAP
+
+        Parameters
+        ----------------
+        force : bool
+            Can be set to 'True' to force import a user. Meaning that we do not check
+            if the dn is in self.dns_to_ignore.
         """
         try:
-            if check_dns_to_ignore:
+            if not force:
                 self.dns_to_ignore.check(dn)
         except IgnoreChanges as e:
             logger.info(e)
