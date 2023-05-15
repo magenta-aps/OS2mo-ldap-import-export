@@ -186,11 +186,21 @@ class LdapConverter:
         self.check_info_dicts()
         logger.info("[info dict loader] Info dicts loaded successfully")
 
-    def __import_to_mo__(self, json_key):
+    def __import_to_mo__(self, json_key: str, manual_import: bool):
         """
         Returns True, when we need to import this json key. Otherwise False
         """
-        return self.raw_mapping["ldap_to_mo"][json_key]["__import_to_mo__"]
+        import_flag = self.raw_mapping["ldap_to_mo"][json_key]["__import_to_mo__"]
+        import_flag = import_flag.lower()
+
+        if import_flag == "true":
+            return True
+        elif import_flag == "manual_import_only" and manual_import:
+            return True
+        elif import_flag == "false":
+            return False
+        else:
+            raise IncorrectMapping(f"Import flag = '{import_flag}' not recognized")
 
     def __export_to_ldap__(self, json_key):
         """
