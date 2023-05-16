@@ -195,8 +195,11 @@ class LdapConverter:
 
         if import_flag == "true":
             return True
-        elif import_flag == "manual_import_only" and manual_import:
-            return True
+        elif import_flag == "manual_import_only":
+            if manual_import:
+                return True
+            else:
+                return False
         elif import_flag == "false":
             return False
         else:
@@ -627,14 +630,25 @@ class LdapConverter:
         for conversion in ["ldap_to_mo", "mo_to_ldap"]:
             ie_key = expected_key_dict[conversion]
 
+            if conversion == "ldap_to_mo":
+                accepted_strings = ["true", "false", "manual_import_only"]
+            elif conversion == "mo_to_ldap":
+                accepted_strings = ["true", "false"]
+
             for json_key in self.get_json_keys(conversion):
                 if ie_key not in self.raw_mapping[conversion][json_key]:
                     raise IncorrectMapping(
                         f"Missing '{ie_key}' key in {conversion}['{json_key}']"
                     )
-                if type(self.raw_mapping[conversion][json_key][ie_key]) is not bool:
+                if (
+                    self.raw_mapping[conversion][json_key][ie_key].lower()
+                    not in accepted_strings
+                ):
                     raise IncorrectMapping(
-                        f"{conversion}['{json_key}']['{ie_key}'] is not a boolean"
+                        (
+                            f"{conversion}['{json_key}']['{ie_key}'] "
+                            f"is not among {accepted_strings}"
+                        )
                     )
 
     def check_cpr_field_or_it_system(self):
