@@ -1088,7 +1088,9 @@ def test_get_job_function_user_key(converter: LdapConverter):
 async def test_check_ldap_to_mo_references(converter: LdapConverter):
 
     converter.raw_mapping = {
-        "ldap_to_mo": {"Employee": {"name": "{{ ldap.nonExistingAttribute}}"}}
+        "ldap_to_mo": {
+            "Employee": {"active": True, "name": "{{ ldap.nonExistingAttribute}}"}
+        }
     }
 
     with patch(
@@ -1308,6 +1310,7 @@ def test_check_get_uuid_functions(converter: LdapConverter):
     converter.raw_mapping = converter.mapping = {
         "ldap_to_mo": {
             "Email": {
+                "deprecated": True,
                 "address_type": (
                     "{{ dict(uuid=get_employee_address_type_uuid('Email')) }}"
                 ),
@@ -1336,11 +1339,13 @@ def test__import_to_mo__and__export_to_ldap__(converter: LdapConverter):
             "Employee": {"__export_to_ldap__": "True"},
             "OrgUnit": {"__export_to_ldap__": "False"},
             "Address": {"__export_to_ldap__": "False"},
+            "Mail": {"__export_to_ldap__": "False"},
         },
         "ldap_to_mo": {
             "Employee": {"__import_to_mo__": "False"},
             "OrgUnit": {"__import_to_mo__": "True"},
             "Address": {"__import_to_mo__": "manual_import_only"},
+            "Mail": {"__import_to_mo__": "bad_flag"},
         },
     }
 
@@ -1348,6 +1353,9 @@ def test__import_to_mo__and__export_to_ldap__(converter: LdapConverter):
     assert converter.__import_to_mo__("OrgUnit", manual_import=False) is True
     assert converter.__import_to_mo__("Address", manual_import=True) is True
     assert converter.__import_to_mo__("Address", manual_import=False) is False
+
+    with pytest.raises(IncorrectMapping):
+        converter.__import_to_mo__("Mail", manual_import=False)
 
     assert converter.__export_to_ldap__("Employee") is True
     assert converter.__export_to_ldap__("OrgUnit") is False

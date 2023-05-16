@@ -210,8 +210,7 @@ class LdapConverter:
         Returns True, when we need to export this json key. Otherwise False
         """
         export_flag = self.raw_mapping["mo_to_ldap"][json_key]["__export_to_ldap__"]
-        export_flag = export_flag.lower()
-        return export_flag == "true"
+        return export_flag.lower() == "true"
 
     def find_object_class(self, json_key, conversion):
         mapping = self.raw_mapping[conversion]
