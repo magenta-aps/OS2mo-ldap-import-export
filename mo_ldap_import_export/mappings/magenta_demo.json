@@ -36,7 +36,7 @@
     // Note: This key needs to be a valid MO address type user_key*
     "EmailEmployee": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "true",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ldap.mail or NONE}}",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_employee_address_type_uuid('EmailEmployee')) }}",

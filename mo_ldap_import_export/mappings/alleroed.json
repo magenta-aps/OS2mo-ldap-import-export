@@ -71,7 +71,7 @@
     },
     "PostAdresseTextUnit": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ nonejoin(ldap.streetAddress, ldap.postalCode, ldap.l) }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_org_unit_address_type_uuid('PostAdresseTextUnit')) }}",
@@ -79,7 +79,7 @@
     },
     "PublicEmailUnit": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ldap.extensionAttribute5}}",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_org_unit_address_type_uuid('PublicEmailUnit')) }}",
@@ -87,7 +87,7 @@
     },
     "SecureEmailUnit": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ldap.extensionAttribute4}}",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_org_unit_address_type_uuid('SecureEmailUnit')) }}",
@@ -103,7 +103,7 @@
     },
     "MobilePhoneEmployee": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ ldap.mobile or NONE }}",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_employee_address_type_uuid('MobilePhoneEmployee')) }}",
@@ -111,7 +111,7 @@
     },
     "PhoneEmployee": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ ldap.telephoneNumber or NONE }}",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_employee_address_type_uuid('PhoneEmployee')) }}",
@@ -119,7 +119,7 @@
     },
     "PrivatePhoneEmployee": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ ldap.homePhone or NONE }}",
       "validity": "{{ dict(from_date = now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_employee_address_type_uuid('PrivatePhoneEmployee')) }}",
@@ -128,7 +128,7 @@
     },
     "LocationEmployee": {
       "objectClass": "ramodels.mo.details.address.Address",
-      "__import_to_mo__": "false",
+      "__import_to_mo__": "manual_import_only",
       "value": "{{ ldap.physicalDeliveryOfficeName or NONE }}",
       "validity": "{{ dict(from_date=now()|mo_datestring) }}",
       "address_type": "{{ dict(uuid=get_employee_address_type_uuid('LocationEmployee')) }}",
