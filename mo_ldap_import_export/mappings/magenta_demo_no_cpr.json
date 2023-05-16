@@ -22,7 +22,7 @@
   "mo_to_ldap": {
     "Employee": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "givenName": "{{mo_employee.givenname}}",
       "sn": "{{mo_employee.surname}}",
       "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
@@ -31,7 +31,7 @@
     // Note: This key needs to be a valid MO IT-system user_key*
     "Active Directory": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "objectGUID" : "{{ '{' + mo_employee_it_user.user_key + '}' }}",
     },
   },

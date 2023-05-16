@@ -62,7 +62,7 @@
   "mo_to_ldap": {
     "Employee": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "givenName": "{{mo_employee.givenname}}",
       "sn": "{{mo_employee.surname}}",
       "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
@@ -70,34 +70,34 @@
     },
     "ADGUID": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "objectGUID" : "{{ '{' + mo_employee_it_user.user_key + '}' }}",
     },
     "ADSAMA": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "sAMAccountName" : "{{mo_employee_it_user.user_key}}",
     },
     "Engagement" : {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "department": "{{get_org_unit_path_string(mo_employee_engagement.org_unit.uuid)}}",
       "primaryGroupID": "{{ mo_employee_engagement.user_key }}",
       "title": "{{get_job_function_user_key(mo_employee_engagement.job_function.uuid)}}"
     },
     "EmailEmployee": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "mail": "{{mo_employee_address.value}}",
     },
     "PhoneEmployee": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "telephoneNumber": "{{mo_employee_address.value}}",
     },
     "AdressePostEmployee": {
       "objectClass": "user",
-      "__export_to_ldap__": true,
+      "__export_to_ldap__": "true",
       "streetAddress": "{{mo_employee_address.value|splitlast(',')|first|trim}}",
       "l": "{{mo_employee_address.value|splitlast(',')|last|trim}}",
     },
