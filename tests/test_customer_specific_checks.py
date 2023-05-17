@@ -55,3 +55,7 @@ async def test_check_alleroed_sd_number(
         )
 
     assert (await export_checks.check_alleroed_sd_number(uuid4(), uuid4())) is None
+
+    dataloader.load_mo_employee_engagements.return_value = []
+
+    assert (await export_checks.check_alleroed_sd_number(uuid4(), uuid4())) is None
