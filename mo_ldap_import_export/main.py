@@ -262,7 +262,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
         settings.ldap_ous_to_search_in,
     )
 
-    # We also need permission to write to this OU
+    # We also need to check for permission to write to this OU
     check_ou_in_list_of_ous(
         settings.ldap_ou_for_new_users,
         settings.ldap_ous_to_write_to,
