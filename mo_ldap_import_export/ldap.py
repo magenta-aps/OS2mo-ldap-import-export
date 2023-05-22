@@ -398,6 +398,7 @@ async def cleanup(
     employee: Employee,
     object_type: ObjectType,
     dn: str,
+    uuids_to_publish: list[UUID],
 ):
     """
     Cleans entries from LDAP
@@ -413,11 +414,12 @@ async def cleanup(
         List of objects already in MO
     user_context : dict
         user context dictionary with the configured dataloader and converter
+    uuids_to_publish : list
+        List of UUIDs to refresh in LDAP
     """
     dataloader = user_context["dataloader"]
     converter = user_context["converter"]
     internal_amqpsystem = user_context["internal_amqpsystem"]
-    uuids_to_publish = []
 
     if not converter.__export_to_ldap__(json_key):
         logger.info(f"__export_to_ldap__ == False for json_key = '{json_key}'")
@@ -471,7 +473,8 @@ async def cleanup(
         # after the first one is deleted from LDAP
         if not values_in_ldap and values_in_mo:
             logger.info(f"attribute = '{attribute}' needs to be written to LDAP")
-            uuids_to_publish = [o.uuid for o in mo_objects]
+            for mo_object in mo_objects:
+                uuids_to_publish.append(mo_object.uuid)
 
     # Clean from LDAP
     if len(ldap_objects_to_clean) == 0:
@@ -480,7 +483,7 @@ async def cleanup(
         dataloader.cleanup_attributes_in_ldap(ldap_objects_to_clean)
 
     # Publish to internal AMQP system
-    for uuid in uuids_to_publish:
+    for uuid in set(uuids_to_publish):
         mo_object_dict = await dataloader.load_mo_object(str(uuid), object_type)
         routing_key = MORoutingKey.build(
             service_type=mo_object_dict["service_type"],

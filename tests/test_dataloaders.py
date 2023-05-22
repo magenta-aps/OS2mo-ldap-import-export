@@ -1718,16 +1718,22 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.load_mo_employee_it_users.return_value = []
     dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
     dataloader.extract_unique_dns.return_value = ["CN=foo,DC=bar"]
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dn, dn_created = (
+        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+    )[0]
     assert dn == "CN=foo,DC=bar"
+    assert dn_created is False
 
     # Same as above, but the it-system contains an invalid value
     dataloader.extract_unique_dns.return_value = []
     username_generator.generate_dn.return_value = "CN=generated_dn_1,DC=DN"
     dataloader.get_ldap_objectGUID.return_value = uuid_1
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dn, dn_created = (
+        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+    )[0]
     uploaded_uuid = dataloader.upload_mo_objects.await_args_list[0].args[0][0].user_key
     assert dn == "CN=generated_dn_1,DC=DN"
+    assert dn_created is True
     assert uploaded_uuid == str(uuid_1)
     dataloader.upload_mo_objects.reset_mock()
 
@@ -1742,24 +1748,33 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.load_ldap_cpr_object.return_value = LdapObject(
         dn="CN=dn_already_in_ldap,DC=foo"
     )
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dn, dn_created = (
+        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+    )[0]
     assert dn == "CN=dn_already_in_ldap,DC=foo"
+    assert dn_created is False
 
     # Same as above, but the cpr-lookup does not succeed
     dataloader.load_ldap_cpr_object.side_effect = NoObjectsReturnedException("foo")
     username_generator.generate_dn.return_value = "CN=generated_dn_2,DC=DN"
     dataloader.get_ldap_objectGUID.return_value = uuid_2
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dn, dn_created = (
+        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+    )[0]
     uploaded_uuid = dataloader.upload_mo_objects.await_args_list[0].args[0][0].user_key
     assert dn == "CN=generated_dn_2,DC=DN"
+    assert dn_created is True
     assert uploaded_uuid == str(uuid_2)
     dataloader.upload_mo_objects.reset_mock()
 
     # Same as above, but an it-system does not exist
     dataloader.get_ldap_it_system_uuid.return_value = None
     username_generator.generate_dn.return_value = "CN=generated_dn_3,DC=DN"
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dn, dn_created = (
+        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+    )[0]
     assert dn == "CN=generated_dn_3,DC=DN"
+    assert dn_created is True
     dataloader.upload_mo_objects.assert_not_awaited()
     dataloader.upload_mo_objects.reset_mock()
 

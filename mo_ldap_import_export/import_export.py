@@ -204,10 +204,14 @@ class SyncTool:
         await self.perform_export_checks(payload.uuid, payload.object_uuid)
 
         try:
-            dn = await self.dataloader.find_or_make_mo_employee_dn(payload.uuid)
+            dn, dn_created = await self.dataloader.find_or_make_mo_employee_dn(
+                payload.uuid
+            )
         except DNNotFound:
             logger.info(f"DN not found for employee with uuid = {payload.uuid}")
             return
+
+        uuids_to_publish = [payload.uuid] if dn_created else []
 
         # Get MO employee
         changed_employee = await self.dataloader.load_mo_employee(
@@ -269,6 +273,7 @@ class SyncTool:
                     changed_employee,
                     routing_key.object_type,
                     dn,
+                    uuids_to_publish,
                 )
 
         elif routing_key.object_type == ObjectType.IT:
@@ -307,6 +312,7 @@ class SyncTool:
                     changed_employee,
                     routing_key.object_type,
                     dn,
+                    uuids_to_publish,
                 )
 
         elif routing_key.object_type == ObjectType.ENGAGEMENT:
@@ -344,6 +350,7 @@ class SyncTool:
                     changed_employee,
                     routing_key.object_type,
                     dn,
+                    uuids_to_publish,
                 )
 
     @wait_for_export_to_finish
@@ -357,7 +364,11 @@ class SyncTool:
         object_type,
     ):
         await self.perform_export_checks(affected_employee.uuid, changed_address.uuid)
-        dn = await self.dataloader.find_or_make_mo_employee_dn(affected_employee.uuid)
+        dn, dn_created = await self.dataloader.find_or_make_mo_employee_dn(
+            affected_employee.uuid
+        )
+
+        uuids_to_publish = [affected_employee.uuid] if dn_created else []
 
         mo_object_dict = {
             "mo_employee": affected_employee,
@@ -385,6 +396,7 @@ class SyncTool:
                 affected_employee,
                 object_type,
                 dn,
+                uuids_to_publish,
             )
 
     @wait_for_export_to_finish

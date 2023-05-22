@@ -712,7 +712,7 @@ class DataLoader:
         objectGUIDs = self.extract_unique_objectGUIDs(it_users)
         return [self.get_ldap_dn(objectGUID) for objectGUID in objectGUIDs]
 
-    async def find_or_make_mo_employee_dn(self, uuid: UUID) -> str:
+    async def find_or_make_mo_employee_dn(self, uuid: UUID) -> tuple[str, bool]:
         """
         Tries to find the LDAP DN belonging to a MO employee UUID. If such a DN does not
         exist, generates a new one and returns that.
@@ -721,6 +721,13 @@ class DataLoader:
         -------------
         uuid: UUID
             UUID of the employee to generate a DN for
+
+        Returns
+        -----------
+        dn : str
+            The generated DN
+        created : Boolean
+            Flag which is True if the DN was created, False if it already existed.
 
         Notes
         --------
@@ -743,7 +750,7 @@ class DataLoader:
         if ldap_it_system_exists and len(dns) == 1:
             dn = dns[0]
             logger.info(f"Found DN = '{dn}' using it-user lookup")
-            return dn
+            return dn, False
 
         # If the employee has a cpr-no, try using that to find a matching dn
         employee = await self.load_mo_employee(uuid)
@@ -753,7 +760,7 @@ class DataLoader:
             try:
                 dn = self.load_ldap_cpr_object(cpr_no, "Employee").dn
                 logger.info(f"Found DN = '{dn}'")
-                return dn
+                return dn, False
             except NoObjectsReturnedException:
                 if not ldap_it_system_exists:
                     # If the LDAP-it-system is not configured, we can just generate the
@@ -763,7 +770,7 @@ class DataLoader:
                     logger.info("LDAP it-system not found - Generating DN")
                     dn = username_generator.generate_dn(employee)
                     await self.sync_tool.import_single_user(dn, force=True)
-                    return dn
+                    return dn, True
 
         # If there are multiple LDAP-it-users: Make some noise until this is fixed in MO
         if ldap_it_system_exists and len(dns) > 1:
@@ -790,7 +797,7 @@ class DataLoader:
             )
             await self.upload_mo_objects([it_user])
             await self.sync_tool.import_single_user(dn, force=True)
-            return dn
+            return dn, True
         # If the LDAP-it-system is not configured and the user also does not have a cpr-
         # Number we can end up here.
         else:
