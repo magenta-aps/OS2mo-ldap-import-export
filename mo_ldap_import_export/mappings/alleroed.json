@@ -51,6 +51,8 @@
     "Employee": {
       "objectClass": "ramodels.mo.employee.Employee",
       "_import_to_mo_": "manual_import_only",
+      "givenname": "{{ldap.givenName}}",
+      "surname": "{{ldap.sn}}",
       "cpr_no": "{{ldap.employeeNumber|strip_non_digits}}",
       "nickname_givenname": "{{ldap.displayName|splitlast|first}}",
       "nickname_surname": "{{ldap.displayName|splitlast|last}}",
@@ -162,6 +164,8 @@
       "objectClass": "user",
       "_export_to_ldap_": "true",
       "employeeNumber": "{{mo_employee.cpr_no}}",
+      "givenName" : "{{mo_employee.givenname}}",
+      "sn": "{{mo_employee.surname}}",
       "displayName": "{{mo_employee.nickname_givenname}} {{mo_employee.nickname_surname}}",
       "extensionAttribute6": "{{mo_employee.uuid}}"
     },
