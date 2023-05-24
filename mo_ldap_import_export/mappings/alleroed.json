@@ -162,8 +162,6 @@
       "objectClass": "user",
       "_export_to_ldap_": "true",
       "employeeNumber": "{{mo_employee.cpr_no}}",
-      "givenName" : "{{mo_employee.givenname}}",
-      "sn": "{{mo_employee.surname}}",
       "displayName": "{{mo_employee.nickname_givenname}} {{mo_employee.nickname_surname}}",
       "extensionAttribute6": "{{mo_employee.uuid}}"
     },
