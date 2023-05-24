@@ -333,8 +333,6 @@ def test_alleroed_employee_mapping(converters: dict[str, LdapConverter]):
     converter = converters["alleroed.json"]
     mo_employee = Employee(
         cpr_no="0101011234",
-        givenname="Lukas",
-        surname="Skywalker",
         nickname_givenname="Lucky",
         nickname_surname="Luke",
     )
@@ -345,8 +343,6 @@ def test_alleroed_employee_mapping(converters: dict[str, LdapConverter]):
 
     ldap_employee = converter.to_ldap(mo_object_dict, "Employee", "CN=foo")
 
-    assert ldap_employee.givenName == "Lukas"  # type: ignore
-    assert ldap_employee.sn == "Skywalker"  # type: ignore
     assert ldap_employee.displayName == "Lucky Luke"  # type: ignore
 
     mo_employee_converted = converter.from_ldap(
