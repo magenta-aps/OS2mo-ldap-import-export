@@ -201,15 +201,15 @@ def test_create_common_name(username_generator: UserNameGenerator):
     # we cut off characters from his name
     # Because AD does not allow common names with more than 64 characters
     common_name = username_generator._create_common_name(["Nick" * 40, "Johnson"])
-    assert common_name == ("Nick" * 40)[:64]
+    assert common_name == ("Nick" * 40)[:60]
 
     common_name = username_generator._create_common_name(["Nick", "Johnson" * 40])
-    assert common_name == ("Nick" + " " + "Johnson" * 40)[:64]
+    assert common_name == ("Nick" + " " + "Johnson" * 40)[:60]
 
     common_name = username_generator._create_common_name(
         ["Nick", "Gerardus", "Cornelis", "Johnson" * 40]
     )
-    assert common_name == ("Nick" + " " + "Johnson" * 40)[:64]
+    assert common_name == ("Nick" + " " + "Johnson" * 40)[:60]
 
 
 def test_generate_dn(username_generator: UserNameGenerator):
