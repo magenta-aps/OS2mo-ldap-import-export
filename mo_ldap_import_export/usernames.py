@@ -286,7 +286,8 @@ class UserNameGeneratorBase:
         # see http://msdn.microsoft.com/en-us/library/ms675449(VS.85).aspx
         while len(common_name) > 64:
             if len(clean_name) <= 2:
-                common_name = " ".join(clean_name)[:64]  # Cut off the name
+                # Cut off the name (leave place for the permutation counter)
+                common_name = " ".join(clean_name)[:60]
             else:
                 clean_name.pop(-2)  # Remove the last middle name
                 common_name = " ".join(clean_name)  # Try to make a name again
@@ -300,7 +301,7 @@ class UserNameGeneratorBase:
             )
             permutation_counter += 1
 
-            if permutation_counter > 1000:
+            if permutation_counter >= 1000:
                 raise RuntimeError("Failed to create common name")
 
         return common_name
