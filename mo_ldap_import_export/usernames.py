@@ -279,10 +279,17 @@ class UserNameGeneratorBase:
         >>> _create_common_name(["Keanu","Reeves"])
         >>> "Keanu Reeves"
         """
-        if name[-1]:
-            common_name = f"{name[0]} {name[-1]}"
-        else:
-            common_name = name[0]
+        clean_name = deepcopy([n for n in name if n])
+        common_name = " ".join(clean_name)
+
+        # Shorten a name if it is over 64 chars
+        # see http://msdn.microsoft.com/en-us/library/ms675449(VS.85).aspx
+        while len(common_name) > 64:
+            if len(clean_name) <= 2:
+                common_name = " ".join(clean_name)[:64]  # Cut off the name
+            else:
+                clean_name.pop(-2)  # Remove the last middle name
+                common_name = " ".join(clean_name)  # Try to make a name again
 
         permutation_counter = 2
         existing_common_names = self.get_existing_values("cn")
