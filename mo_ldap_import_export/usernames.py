@@ -284,7 +284,7 @@ class UserNameGeneratorBase:
 
         # Shorten a name if it is over 64 chars
         # see http://msdn.microsoft.com/en-us/library/ms675449(VS.85).aspx
-        while len(common_name) > 64:
+        while len(common_name) > 60:
             if len(clean_name) <= 2:
                 # Cut off the name (leave place for the permutation counter)
                 common_name = " ".join(clean_name)[:60]
