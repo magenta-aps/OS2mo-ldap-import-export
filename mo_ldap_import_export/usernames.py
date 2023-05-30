@@ -96,10 +96,12 @@ class UserNameGeneratorBase:
             "attributes": [attribute],
         }
         search_base = self.settings.ldap_search_base
-        existing_values = [
-            entry["attributes"][attribute].lower()
+        all_values = [
+            entry["attributes"][attribute]
             for entry in paged_search(self.context, searchParameters, search_base)
         ]
+
+        existing_values = [a.lower() for a in all_values if a]
         return existing_values
 
     def _make_cn(self, username_string: str):
