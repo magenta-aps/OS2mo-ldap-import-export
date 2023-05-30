@@ -22,8 +22,9 @@ class InitEngine:
             # Loop over class user_keys. For example "EmailEmployee"
             for class_user_key, class_details in class_mapping.items():
                 if class_user_key in existing_classes:
-                    current_title = existing_classes[class_user_key]["name"]
-                    current_scope = existing_classes[class_user_key]["scope"]
+                    existing_class = existing_classes[class_user_key]
+                    current_title = existing_class["name"]
+                    current_scope = existing_class["scope"]
                     if (
                         class_details["title"] == current_title
                         and class_details["scope"] == current_scope
@@ -35,7 +36,7 @@ class InitEngine:
                             name=class_details["title"],
                             user_key=class_user_key,
                             facet_uuid=facet_uuid,
-                            class_uuid=existing_classes[class_user_key]["uuid"],
+                            class_uuid=existing_class["uuid"],
                             scope=class_details["scope"],
                         )
 
