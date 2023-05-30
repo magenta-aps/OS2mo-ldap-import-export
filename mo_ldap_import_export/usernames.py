@@ -91,11 +91,8 @@ class UserNameGeneratorBase:
         self._check_combinations_to_try()
 
     def get_existing_values(self, attribute):
-        user_class = self.user_context["mapping"]["mo_to_ldap"]["Employee"][
-            "objectClass"
-        ]
         searchParameters = {
-            "search_filter": f"(objectclass={user_class})",
+            "search_filter": "(objectclass=*)",
             "attributes": [attribute],
         }
         search_base = self.settings.ldap_search_base
