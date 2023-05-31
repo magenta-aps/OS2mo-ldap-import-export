@@ -654,8 +654,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         cpr_values = [r["attributes"][cpr_field] for r in responses]
         output = {}
 
-        for response in responses:
-            cpr = response["attributes"][cpr_field]
+        for cpr in set(cpr_values):
             if cpr_values.count(cpr) > 1:
                 output[cpr] = [
                     r["dn"] for r in responses if r["attributes"][cpr_field] == cpr
