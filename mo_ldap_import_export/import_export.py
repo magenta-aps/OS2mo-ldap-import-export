@@ -730,6 +730,7 @@ class SyncTool:
         if (
             routing_key.service_type == ServiceType.EMPLOYEE
             and routing_key.object_type == ObjectType.ENGAGEMENT
+            and routing_key.request_type != RequestType.REFRESH
         ):
             changed_engagement = await self.dataloader.load_mo_engagement(
                 payload.object_uuid
