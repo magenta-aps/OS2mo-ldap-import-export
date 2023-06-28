@@ -498,6 +498,7 @@ def create_app(**kwargs: Any) -> FastAPI:
                         continue
 
                 await sync_tool.import_single_user(ldap_object.dn, manual_import=True)
+                await asyncio.sleep(1)  # Give other methods some time to react
 
                 progress_bar.update()
 
