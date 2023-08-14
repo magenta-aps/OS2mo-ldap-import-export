@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Magenta ApS <https://magenta.dk>
+# SPDX-License-Identifier: MPL-2.0
+
+
+query Employees($uuids: [UUID!]) {
+  employees(uuids: $uuids, to_date: null, from_date: null) {
+    objects {
+      objects {
+        uuid
+        cpr_no
+        givenname
+        surname
+        nickname_givenname
+        nickname_surname
+        validity {
+          to
+          from
+        }
+      }
+    }
+  }
+}
+

@@ -60,6 +60,7 @@ class DataLoader:
         }
         self._mo_to_ldap_attributes = []
         self._sync_tool = None
+        self._mo = None
 
         # Relate graphQL object types (left) to AMQP routing key object types (right)
         self.object_type_dict = {
@@ -86,6 +87,12 @@ class DataLoader:
                         f"Does the '{key}' object exist in MO?"
                     )
                 )
+
+    @property
+    def mo(self):
+        if not self._mo:
+            self._mo = self.context["graphql_client"]
+        return self._mo
 
     @property
     def sync_tool(self):
@@ -836,7 +843,7 @@ class DataLoader:
             )
 
     @staticmethod
-    def extract_current_or_latest_object(objects: list[dict]):
+    def extract_current_or_latest_object(objects: list[Any]):
         """
         Check the validity in a list of object dictionaries and return the one which
         is either valid today, or has the latest end-date
@@ -850,8 +857,19 @@ class DataLoader:
             # If any of the objects is valid today, return it
             latest_object = None
             for obj in objects:
-                valid_to = mo_datestring_to_utc(obj["validity"]["to"])
-                valid_from = mo_datestring_to_utc(obj["validity"]["from"])
+
+                if hasattr(obj, "validity"):
+                    valid_to = obj.validity.to
+                    valid_from = obj.validity.from_
+
+                    if valid_to:
+                        valid_to = valid_to.replace(tzinfo=None)
+
+                    if valid_from:
+                        valid_from = valid_from.replace(tzinfo=None)
+                else:
+                    valid_to = mo_datestring_to_utc(obj["validity"]["to"])
+                    valid_from = mo_datestring_to_utc(obj["validity"]["from"])
 
                 if valid_to and valid_from:
                     now_utc = datetime.datetime.utcnow()
@@ -871,9 +889,14 @@ class DataLoader:
                 # Update latest object
                 if valid_to:
                     if latest_object:
-                        latest_valid_to = mo_datestring_to_utc(
-                            latest_object["validity"]["to"]
-                        )
+                        if hasattr(latest_object, "validity"):
+                            latest_valid_to = latest_object.validity.to
+                            if latest_valid_to:
+                                latest_valid_to = latest_valid_to.replace(tzinfo=None)
+                        else:
+                            latest_valid_to = mo_datestring_to_utc(
+                                latest_object["validity"]["to"]
+                            )
                         if latest_valid_to and valid_to > latest_valid_to:
                             latest_object = obj
                     else:
@@ -884,35 +907,11 @@ class DataLoader:
             # Otherwise return the latest
             return latest_object
 
-    async def load_mo_employee(self, uuid: UUID, current_objects_only=True) -> Employee:
-        query = gql(
-            f"""
-            query SingleEmployee {{
-              employees(uuids:"{uuid}") {{
-                objects {{
-                  objects {{
-                    uuid
-                    cpr_no
-                    givenname
-                    surname
-                    nickname_givenname
-                    nickname_surname
-                    validity {{
-                      to
-                      from
-                    }}
-                  }}
-                }}
-              }}
-            }}
-            """
-        )
+    async def load_mo_employee(self, uuid: UUID, **kwargs) -> Employee:
+        employee = await self.mo.employees(uuid)
+        obj = self.extract_current_or_latest_object(employee.objects[0].objects)
 
-        result = await self.query_past_future_mo(query, current_objects_only)
-        entry = self.extract_current_or_latest_object(
-            result["employees"]["objects"][0]["objects"]
-        )
-
+        entry = obj.dict()
         entry.pop("validity")
 
         return Employee(**entry)
