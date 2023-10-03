@@ -265,6 +265,10 @@ def patch_modules(
         "mo_ldap_import_export.main.AMQPSystem", return_value=internal_amqpsystem
     ), patch(
         "mo_ldap_import_export.main.asyncio.get_event_loop", return_value=None
+    ), patch(
+        "mo_ldap_import_export.main.MappingExporter", return_value=MagicMock()
+    ), patch(
+        "mo_ldap_import_export.main.FileResponse", return_value=MagicMock()
     ):
         yield
 
@@ -918,3 +922,12 @@ async def test_get_non_existing_objectGUIDs_from_MO_404(
     dataloader.get_ldap_it_system_uuid.return_value = None
     response = test_client.get("/Inspect/non_existing_unique_ldap_uuids")
     assert response.status_code == 404
+
+
+def test_export_mapping_endpoint(test_client: TestClient):
+    params = {
+        "json_filename": "magenta_demo.json",
+    }
+
+    response = test_client.get("/mapping", params=params)
+    assert response.status_code == 202

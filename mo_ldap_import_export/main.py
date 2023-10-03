@@ -25,6 +25,7 @@ from fastapi import Request
 from fastapi import Response
 from fastapi import status
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse
 from fastapi_utils.tasks import repeat_every
 from fastramqpi.main import FastRAMQPI
 from gql.transport.exceptions import TransportQueryError
@@ -59,6 +60,7 @@ from .exceptions import NoObjectsReturnedException
 from .exceptions import NotEnabledException
 from .exceptions import NotSupportedException
 from .exceptions import ObjectGUIDITSystemNotFound
+from .exporters import MappingExporter
 from .import_export import SyncTool
 from .ldap import check_ou_in_list_of_ous
 from .ldap import configure_ldap_connection
@@ -507,6 +509,13 @@ def create_app(**kwargs: Any) -> FastAPI:
 
     default_ldap_class = mapping["mo_to_ldap"]["Employee"]["objectClass"]
     accepted_json_keys = tuple(sorted(mapping["mo_to_ldap"].keys()))
+    yaml_files = tuple(
+        [
+            f
+            for f in os.listdir(os.path.join(os.path.dirname(__file__), "mappings"))
+            if f.lower().endswith("yaml")
+        ]
+    )
 
     # TODO: Eliminate this function and make reloading dicts eventdriven
     #       When this method is eliminated the fastapi_utils package can be removed
@@ -912,5 +921,24 @@ def create_app(**kwargs: Any) -> FastAPI:
     @app.get("/MO/Primary_types", status_code=202, tags=["MO"])
     async def load_primary_types_from_MO() -> Any:
         return await dataloader.load_mo_primary_types()
+
+    # Get mapping excel file
+    @app.get("/mapping", status_code=202, tags=["Mapping"])
+    async def download_field_mapping(
+        json_filename: Literal[yaml_files],  # type: ignore
+        output_filename: str = "Mapping.xlsx",
+    ) -> Any:
+
+        json_filepath = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "mappings", json_filename)
+        )
+
+        exporter = MappingExporter(
+            fastramqpi.get_context(), json_filepath, output_filename
+        )
+        exporter.export_mapping()
+
+        headers = {"Content-Disposition": f'attachment; filename="{output_filename}"'}
+        return FileResponse(output_filename, headers=headers)
 
     return app
