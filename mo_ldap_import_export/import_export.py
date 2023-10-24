@@ -826,9 +826,16 @@ class SyncTool:
             )
             employee_uuid = uuid4()
 
-        # First import the Employee
-        # Then import other objects (which link to the employee)
-        json_keys = ["Employee"] + [k for k in detected_json_keys if k != "Employee"]
+        # First import the Employee.
+        # Then import the Engagement, if present in `detected_json_keys`.
+        # Then finally import any other objects (Address, ITUser, etc.) which link to
+        # the employee.
+        priority_keys: list[str] = ["Employee"]
+        if "Engagement" in detected_json_keys:
+            priority_keys.append("Engagement")
+        json_keys = priority_keys + [
+            k for k in detected_json_keys if k not in priority_keys
+        ]
 
         for json_key in json_keys:
             try:

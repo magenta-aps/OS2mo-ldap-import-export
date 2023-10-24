@@ -829,6 +829,33 @@ async def test_import_single_object_from_LDAP_but_import_equals_false(
             )
 
 
+async def test_import_single_object_forces_json_key_ordering(
+    converter: MagicMock, dataloader: AsyncMock, sync_tool: SyncTool
+) -> None:
+    """
+    Verify that `import_single_object` visits each "JSON key" in a specific order.
+    `Employee` keys must be visited first, then `Engagement` keys, and finally all other
+    keys.
+    """
+    # Arrange: inject a list of JSON keys that have the wrong order
+    converter.get_ldap_to_mo_json_keys.return_value = [
+        "Address",
+        "Engagement",
+        "Employee",
+    ]
+    # Act: run the method and collect logs
+    with capture_logs() as cap_logs:
+        await asyncio.gather(sync_tool.import_single_user("CN=foo"))
+        # Assert: verify that we process JSON keys in the expected order, regardless of
+        # the original ordering.
+        logged_json_keys: list[str] = [
+            m["json_key"]
+            for m in cap_logs
+            if m.get("json_key") and "Loaded object" in m["event"]
+        ]
+        assert logged_json_keys == ["Employee", "Engagement", "Address"]
+
+
 async def test_import_address_objects(
     context: Context, converter: MagicMock, dataloader: AsyncMock, sync_tool: SyncTool
 ):
