@@ -18,6 +18,9 @@ from jinja2 import Environment
 from jinja2 import exceptions as jinja_exceptions
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ldap3.utils.dn import parse_dn
+from ramodels.mo import MOBase
+from ramodels.mo.details import Address
+from ramodels.mo.details import ITUser
 from ramodels.mo.organisation_unit import OrganisationUnit
 from ramqp.utils import RequeueMessage
 
@@ -1105,12 +1108,18 @@ class LdapConverter:
         return number_of_entries_in_this_ldap_object
 
     async def from_ldap(
-        self, ldap_object: LdapObject, json_key: str, employee_uuid: UUID
+        self,
+        ldap_object: LdapObject,
+        json_key: str,
+        employee_uuid: UUID,
+        engagement_uuid: UUID | None = None,
     ) -> Any:
         """
         uuid : UUID
             Uuid of the employee whom this object belongs to. If None: Generates a new
             uuid
+        engagement_uuid: UUID
+            Engagement UUID to use when creating `Address` and `ITUser` instances.
         """
 
         # This is how many MO objects we need to return - a MO object can have only
@@ -1171,6 +1180,8 @@ class LdapConverter:
             mo_class: Any = self.import_mo_object_class(json_key)
             required_attributes = self.get_required_attributes(mo_class)
 
+            mo_dict = self._add_engagement_uuid(mo_dict, mo_class, engagement_uuid)
+
             # If all required attributes are present:
             if all(a in mo_dict for a in required_attributes):
                 try:
@@ -1182,8 +1193,23 @@ class LdapConverter:
                     r for r in required_attributes if r not in mo_dict
                 ]
                 logger.info(
-                    f"Could not convert {mo_dict}. "
+                    f"Could not convert {mo_dict} to {mo_class}. "
                     f"The following attributes are missing: {missing_attributes}"
                 )
 
         return converted_objects
+
+    def _add_engagement_uuid(
+        self, mo_dict: dict, mo_class: type[MOBase], engagement_uuid: UUID | None
+    ) -> dict:
+        """
+        Add engagement UUID to `mo_dict`, if provided.
+        """
+        if engagement_uuid is not None and mo_class in (Address, ITUser):
+            mo_dict["engagement"] = {"uuid": engagement_uuid}
+            logger.debug(
+                "Added engagement_uuid to mo_dict",
+                engagement_uuid=engagement_uuid,
+                mo_dict=mo_dict,
+            )
+        return mo_dict

@@ -9,6 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from uuid import UUID
 from uuid import uuid4
 
 import pytest
@@ -19,6 +20,8 @@ from jinja2 import Undefined
 from pydantic import parse_obj_as
 from pydantic import ValidationError
 from ramodels.mo import Employee
+from ramodels.mo.details import Address
+from ramodels.mo.details import ITUser
 from ramqp.utils import RequeueMessage
 from structlog.testing import capture_logs
 
@@ -326,6 +329,27 @@ async def test_ldap_to_mo_dict_validation_error(converter: LdapConverter) -> Non
 
         info_messages = [w for w in cap_logs if w["log_level"] == "info"]
         assert "not a valid uuid" in str(info_messages)
+
+
+async def test_ldap_to_mo_uses_engagement_uuid(converter: LdapConverter) -> None:
+    """
+    Passing an optional `engagement_uuid` to `from_ldap` should inject the engagement
+    UUID in the returned MO object (if that object is an `Address` or `ITUser`.)
+    """
+    employee_uuid: UUID = uuid4()
+    engagement_uuid: UUID = uuid4()
+    result = await converter.from_ldap(
+        LdapObject(
+            dn="",
+            mail="foo@bar.dk",
+            mail_validity_from=datetime.datetime(2019, 1, 1, 0, 10, 0),
+        ),
+        "Email",
+        employee_uuid,
+        engagement_uuid=engagement_uuid,
+    )
+    address: Address = result[0]
+    assert address.engagement.uuid == engagement_uuid  # type: ignore
 
 
 async def test_mo_to_ldap(converter: LdapConverter) -> None:
@@ -1749,3 +1773,29 @@ def test_unutilized_init_elements(converter: LdapConverter) -> None:
     )
     with pytest.raises(ValidationError, match="Unutilized elements in init"):
         parse_obj_as(ConversionMapping, converter.raw_mapping)
+
+
+@pytest.mark.parametrize(
+    "mo_class,engagement_uuid,expected_uuid",
+    [
+        (Address, None, False),
+        (Address, uuid4(), True),
+        (ITUser, None, False),
+        (ITUser, uuid4(), True),
+    ],
+)
+def test_add_engagement_uuid(
+    converter: LdapConverter,
+    mo_class: type[Address] | type[ITUser],
+    engagement_uuid: UUID,
+    expected_uuid: bool,
+) -> None:
+    """
+    Verify that `LdapConverter._add_engagement_uuid` adds an engagement UUID, if the
+    MO object is an `Address` or an `ITUser`.
+    """
+    result: dict = converter._add_engagement_uuid({}, mo_class, engagement_uuid)
+    if expected_uuid:
+        assert result["engagement"]["uuid"] == engagement_uuid
+    else:
+        assert "engagement" not in result
