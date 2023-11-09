@@ -113,9 +113,6 @@ class SyncTool:
         self.settings = self.user_context["settings"]
         self.internal_amqpsystem = self.user_context["internal_amqpsystem"]
 
-        # Track currently imported/importing engagement UUID
-        self._current_engagement_uuid: UUID | None = None
-
     @staticmethod
     def extract_uuid(obj) -> UUID:
         """
@@ -806,7 +803,7 @@ class SyncTool:
             logger.info("[Import-single-user]" + str(e), dn=dn)
             return
 
-        self._current_engagement_uuid = None
+        current_engagement_uuid: UUID | None = None
 
         logger.info(
             "[Import-single-user] Importing user.",
@@ -874,7 +871,7 @@ class SyncTool:
                 loaded_object,
                 json_key,
                 employee_uuid=employee_uuid,
-                engagement_uuid=self._current_engagement_uuid,
+                engagement_uuid=current_engagement_uuid,
             )
 
             if len(converted_objects) == 0:
@@ -930,10 +927,10 @@ class SyncTool:
                     for mo_object in converted_objects:
                         self.uuids_to_ignore.add(mo_object.uuid)
                         if json_key == "Engagement":
-                            self._current_engagement_uuid = mo_object.uuid
+                            current_engagement_uuid = mo_object.uuid
                             logger.info(
                                 "[Import-single-user] Saving engagement UUID for DN",
-                                engagement_uuid=self._current_engagement_uuid,
+                                engagement_uuid=current_engagement_uuid,
                                 dn=dn,
                             )
                     try:
