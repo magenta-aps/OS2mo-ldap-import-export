@@ -17,6 +17,7 @@ from fastramqpi.context import Context
 from httpx import HTTPStatusError
 from ramqp.mo import MORoutingKey
 
+from .dataloaders import DNList
 from .exceptions import DNNotFound
 from .exceptions import IgnoreChanges
 from .exceptions import NoObjectsReturnedException
@@ -314,7 +315,7 @@ class SyncTool:
         await self.perform_export_checks(uuid, object_uuid)
 
         try:
-            dn = await self.dataloader.find_or_make_mo_employee_dn(uuid)
+            dns: DNList = await self.dataloader.find_or_make_mo_employee_dn(uuid)
         except DNNotFound:
             logger.info("[Listen-to-changes-in-employees] DN not found.", **logger_args)
             return
@@ -334,18 +335,21 @@ class SyncTool:
         object_type = get_object_type_from_routing_key(routing_key)
 
         if object_type == "person":
-            # Convert to LDAP
-            ldap_employee = await self.converter.to_ldap(mo_object_dict, "Employee", dn)
-            ldap_employee = self.move_ldap_object(ldap_employee, dn)
+            for dn in dns:
+                # Convert to LDAP
+                ldap_employee = await self.converter.to_ldap(
+                    mo_object_dict, "Employee", dn
+                )
+                ldap_employee = self.move_ldap_object(ldap_employee, dn)
 
-            # Upload to LDAP - overwrite because all employee fields are unique.
-            # One person cannot have multiple names.
-            await self.dataloader.modify_ldap_object(
-                ldap_employee,
-                "Employee",
-                overwrite=True,
-                delete=delete,
-            )
+                # Upload to LDAP - overwrite because all employee fields are unique.
+                # One person cannot have multiple names.
+                await self.dataloader.modify_ldap_object(
+                    ldap_employee,
+                    "Employee",
+                    overwrite=True,
+                    delete=delete,
+                )
 
         elif object_type == "address":
             # Get MO address
@@ -366,8 +370,8 @@ class SyncTool:
             mo_object_dict["mo_employee_address"] = changed_address
 
             # Convert & Upload to LDAP
-            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dn)
-            ldap_object = self.move_ldap_object(ldap_object, dn)
+            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dns[0])
+            ldap_object = self.move_ldap_object(ldap_object, dns[0])
 
             ldap_modify_responses = await self.dataloader.modify_ldap_object(
                 ldap_object,
@@ -407,8 +411,8 @@ class SyncTool:
             mo_object_dict["mo_employee_it_user"] = changed_it_user
 
             # Convert & Upload to LDAP
-            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dn)
-            ldap_object = self.move_ldap_object(ldap_object, dn)
+            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dns[0])
+            ldap_object = self.move_ldap_object(ldap_object, dns[0])
 
             ldap_modify_responses = await self.dataloader.modify_ldap_object(
                 ldap_object,
@@ -446,8 +450,8 @@ class SyncTool:
             # We upload an engagement to LDAP regardless of its 'primary' attribute.
             # Because it looks like you cannot set 'primary' when creating an engagement
             # in the OS2mo GUI.
-            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dn)
-            ldap_object = self.move_ldap_object(ldap_object, dn)
+            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dns[0])
+            ldap_object = self.move_ldap_object(ldap_object, dns[0])
             ldap_modify_responses = await self.dataloader.modify_ldap_object(
                 ldap_object,
                 json_key,
@@ -480,37 +484,40 @@ class SyncTool:
         object_type,
     ):
         await self.perform_export_checks(affected_employee.uuid, changed_address.uuid)
-        dn = await self.dataloader.find_or_make_mo_employee_dn(affected_employee.uuid)
+        dns: DNList = await self.dataloader.find_or_make_mo_employee_dn(
+            affected_employee.uuid
+        )
 
         mo_object_dict = {
             "mo_employee": affected_employee,
             "mo_org_unit_address": changed_address,
         }
 
-        # Convert & Upload to LDAP
-        ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dn)
-        ldap_object = self.move_ldap_object(ldap_object, dn)
+        for dn in dns:
+            # Convert & Upload to LDAP
+            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dn)
+            ldap_object = self.move_ldap_object(ldap_object, dn)
 
-        ldap_modify_responses = await self.dataloader.modify_ldap_object(
-            ldap_object,
-            json_key,
-            delete=delete,
-        )
-
-        if self.cleanup_needed(ldap_modify_responses):
-            addresses_in_mo = await self.dataloader.load_mo_org_unit_addresses(
-                org_unit_uuid, changed_address.address_type.uuid
-            )
-
-            await cleanup(
+            ldap_modify_responses = await self.dataloader.modify_ldap_object(
+                ldap_object,
                 json_key,
-                "mo_org_unit_address",
-                addresses_in_mo,
-                self.user_context,
-                affected_employee,
-                object_type,
-                ldap_object.dn,
+                delete=delete,
             )
+
+            if self.cleanup_needed(ldap_modify_responses):
+                addresses_in_mo = await self.dataloader.load_mo_org_unit_addresses(
+                    org_unit_uuid, changed_address.address_type.uuid
+                )
+
+                await cleanup(
+                    json_key,
+                    "mo_org_unit_address",
+                    addresses_in_mo,
+                    self.user_context,
+                    affected_employee,
+                    object_type,
+                    ldap_object.dn,
+                )
 
     async def publish_engagements_for_org_unit(self, org_unit_uuid: UUID) -> None:
         """
