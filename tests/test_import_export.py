@@ -6,6 +6,7 @@ import datetime
 import re
 import time
 from functools import partial
+from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -843,6 +844,7 @@ async def test_import_single_object_forces_json_key_ordering(
         "Engagement",
         "Employee",
     ]
+    converter.from_ldap.return_value = [MagicMock()]  # list of (at least) one item
     # Act: run the method and collect logs
     with capture_logs() as cap_logs:
         await asyncio.gather(sync_tool.import_single_user("CN=foo"))
@@ -894,6 +896,40 @@ async def test_import_single_object_collects_engagement_uuid(
     # Assert: third call to `from_ldap` is for "Address", engagement UUID is an UUID
     assert from_ldap_args[2][0] == "Address"
     assert isinstance(from_ldap_args[2][1], UUID)
+
+
+async def test_import_single_user_skips_on_failed_engagement_import(
+    converter: MagicMock, dataloader: AsyncMock, sync_tool: SyncTool
+) -> None:
+    """
+    Verify that no subsequent adresses or IT users are imported, if importing the
+    engagement fails for some reason.
+    """
+
+    # Arrange
+    address: Address = Address.from_simplified_fields(
+        value="Address value",
+        address_type_uuid=uuid4(),
+        from_date="2020-01-01",
+    )
+
+    async def mock_from_ldap(
+        ldap_object: LdapObject, json_key: str, **kwargs: Any
+    ) -> list[Any]:
+        if json_key == "Engagement":
+            return []
+        else:
+            return [address]
+
+    converter.get_ldap_to_mo_json_keys.return_value = ["Engagement", "Address"]
+    converter.from_ldap = mock_from_ldap
+
+    with capture_logs() as cap_logs:
+        # Act
+        await asyncio.gather(sync_tool.import_single_user("CN=foo"))
+        # Assert
+        assert cap_logs[-1]["event"] == "[Import-single-user] Skipping JSON key"
+        assert cap_logs[-1]["json_key"] == "Address"
 
 
 async def test_import_address_objects(

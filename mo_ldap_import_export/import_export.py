@@ -845,12 +845,21 @@ class SyncTool:
         json_keys = priority_keys + [
             k for k in detected_json_keys if k not in priority_keys
         ]
+        skip_keys: set = set()  # Empty set of JSON keys to skip in for-loop
 
         for json_key in json_keys:
             try:
                 await self.perform_import_checks(dn, json_key)
             except IgnoreChanges as e:
                 logger.info(f"[Import-single-user] {e}", dn=dn)
+                continue
+
+            if json_key in skip_keys:
+                logger.info(
+                    "[Import-single-user] Skipping JSON key",
+                    json_key=json_key,
+                    dn=dn,
+                )
                 continue
 
             if not self.converter._import_to_mo_(json_key, manual_import):
@@ -860,6 +869,7 @@ class SyncTool:
                     dn=dn,
                 )
                 continue
+
             logger.info(
                 "[Import-single-user] Loading object.", dn=dn, json_key=json_key
             )
@@ -883,6 +893,12 @@ class SyncTool:
 
             if len(converted_objects) == 0:
                 logger.info("[Import-single-user] No converted objects", dn=dn)
+                # If we are currently importing an Engagement, but that fails for some
+                # reason, don't import other addresses or IT users.
+                # TODO: This should only happen if the Engagement mapping in the JSON
+                # file maps an EngagementRef.
+                if json_key == "Engagement":
+                    skip_keys.update({"Address", "ITUser"})
                 continue
             else:
                 logger.info(
