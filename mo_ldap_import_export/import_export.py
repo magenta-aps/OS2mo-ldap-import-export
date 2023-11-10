@@ -894,10 +894,11 @@ class SyncTool:
             if len(converted_objects) == 0:
                 logger.info("[Import-single-user] No converted objects", dn=dn)
                 # If we are currently importing an Engagement, but that fails for some
-                # reason, don't import other addresses or IT users.
-                # TODO: This should only happen if the Engagement mapping in the JSON
-                # file maps an EngagementRef.
-                if json_key == "Engagement":
+                # reason, don't import other addresses or IT users. This should only
+                # happen if the JSON mapping maps an `EngagementRef` from AD to MO.
+                if json_key == "Engagement" and self.converter.attribute_is_mapped(
+                    "Engagement", "engagement_uuid"
+                ):
                     skip_keys.update({"Address", "ITUser"})
                 continue
             else:

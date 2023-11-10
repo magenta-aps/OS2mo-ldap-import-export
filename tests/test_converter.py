@@ -1866,3 +1866,39 @@ def test_add_engagement_uuid(
         assert result["engagement"]["uuid"] == engagement_uuid
     else:
         assert "engagement" not in result
+
+
+@pytest.mark.parametrize(
+    "expr,expected_result",
+    [
+        ("{{ engagement_uuid }}", True),
+        ("{{ foobar }}", False),
+    ],
+)
+def test_attribute_is_mapped(
+    converter: LdapConverter,
+    expr: str,
+    expected_result: bool,
+) -> None:
+    """
+    Verify that `attribute_is_mapped` returns True if the attribute is mapped, and False
+    otherwise.
+    """
+
+    # This key expected to be present, its value is not relevant
+    converter.raw_mapping["ldap_to_mo"]["Engagement"] = None
+
+    # Add field on other object which uses `engagement_uuid` (or not)
+    converter.raw_mapping["ldap_to_mo"]["Email"]["mo_field_name"] = expr
+
+    result: bool = converter.attribute_is_mapped("Engagement", "engagement_uuid")
+    assert result is expected_result
+
+
+def test_attribute_is_mapped_raises_incorrectmapping(converter: LdapConverter) -> None:
+    """
+    Verify that `attribute_is_mapped` raises `IncorrectMapping` if the passed `json_key`
+    is not mapped in `ldap_to_mo`.
+    """
+    with pytest.raises(IncorrectMapping):
+        converter.attribute_is_mapped("Non-existent key", "unused")

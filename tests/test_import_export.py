@@ -923,6 +923,7 @@ async def test_import_single_user_skips_on_failed_engagement_import(
 
     converter.get_ldap_to_mo_json_keys.return_value = ["Engagement", "Address"]
     converter.from_ldap = mock_from_ldap
+    converter.attribute_is_mapped.return_value = True
 
     with capture_logs() as cap_logs:
         # Act

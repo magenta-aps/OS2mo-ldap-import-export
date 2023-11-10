@@ -1220,3 +1220,25 @@ class LdapConverter:
                 mo_dict=mo_dict,
             )
         return mo_dict
+
+    def attribute_is_mapped(self, json_key: str, attr: str) -> bool:
+        ldap_to_mo: dict = self.raw_mapping["ldap_to_mo"]
+
+        # `json_key` must be in `ldap_to_mo` configuration
+        if json_key not in ldap_to_mo:
+            raise IncorrectMapping(
+                f"Expected {json_key} in 'ldap_to_mo' keys {ldap_to_mo.keys()}"
+            )
+
+        # Check if 'attr` is mapped in any of the *other* objects (apart from `json_key`)
+        key: str
+        mapping: dict | None
+        for key, mapping in ldap_to_mo.items():
+            if mapping is not None:
+                mo_field: str
+                template: str
+                for mo_field, template in mapping.items():
+                    if key != json_key:
+                        if attr in template:
+                            return True
+        return False
