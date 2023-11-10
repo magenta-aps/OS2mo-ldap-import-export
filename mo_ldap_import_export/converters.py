@@ -19,8 +19,6 @@ from jinja2 import exceptions as jinja_exceptions
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ldap3.utils.dn import parse_dn
 from ramodels.mo import MOBase
-from ramodels.mo.details import Address
-from ramodels.mo.details import ITUser
 from ramodels.mo.organisation_unit import OrganisationUnit
 from ramqp.utils import RequeueMessage
 
@@ -1205,7 +1203,8 @@ class LdapConverter:
         """
         Add engagement UUID to `mo_dict`, if provided.
         """
-        if engagement_uuid is not None and mo_class in (Address, ITUser):
+        schema_defs: dict = mo_class.schema()["definitions"]
+        if engagement_uuid is not None and "EngagementRef" in schema_defs:
             mo_dict["engagement"] = {"uuid": engagement_uuid}
             logger.debug(
                 "Added engagement_uuid to mo_dict",
