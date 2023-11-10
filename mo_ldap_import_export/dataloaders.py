@@ -50,6 +50,9 @@ from .utils import mo_datestring_to_utc
 from .utils import remove_cn_from_dn
 
 
+DNList = list[str]
+
+
 class DataLoader:
     def __init__(self, context):
         self.context = context
@@ -897,7 +900,7 @@ class DataLoader:
         objectGUIDs = self.extract_unique_objectGUIDs(it_users)
         return [self.get_ldap_dn(objectGUID) for objectGUID in objectGUIDs]
 
-    async def find_or_make_mo_employee_dn(self, uuid: UUID) -> str:
+    async def find_or_make_mo_employee_dn(self, uuid: UUID) -> DNList:
         """
         Tries to find the LDAP DN belonging to a MO employee UUID. If such a DN does not
         exist, generates a new one and returns that.
@@ -926,16 +929,14 @@ class DataLoader:
         if ldap_it_system_exists:
             it_users = await self.load_mo_employee_it_users(uuid, it_system_uuid)
             dns = self.extract_unique_dns(it_users)
-
-        # If we have an it-user (with a valid dn), use that dn
-        if ldap_it_system_exists and len(dns) == 1:
-            dn = dns[0]
-            logger.info(
-                "[Find-or-make-employee-dn] Found DN using it-user lookup",
-                dn=dn,
-                employee_uuid=uuid,
-            )
-            return dn
+            if dns:
+                # If we have an it-user (with a valid dn), use that dn
+                logger.info(
+                    "[Find-or-make-employee-dn] Found DN(s) using it-user lookup",
+                    dns=dns,
+                    employee_uuid=uuid,
+                )
+                return dns
 
         # If the employee has a cpr-no, try using that to find a matching dn
         employee = await self.load_mo_employee(uuid)
@@ -954,7 +955,7 @@ class DataLoader:
                     employee_uuid=uuid,
                     cpr_no=cpr_no,
                 )
-                return dn
+                return [dn]
             except NoObjectsReturnedException:
                 if not ldap_it_system_exists:
                     # If the LDAP-it-system is not configured, we can just generate the
@@ -971,16 +972,10 @@ class DataLoader:
                         dn, force=True, manual_import=True
                     )
                     await self.sync_tool.refresh_employee(employee.uuid)
-                    return dn
+                    return [dn]
 
-        # If there are multiple LDAP-it-users: Make some noise until this is fixed in MO
-        if ldap_it_system_exists and len(dns) > 1:
-            raise MultipleObjectsReturnedException(
-                f"Could not find DN for employee with uuid = {uuid}; "
-                f"Found multiple DNs for this employee: {dns}"
-            )
         # If there are no LDAP-it-users with valid dns, we generate a dn and create one.
-        elif ldap_it_system_exists and len(dns) == 0:
+        if ldap_it_system_exists and len(dns) == 0:
             logger.info(
                 "[Find-or-make-employee-dn] No it-user found.",
                 task="Generating DN and creating it-user",
@@ -1001,7 +996,7 @@ class DataLoader:
             await self.upload_mo_objects([it_user])
             await self.sync_tool.import_single_user(dn, force=True, manual_import=True)
             await self.sync_tool.refresh_employee(employee.uuid)
-            return dn
+            return [dn]
         # If the LDAP-it-system is not configured and the user also does not have a cpr-
         # Number we can end up here.
         else:

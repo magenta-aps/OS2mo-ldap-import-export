@@ -1809,23 +1809,23 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.load_mo_employee_it_users.return_value = []
     dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
     dataloader.extract_unique_dns.return_value = ["CN=foo,DC=bar"]
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
-    assert dn == "CN=foo,DC=bar"
+    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
+    assert dns == ["CN=foo,DC=bar"]
 
     # Same as above, but the it-system contains an invalid value
     dataloader.extract_unique_dns.return_value = []
     username_generator.generate_dn.return_value = "CN=generated_dn_1,DC=DN"
     dataloader.get_ldap_objectGUID.return_value = uuid_1
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
     uploaded_uuid = dataloader.upload_mo_objects.await_args_list[0].args[0][0].user_key
-    assert dn == "CN=generated_dn_1,DC=DN"
+    assert dns == ["CN=generated_dn_1,DC=DN"]
     assert uploaded_uuid == str(uuid_1)
     dataloader.upload_mo_objects.reset_mock()
 
     # Same as above, but there are multiple IT-users
     dataloader.extract_unique_dns.return_value = ["CN=foo,DC=bar", "CN=foo2,DC=bar"]
-    with pytest.raises(MultipleObjectsReturnedException):
-        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
+    assert dns == ["CN=foo,DC=bar", "CN=foo2,DC=bar"]
 
     # Case where there is no IT-system that contains the DN, but the cpr lookup succeeds
     dataloader.load_mo_employee.return_value = Employee(cpr_no="0101911234")
@@ -1833,31 +1833,31 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.load_ldap_cpr_object.return_value = LdapObject(
         dn="CN=dn_already_in_ldap,DC=foo"
     )
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
-    assert dn == "CN=dn_already_in_ldap,DC=foo"
+    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
+    assert dns == ["CN=dn_already_in_ldap,DC=foo"]
 
     # Same as above, but the cpr-lookup does not succeed
     dataloader.load_ldap_cpr_object.side_effect = NoObjectsReturnedException("foo")
     username_generator.generate_dn.return_value = "CN=generated_dn_2,DC=DN"
     dataloader.get_ldap_objectGUID.return_value = uuid_2
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
+    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
     uploaded_uuid = dataloader.upload_mo_objects.await_args_list[0].args[0][0].user_key
-    assert dn == "CN=generated_dn_2,DC=DN"
+    assert dns == ["CN=generated_dn_2,DC=DN"]
     assert uploaded_uuid == str(uuid_2)
     dataloader.upload_mo_objects.reset_mock()
 
     # Same as above, but an it-system does not exist
     dataloader.get_ldap_it_system_uuid.return_value = None
     username_generator.generate_dn.return_value = "CN=generated_dn_3,DC=DN"
-    dn = (await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4())))[0]
-    assert dn == "CN=generated_dn_3,DC=DN"
+    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
+    assert dns == ["CN=generated_dn_3,DC=DN"]
     dataloader.upload_mo_objects.assert_not_awaited()
     dataloader.upload_mo_objects.reset_mock()
 
     # Same as above, but the user also has no cpr number
     dataloader.load_mo_employee.return_value = Employee(cpr_no=None)
     with pytest.raises(DNNotFound):
-        await asyncio.gather(dataloader.find_or_make_mo_employee_dn(uuid4()))
+        await dataloader.find_or_make_mo_employee_dn(uuid4())
 
 
 def test_extract_unique_objectGUIDs(dataloader: DataLoader):
