@@ -406,6 +406,14 @@ class LdapConverter:
                         f"{matching_multi_value_attributes}"
                     )
 
+                if json_key == "Engagement":
+                    if len(matching_single_value_attributes) != len(fields_to_check):
+                        raise IncorrectMapping(
+                            f"LDAP Attributes mapping to 'Engagement' contain one or "
+                            f"more multi-value attributes "
+                            f"{matching_multi_value_attributes}, which is not allowed"
+                        )
+
     def check_dar_scope(self):
         logger.info("[json check] checking DAR scope")
         ldap_to_mo_json_keys = self.get_ldap_to_mo_json_keys()

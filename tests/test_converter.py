@@ -844,6 +844,73 @@ async def test_check_ldap_attributes_single_value_fields(converter: LdapConverte
             converter.check_ldap_attributes()
 
 
+async def test_check_ldap_attributes_engagement_requires_single_value_fields(
+    converter: LdapConverter,
+) -> None:
+    """
+    Verify that `LdapConverter.check_ldap_attributes` checks that all AD fields mapped
+    to a MO Engagement are indeed single-value fields. Otherwise, an `IncorrectMapping`
+    exception is raised.
+    """
+    # Much of this is copied from `test_check_ldap_attributes_single_value_fields`.
+
+    # Arrange
+    dataloader = MagicMock()
+    dataloader.load_ldap_overview.return_value = {
+        "user": {"attributes": ["attr1", "attr2", "attr3", "attr4"]}
+    }
+    mapping = {
+        "mo_to_ldap": {
+            "Engagement": {
+                "attr1": "{{ mo_employee_engagement.user_key }}",
+                "attr2": "{{ mo_employee_engagement.org_unit.uuid }}",
+                "attr3": "{{ mo_employee_engagement.engagement_type.uuid }}",
+                "attr4": "{{ mo_employee_engagement.job_function.uuid }}",
+                "cpr_field": "{{ foo }}",
+            },
+        },
+        "ldap_to_mo": {
+            "Engagement": {
+                "user_key": "ldap.user_key",
+                "org_unit": "ldap.org_unit",
+                "engagement_type": "ldap.engagement_type",
+                "job_function": "ldap.job_function",
+            },
+        },
+    }
+    converter.raw_mapping = mapping.copy()
+    converter.mapping = mapping.copy()
+
+    with patch(
+        "mo_ldap_import_export.converters.find_cpr_field",
+        return_value="cpr_field",
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.check_attributes",
+        return_value=None,
+    ), patch(
+        "mo_ldap_import_export.converters.LdapConverter.find_ldap_object_class",
+        return_value="user",
+    ):
+        # Assert
+        with pytest.raises(
+            IncorrectMapping,
+            match="LDAP Attributes mapping to 'Engagement' contain one or more "
+            "multi-value attributes .*, which is not allowed",
+        ):
+            dataloader.single_value = {
+                # *All* mapped AD fields must be multi-value to reach the relevant
+                # check.
+                "attr1": False,
+                "attr2": False,
+                "attr3": False,
+                "attr4": False,
+                "cpr_field": False,
+            }
+            converter.dataloader = dataloader
+            # Act
+            converter.check_ldap_attributes()
+
+
 async def test_check_ldap_attributes_fields_to_check(converter: LdapConverter):
 
     dataloader = MagicMock()
