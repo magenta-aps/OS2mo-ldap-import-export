@@ -370,8 +370,13 @@ class SyncTool:
             mo_object_dict["mo_employee_address"] = changed_address
 
             # Convert & Upload to LDAP
-            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dns[0])
-            ldap_object = self.move_ldap_object(ldap_object, dns[0])
+            affected_dn = await self.dataloader.find_dn_by_engagement_uuid(
+                uuid, changed_address.engagement, dns
+            )
+            ldap_object = await self.converter.to_ldap(
+                mo_object_dict, json_key, affected_dn
+            )
+            ldap_object = self.move_ldap_object(ldap_object, affected_dn)
 
             ldap_modify_responses = await self.dataloader.modify_ldap_object(
                 ldap_object,
@@ -411,8 +416,13 @@ class SyncTool:
             mo_object_dict["mo_employee_it_user"] = changed_it_user
 
             # Convert & Upload to LDAP
-            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dns[0])
-            ldap_object = self.move_ldap_object(ldap_object, dns[0])
+            affected_dn = await self.dataloader.find_dn_by_engagement_uuid(
+                uuid, changed_it_user.engagement, dns
+            )
+            ldap_object = await self.converter.to_ldap(
+                mo_object_dict, json_key, affected_dn
+            )
+            ldap_object = self.move_ldap_object(ldap_object, affected_dn)
 
             ldap_modify_responses = await self.dataloader.modify_ldap_object(
                 ldap_object,
@@ -450,8 +460,13 @@ class SyncTool:
             # We upload an engagement to LDAP regardless of its 'primary' attribute.
             # Because it looks like you cannot set 'primary' when creating an engagement
             # in the OS2mo GUI.
-            ldap_object = await self.converter.to_ldap(mo_object_dict, json_key, dns[0])
-            ldap_object = self.move_ldap_object(ldap_object, dns[0])
+            affected_dn = await self.dataloader.find_dn_by_engagement_uuid(
+                uuid, changed_engagement, dns
+            )
+            ldap_object = await self.converter.to_ldap(
+                mo_object_dict, json_key, affected_dn
+            )
+            ldap_object = self.move_ldap_object(ldap_object, affected_dn)
             ldap_modify_responses = await self.dataloader.modify_ldap_object(
                 ldap_object,
                 json_key,

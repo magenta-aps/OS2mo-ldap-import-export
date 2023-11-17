@@ -1006,6 +1006,46 @@ class DataLoader:
                 "also not be obtained"
             )
 
+    async def find_dn_by_engagement_uuid(
+        self,
+        employee_uuid: UUID,
+        engagement_uuid: UUID | None,
+        dns: DNList,
+    ) -> str | None:
+        # TODO: only get "ObjectGUID" IT systems
+        it_systems: dict = await self.load_mo_it_systems()
+
+        for it_system_uuid in it_systems:
+            it_users: list[ITUser] = await self.load_mo_employee_it_users(
+                employee_uuid,
+                it_system_uuid,
+            )
+            matching_it_users: list[ITUser] = [
+                it_user
+                for it_user in it_users
+                if (engagement_uuid is None and it_user.engagement is None)
+                or (
+                    engagement_uuid is not None
+                    and getattr(it_user.engagement, "uuid", None) == engagement_uuid
+                )
+            ]
+            if len(matching_it_users) == 1:
+                # Single match, ObjectGUID is stored in ITUser.user_key (?)
+                object_guid: UUID = UUID(matching_it_users[0].user_key)
+                dn: str = self.get_ldap_dn(object_guid)
+                assert dn in dns
+                return dn
+            elif len(matching_it_users) > 1:
+                # Multiple matches
+                raise MultipleObjectsReturnedException(
+                    f"More than one matching 'ObjectGUID' IT user found for "
+                    f"{employee_uuid=} and {engagement_uuid=}"
+                )
+
+        # If we get here, we fell through the loop without returning a hit, or raising
+        # `MultipleObjectsReturnedException`. This means no matching DN could be found.
+        return None
+
     @staticmethod
     def extract_current_or_latest_object(objects: list[dict]):
         """
@@ -1286,6 +1326,7 @@ class DataLoader:
                     }}
                     employee_uuid
                     itsystem_uuid
+                    engagement_uuid
                   }}
                 }}
               }}
@@ -1304,6 +1345,7 @@ class DataLoader:
             uuid=uuid,
             to_date=entry["validity"]["to"],
             person_uuid=entry["employee_uuid"],
+            engagement_uuid=entry["engagement_uuid"],
         )
 
     async def load_mo_address(
@@ -1328,6 +1370,7 @@ class DataLoader:
                     visibility_uuid
                     employee_uuid
                     org_unit_uuid
+                    engagement_uuid
                     person: employee {{
                       cpr_no
                     }}
@@ -1363,6 +1406,7 @@ class DataLoader:
             person_uuid=entry["employee_uuid"],
             visibility_uuid=entry["visibility_uuid"],
             org_unit_uuid=entry["org_unit_uuid"],
+            engagement_uuid=entry["engagement_uuid"],
         )
 
         return address
