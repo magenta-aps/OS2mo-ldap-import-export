@@ -20,6 +20,7 @@ from gql import gql
 from gql.transport.exceptions import TransportQueryError
 from graphql import print_ast
 from ldap3.core.exceptions import LDAPInvalidValueError
+from ramodels.mo._shared import EngagementRef
 from ramodels.mo.details.address import Address
 from ramodels.mo.details.it_system import ITUser
 from ramodels.mo.employee import Employee
@@ -2540,13 +2541,20 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
 
     # Arrange
     engagement_uuid: UUID = uuid4()
+    engagement_ref: EngagementRef = EngagementRef(uuid=engagement_uuid)
     it_system_uuid: UUID = uuid4()
     it_user_object_guid: UUID = uuid4()
     dataloader: DataLoader = DataLoader(
-        {"user_context": {"ldap_connection": MagicMock(), "gql_client": AsyncMock()}}
+        {
+            "user_context": {
+                "ldap_connection": MagicMock(),
+                "gql_client": AsyncMock(),
+                "converter": AsyncMock(),
+            }
+        }
     )
-    dataloader.load_mo_it_systems = AsyncMock()  # type: ignore
-    dataloader.load_mo_it_systems.return_value = dict.fromkeys([it_system_uuid])
+    dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
+    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = [
         ITUser.from_simplified_fields(
@@ -2563,7 +2571,7 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
 
     # Act
     dn: str | None = await dataloader.find_dn_by_engagement_uuid(
-        uuid4(), engagement_uuid, dns
+        uuid4(), engagement_ref, dns
     )
 
     # Assert
@@ -2577,13 +2585,20 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
 
     # Arrange
     engagement_uuid: UUID = uuid4()
+    engagement_ref: EngagementRef = EngagementRef(uuid=engagement_uuid)
     it_system_uuid: UUID = uuid4()
     it_user_object_guid: UUID = uuid4()
     dataloader: DataLoader = DataLoader(
-        {"user_context": {"ldap_connection": MagicMock(), "gql_client": AsyncMock()}}
+        {
+            "user_context": {
+                "ldap_connection": MagicMock(),
+                "gql_client": AsyncMock(),
+                "converter": AsyncMock(),
+            }
+        }
     )
-    dataloader.load_mo_it_systems = AsyncMock()  # type: ignore
-    dataloader.load_mo_it_systems.return_value = dict.fromkeys([it_system_uuid])
+    dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
+    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = [
         ITUser.from_simplified_fields(
@@ -2604,7 +2619,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
         match=r"More than one matching 'ObjectGUID' IT user found for .*? and .*?",
     ):
         # Act
-        await dataloader.find_dn_by_engagement_uuid(uuid4(), engagement_uuid, dns)
+        await dataloader.find_dn_by_engagement_uuid(uuid4(), engagement_ref, dns)
 
 
 async def test_find_dn_by_engagement_uuid_returns_none_if_no_hits() -> None:
@@ -2614,18 +2629,25 @@ async def test_find_dn_by_engagement_uuid_returns_none_if_no_hits() -> None:
 
     # Arrange
     engagement_uuid: UUID = uuid4()
+    engagement_ref: EngagementRef = EngagementRef(uuid=engagement_uuid)
     it_system_uuid: UUID = uuid4()
     dataloader: DataLoader = DataLoader(
-        {"user_context": {"ldap_connection": MagicMock(), "gql_client": AsyncMock()}}
+        {
+            "user_context": {
+                "ldap_connection": MagicMock(),
+                "gql_client": AsyncMock(),
+                "converter": AsyncMock(),
+            }
+        }
     )
-    dataloader.load_mo_it_systems = AsyncMock()  # type: ignore
-    dataloader.load_mo_it_systems.return_value = dict.fromkeys([it_system_uuid])
+    dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
+    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = []
 
     # Act
     result = await dataloader.find_dn_by_engagement_uuid(
-        uuid4(), engagement_uuid, MagicMock()
+        uuid4(), engagement_ref, MagicMock()
     )
 
     # Assert
