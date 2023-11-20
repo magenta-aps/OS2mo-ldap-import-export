@@ -407,7 +407,7 @@ class LdapConverter:
                     )
 
                 if json_key == "Engagement":
-                    if len(matching_single_value_attributes) != len(fields_to_check):
+                    if len(matching_multi_value_attributes) > 0:
                         raise IncorrectMapping(
                             f"LDAP Attributes mapping to 'Engagement' contain one or "
                             f"more multi-value attributes "
