@@ -1014,7 +1014,7 @@ class DataLoader:
         dns: DNList,
     ) -> str:
         if len(dns) == 1:
-           return dns[0]  
+            return dns[0]
         engagement_uuid: UUID | None = getattr(engagement, "uuid", None)
         ldap_it_system_uuid: UUID = self.get_ldap_it_system_uuid()
 
