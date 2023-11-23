@@ -2534,6 +2534,31 @@ def test_move_ldap_object(dataloader: DataLoader):
         dataloader.move_ldap_object("CN=foo,OU=old_ou", "CN=foo,OU=new_ou")
 
 
+async def test_find_dn_by_engagement_uuid_uses_single_dn() -> None:
+    """If passed a single-item `dns` list, simply return the first (and only) DN in that
+    list.
+    """
+
+    # Arrange
+    dataloader: DataLoader = DataLoader(
+        {
+            "user_context": {
+                "ldap_connection": MagicMock(),
+                "gql_client": AsyncMock(),
+                "converter": AsyncMock(),
+            }
+        }
+    )
+    # Act
+    dn: str = await dataloader.find_dn_by_engagement_uuid(
+        MagicMock(),
+        MagicMock(),
+        ["CN=foo"],
+    )
+    # Assert
+    assert dn == "CN=foo"
+
+
 async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
     # We can't use the `dataloader` fixture here, as we are testing
     # `DataLoader.find_dn_by_engagement_uuid` itself (which is mocked by the
@@ -2651,3 +2676,37 @@ async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits() -> None:
         await dataloader.find_dn_by_engagement_uuid(
             uuid4(), engagement_ref, MagicMock()
         )
+
+
+async def test_find_mo_engagement_uuid(dataloader: DataLoader) -> None:
+    """Check that `find_mo_engagement_uuid` returns the expected engagement UUID, by
+    looking at any previously created "ADGUID" `ITUser` objects in MO for the given
+    employee.
+    """
+
+    # Arrange
+    object_guid: UUID = uuid4()
+    engagement_uuid: UUID = uuid4()
+    mock_ldap_object: LdapObject = LdapObject(
+        dn="CN=foo", objectGUID=f"{{{object_guid}}}"
+    )
+    mock_mo_it_user: dict = {
+        "itsystem": {"uuid": dataloader.get_ldap_it_system_uuid()},
+        "engagement": [{"uuid": engagement_uuid}],
+    }
+    mock_mo_response: dict = {"itusers": {"objects": [{"current": mock_mo_it_user}]}}
+    with patch.object(dataloader, "load_ldap_object", return_value=mock_ldap_object):
+        with patch.object(dataloader, "query_mo", return_value=mock_mo_response):
+            # Act
+            actual_engagement_uuid = await dataloader.find_mo_engagement_uuid("CN=foo")
+            # Assert
+            assert actual_engagement_uuid == engagement_uuid
+
+    # Test behavior if MO has no IT users for the given employee
+    mock_mo_response = {"itusers": {"objects": []}}
+    with patch.object(dataloader, "load_ldap_object", return_value=mock_ldap_object):
+        with patch.object(dataloader, "query_mo", return_value=mock_mo_response):
+            # Act
+            empty = await dataloader.find_mo_engagement_uuid("CN=foo")
+            # Assert
+            assert empty is None

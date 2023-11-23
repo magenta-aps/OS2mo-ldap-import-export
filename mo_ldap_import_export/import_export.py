@@ -825,8 +825,6 @@ class SyncTool:
             logger.info("[Import-single-user]" + str(e), dn=dn)
             return
 
-        current_engagement_uuid: UUID | None = None
-
         logger.info(
             "[Import-single-user] Importing user.",
             dn=dn,
@@ -850,6 +848,17 @@ class SyncTool:
             )
             employee_uuid = uuid4()
 
+        # Get the employee's engagement UUID (for the engagement matching the employee's
+        # AD ObjectGUID.) This depends on whether the "ADGUID" field mapping is set up
+        # to map the engagement UUID into MO, so that when `import_single_user` creates
+        # or updates a MO `ITUser` for "ADGUID", the relevant engagement UUID is used.
+        engagement_uuid: UUID | None = await self.dataloader.find_mo_engagement_uuid(dn)
+        if engagement_uuid is None:
+            logger.info(
+                "[Import-single-user] Engagement UUID not found in MO.",
+                dn=dn,
+            )
+
         # First import the Employee.
         # Then import the Engagement, if present in `detected_json_keys`.
         # Then finally import any other objects (Address, ITUser, etc.) which link to
@@ -860,21 +869,13 @@ class SyncTool:
         json_keys = priority_keys + [
             k for k in detected_json_keys if k not in priority_keys
         ]
-        skip_keys: set = set()  # Empty set of JSON keys to skip in for-loop
+        # skip_keys: set = set()  # Empty set of JSON keys to skip in for-loop
 
         for json_key in json_keys:
             try:
                 await self.perform_import_checks(dn, json_key)
             except IgnoreChanges as e:
                 logger.info(f"[Import-single-user] {e}", dn=dn)
-                continue
-
-            if json_key in skip_keys:
-                logger.info(
-                    "[Import-single-user] Skipping JSON key",
-                    json_key=json_key,
-                    dn=dn,
-                )
                 continue
 
             if not self.converter._import_to_mo_(json_key, manual_import):
@@ -903,18 +904,11 @@ class SyncTool:
                 loaded_object,
                 json_key,
                 employee_uuid=employee_uuid,
-                engagement_uuid=current_engagement_uuid,
+                engagement_uuid=engagement_uuid,
             )
 
             if len(converted_objects) == 0:
                 logger.info("[Import-single-user] No converted objects", dn=dn)
-                # If we are currently importing an Engagement, but that fails for some
-                # reason, don't import other addresses or IT users. This should only
-                # happen if the JSON mapping maps an `EngagementRef` from AD to MO.
-                if json_key == "Engagement" and self.converter.attribute_is_mapped(
-                    "Engagement", "engagement_uuid"
-                ):
-                    skip_keys.update({"Address", "ITUser"})
                 continue
             else:
                 logger.info(
@@ -966,10 +960,10 @@ class SyncTool:
                     for mo_object in converted_objects:
                         self.uuids_to_ignore.add(mo_object.uuid)
                         if json_key == "Engagement":
-                            current_engagement_uuid = mo_object.uuid
+                            engagement_uuid = mo_object.uuid
                             logger.info(
                                 "[Import-single-user] Saving engagement UUID for DN",
-                                engagement_uuid=current_engagement_uuid,
+                                engagement_uuid=engagement_uuid,
                                 dn=dn,
                             )
                     try:

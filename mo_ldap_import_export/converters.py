@@ -18,7 +18,6 @@ from jinja2 import Environment
 from jinja2 import exceptions as jinja_exceptions
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ldap3.utils.dn import parse_dn
-from ramodels.mo import MOBase
 from ramodels.mo.organisation_unit import OrganisationUnit
 from ramqp.utils import RequeueMessage
 
@@ -1145,7 +1144,11 @@ class LdapConverter:
                 }
             )
             mo_dict = {}
-            context = {"ldap": ldap_dict, "employee_uuid": str(employee_uuid)}
+            context = {
+                "ldap": ldap_dict,
+                "employee_uuid": str(employee_uuid),
+                "engagement_uuid": str(engagement_uuid) if engagement_uuid else None,
+            }
             try:
                 mapping = self.mapping["ldap_to_mo"]
             except KeyError:
@@ -1177,7 +1180,8 @@ class LdapConverter:
                     except JSONDecodeError:
                         raise IncorrectMapping(
                             f"Could not convert {value} in "
-                            f"{json_key}['{mo_field_name}'] to dict"
+                            f"{json_key}['{mo_field_name}'] to dict "
+                            f"(context={context!r})"
                         )
 
                 if value:
@@ -1185,8 +1189,6 @@ class LdapConverter:
 
             mo_class: Any = self.import_mo_object_class(json_key)
             required_attributes = self.get_required_attributes(mo_class)
-
-            mo_dict = self._add_engagement_uuid(mo_dict, mo_class, engagement_uuid)
 
             # If all required attributes are present:
             if all(a in mo_dict for a in required_attributes):
@@ -1204,41 +1206,3 @@ class LdapConverter:
                 )
 
         return converted_objects
-
-    def _add_engagement_uuid(
-        self, mo_dict: dict, mo_class: type[MOBase], engagement_uuid: UUID | None
-    ) -> dict:
-        """
-        Add engagement UUID to `mo_dict`, if provided.
-        """
-        schema_defs: dict = mo_class.schema()["definitions"]
-        if engagement_uuid is not None and "EngagementRef" in schema_defs:
-            mo_dict["engagement"] = {"uuid": engagement_uuid}
-            logger.debug(
-                "Added engagement_uuid to mo_dict",
-                engagement_uuid=engagement_uuid,
-                mo_dict=mo_dict,
-            )
-        return mo_dict
-
-    def attribute_is_mapped(self, json_key: str, attr: str) -> bool:
-        ldap_to_mo: dict = self.raw_mapping["ldap_to_mo"]
-
-        # `json_key` must be in `ldap_to_mo` configuration
-        if json_key not in ldap_to_mo:
-            raise IncorrectMapping(
-                f"Expected {json_key} in 'ldap_to_mo' keys {ldap_to_mo.keys()}"
-            )
-
-        # Check if 'attr` is mapped in any of the *other* objects (apart from `json_key`)
-        key: str
-        mapping: dict | None
-        for key, mapping in ldap_to_mo.items():
-            if mapping is not None:
-                mo_field: str
-                template: str
-                for mo_field, template in mapping.items():
-                    if key != json_key:
-                        if attr in template:
-                            return True
-        return False

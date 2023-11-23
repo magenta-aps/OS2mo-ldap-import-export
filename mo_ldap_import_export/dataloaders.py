@@ -24,6 +24,7 @@ from ramodels.mo.details.engagement import Engagement
 from ramodels.mo.details.it_system import ITUser
 from ramodels.mo.employee import Employee
 
+from .environments import filter_remove_curly_brackets
 from .exceptions import AttributeNotFound
 from .exceptions import DNNotFound
 from .exceptions import InvalidChangeDict
@@ -839,6 +840,42 @@ class DataLoader:
 
         result = await self.query_mo(query, raise_if_empty=False)
         return self._return_mo_employee_uuid_result(result)
+
+    async def find_mo_engagement_uuid(self, dn: str) -> None | UUID:
+        # Get ObjectGUID from DN, then get engagement by looking for IT user with that
+        # ObjectGUID in MO.
+
+        ldap_object = self.load_ldap_object(dn, ["objectGUID"])
+
+        query = gql(
+            """
+            query FindEngagementUUID($objectGUID: String!) {
+              itusers(user_keys: [$objectGUID]) {
+                objects {
+                  current {
+                    engagement { uuid }
+                    itsystem { uuid }
+                  }
+                }
+              }
+            }
+            """
+        )
+
+        result = await self.query_mo(
+            query,
+            variable_values={  # type: ignore
+                "objectGUID": filter_remove_curly_brackets(ldap_object.objectGUID),
+            },
+            raise_if_empty=False,
+        )
+
+        for it_user in result["itusers"]["objects"]:
+            obj = it_user["current"]
+            if obj["itsystem"]["uuid"] == self.get_ldap_it_system_uuid():
+                return obj["engagement"][0]["uuid"]  # type: ignore
+
+        return None
 
     def get_ldap_it_system_uuid(self):
         """

@@ -20,8 +20,6 @@ from jinja2 import Undefined
 from pydantic import parse_obj_as
 from pydantic import ValidationError
 from ramodels.mo import Employee
-from ramodels.mo.details import Address
-from ramodels.mo.details import ITUser
 from ramqp.utils import RequeueMessage
 from structlog.testing import capture_logs
 
@@ -336,20 +334,34 @@ async def test_ldap_to_mo_uses_engagement_uuid(converter: LdapConverter) -> None
     Passing an optional `engagement_uuid` to `from_ldap` should inject the engagement
     UUID in the returned MO object (if that object is an `Address` or `ITUser`.)
     """
+
+    # Arrange
     employee_uuid: UUID = uuid4()
     engagement_uuid: UUID = uuid4()
-    result = await converter.from_ldap(
-        LdapObject(
-            dn="",
-            mail="foo@bar.dk",
-            mail_validity_from=datetime.datetime(2019, 1, 1, 0, 10, 0),
-        ),
-        "Email",
-        employee_uuid,
-        engagement_uuid=engagement_uuid,
-    )
-    address: Address = result[0]
-    assert address.engagement.uuid == engagement_uuid  # type: ignore
+    # Arrange: replace the 'render_async' method on one of the field templates with a
+    # mock, so we can test the arguments passed to it.
+    with patch.object(
+        converter.mapping["ldap_to_mo"]["Email"]["value"],
+        "render_async",
+        return_value="<value>",
+    ) as mock_render_async:
+        # Act
+        await converter.from_ldap(
+            LdapObject(
+                dn="",
+                mail="foo@bar.dk",
+                mail_validity_from=datetime.datetime(2019, 1, 1, 0, 10, 0),
+            ),
+            "Email",
+            employee_uuid,
+            engagement_uuid=engagement_uuid,
+        )
+        # Assert: check that `render_async` was awaited
+        mock_render_async.assert_awaited_once()
+        # Assert: check actual engagement UUID vs. the one passed to `from_ldap`
+        context: dict = mock_render_async.await_args.args[0]  # type: ignore
+        actual_engagement_uuid: UUID = UUID(context["engagement_uuid"])
+        assert actual_engagement_uuid == engagement_uuid
 
 
 async def test_mo_to_ldap(converter: LdapConverter) -> None:
@@ -1096,6 +1108,13 @@ async def test_get_job_function_uuid(converter: LdapConverter):
         await converter.get_or_create_job_function_uuid([])  # type: ignore
 
 
+async def test_get_org_unit_name(converter: LdapConverter) -> None:
+    org_unit_uuid: str = str(uuid4())
+    converter.org_unit_info = {org_unit_uuid: {"name": "Name"}}
+    name = await converter.get_org_unit_name(org_unit_uuid)
+    assert name == "Name"
+
+
 async def test_get_engagement_type_uuid(converter: LdapConverter):
     uuid1 = str(uuid4())
     uuid2 = str(uuid4())
@@ -1840,65 +1859,3 @@ def test_unutilized_init_elements(converter: LdapConverter) -> None:
     )
     with pytest.raises(ValidationError, match="Unutilized elements in init"):
         parse_obj_as(ConversionMapping, converter.raw_mapping)
-
-
-@pytest.mark.parametrize(
-    "mo_class,engagement_uuid,expected_uuid",
-    [
-        (Address, None, False),
-        (Address, uuid4(), True),
-        (ITUser, None, False),
-        (ITUser, uuid4(), True),
-    ],
-)
-def test_add_engagement_uuid(
-    converter: LdapConverter,
-    mo_class: type[Address] | type[ITUser],
-    engagement_uuid: UUID,
-    expected_uuid: bool,
-) -> None:
-    """
-    Verify that `LdapConverter._add_engagement_uuid` adds an engagement UUID, if the
-    MO object is an `Address` or an `ITUser`.
-    """
-    result: dict = converter._add_engagement_uuid({}, mo_class, engagement_uuid)
-    if expected_uuid:
-        assert result["engagement"]["uuid"] == engagement_uuid
-    else:
-        assert "engagement" not in result
-
-
-@pytest.mark.parametrize(
-    "expr,expected_result",
-    [
-        ("{{ engagement_uuid }}", True),
-        ("{{ foobar }}", False),
-    ],
-)
-def test_attribute_is_mapped(
-    converter: LdapConverter,
-    expr: str,
-    expected_result: bool,
-) -> None:
-    """
-    Verify that `attribute_is_mapped` returns True if the attribute is mapped, and False
-    otherwise.
-    """
-
-    # This key expected to be present, its value is not relevant
-    converter.raw_mapping["ldap_to_mo"]["Engagement"] = None
-
-    # Add field on other object which uses `engagement_uuid` (or not)
-    converter.raw_mapping["ldap_to_mo"]["Email"]["mo_field_name"] = expr
-
-    result: bool = converter.attribute_is_mapped("Engagement", "engagement_uuid")
-    assert result is expected_result
-
-
-def test_attribute_is_mapped_raises_incorrectmapping(converter: LdapConverter) -> None:
-    """
-    Verify that `attribute_is_mapped` raises `IncorrectMapping` if the passed `json_key`
-    is not mapped in `ldap_to_mo`.
-    """
-    with pytest.raises(IncorrectMapping):
-        converter.attribute_is_mapped("Non-existent key", "unused")
