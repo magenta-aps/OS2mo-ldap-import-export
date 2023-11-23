@@ -2622,7 +2622,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
         await dataloader.find_dn_by_engagement_uuid(uuid4(), engagement_ref, dns)
 
 
-async def test_find_dn_by_engagement_uuid_returns_none_if_no_hits() -> None:
+async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits() -> None:
     # We can't use the `dataloader` fixture here, as we are testing
     # `DataLoader.find_dn_by_engagement_uuid` itself (which is mocked by the
     # `dataloader` fixture.)
@@ -2645,10 +2645,9 @@ async def test_find_dn_by_engagement_uuid_returns_none_if_no_hits() -> None:
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = []
 
-    # Act
-    result = await dataloader.find_dn_by_engagement_uuid(
-        uuid4(), engagement_ref, MagicMock()
-    )
-
     # Assert
-    assert result is None
+    with pytest.raises(NoObjectsReturnedException):
+        # Act
+        await dataloader.find_dn_by_engagement_uuid(
+            uuid4(), engagement_ref, MagicMock()
+        )
