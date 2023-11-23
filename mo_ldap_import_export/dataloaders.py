@@ -1012,7 +1012,9 @@ class DataLoader:
         employee_uuid: UUID,
         engagement: EngagementRef,
         dns: DNList,
-    ) -> str | None:
+    ) -> str:
+        if len(dns) == 1:
+           return dns[0]  
         engagement_uuid: UUID | None = getattr(engagement, "uuid", None)
         ldap_it_system_uuid: UUID = self.get_ldap_it_system_uuid()
 
@@ -1053,7 +1055,7 @@ class DataLoader:
                 engagement_uuid=engagement_uuid,
                 it_users=it_users,
             )
-            return None
+            raise NoObjectsReturnedException("Could not find any matching IT users")
 
     @staticmethod
     def extract_current_or_latest_object(objects: list[dict]):
