@@ -832,7 +832,9 @@ class LdapConverter:
             except UUIDNotFoundException:
                 logger.info(f"Importing {partial_path_string}")
 
-                if nesting_level == 0:
+                if org_unit_path_string in self.settings.org_unit_parent_map:
+                    parent_uuid = self.settings.org_unit_parent_map[org_unit_path_string]
+                elif nesting_level == 0:
                     parent_uuid = await self.dataloader.load_mo_root_org_uuid()
                 else:
                     parent_path = org_unit_path[:nesting_level]

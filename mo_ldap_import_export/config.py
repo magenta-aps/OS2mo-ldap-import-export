@@ -4,6 +4,7 @@
 """Settings handling."""
 from typing import Any
 from typing import Literal
+from uuid import UUID
 
 from fastramqpi.config import Settings as FastRAMQPISettings
 from pydantic import AnyHttpUrl
@@ -383,6 +384,10 @@ class Settings(BaseSettings):
 
     org_unit_path_string_separator: str = Field(
         "\\", description="separator for full paths to org units in LDAP"
+    )
+
+    org_unit_parent_map: dict[str, UUID] = Field(
+        {}, description="Hard-coded parents for LDAP DNs"
     )
 
     poll_time: float = Field(
