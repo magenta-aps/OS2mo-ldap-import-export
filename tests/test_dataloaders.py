@@ -1812,7 +1812,7 @@ async def test_find_or_make_mo_employee_dn(
     # Case where there is an IT-system that contains the DN
     dataloader.load_mo_employee.return_value = Employee(cpr_no=None)
     dataloader.load_mo_employee_it_users.return_value = []
-    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
+    dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
     dataloader.extract_unique_dns.return_value = ["CN=foo,DC=bar"]
     dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
     assert dns == ["CN=foo,DC=bar"]
@@ -2579,7 +2579,7 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
         }
     )
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
-    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
+    dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = [
         ITUser.from_simplified_fields(
@@ -2623,7 +2623,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
         }
     )
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
-    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
+    dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = [
         ITUser.from_simplified_fields(
@@ -2666,7 +2666,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits() -> None:
         }
     )
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
-    dataloader.get_ldap_it_system_uuid.return_value = it_system_uuid
+    dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee_it_users.return_value = []
 
@@ -2692,7 +2692,7 @@ async def test_find_mo_engagement_uuid(dataloader: DataLoader) -> None:
     )
     mock_mo_it_user: dict = {
         "itsystem": {"uuid": dataloader.get_ldap_it_system_uuid()},
-        "engagement": [{"uuid": engagement_uuid}],
+        "engagement": [{"uuid": str(engagement_uuid)}],
     }
     mock_mo_response: dict = {"itusers": {"objects": [{"current": mock_mo_it_user}]}}
     with patch.object(dataloader, "load_ldap_object", return_value=mock_ldap_object):

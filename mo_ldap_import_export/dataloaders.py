@@ -877,7 +877,7 @@ class DataLoader:
 
         return None
 
-    def get_ldap_it_system_uuid(self) -> str:
+    def get_ldap_it_system_uuid(self) -> str | None:
         """
         Return the IT system uuid belonging to the LDAP-it-system
         Return None if the LDAP-it-system is not found.
@@ -885,7 +885,7 @@ class DataLoader:
         converter = self.user_context["converter"]
         user_key = self.user_context["ldap_it_system_user_key"]
         try:
-            return converter.get_it_system_uuid(user_key)
+            return cast(str, converter.get_it_system_uuid(user_key))
         except UUIDNotFoundException:
             logger.info(
                 "[Get-ldap-it-system-uuid] UUID Not found.",
@@ -957,12 +957,14 @@ class DataLoader:
             employee_uuid=uuid,
         )
         username_generator = self.user_context["username_generator"]
-        it_system_uuid = self.get_ldap_it_system_uuid()
+        raw_it_system_uuid: str | None = self.get_ldap_it_system_uuid()
+        if raw_it_system_uuid is not None:
+            it_system_uuid: UUID = UUID(raw_it_system_uuid)
 
         # The LDAP-it-system only exists, if it was configured as such in OS2mo-init.
         # It is not strictly needed; If we purely rely on cpr-lookup we can live
         # without it
-        ldap_it_system_exists = True if it_system_uuid else False
+        ldap_it_system_exists = True if raw_it_system_uuid else False
 
         if ldap_it_system_exists:
             it_users = await self.load_mo_employee_it_users(uuid, it_system_uuid)
