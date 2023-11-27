@@ -873,13 +873,13 @@ class DataLoader:
         for it_user in result["itusers"]["objects"]:
             obj = it_user["current"]
             if obj["itsystem"]["uuid"] == self.get_ldap_it_system_uuid():
-                return obj["engagement"][0]["uuid"]  # type: ignore
+                return UUID(obj["engagement"][0]["uuid"])
 
         return None
 
-    def get_ldap_it_system_uuid(self):
+    def get_ldap_it_system_uuid(self) -> str:
         """
-        Return the ID system uuid belonging to the LDAP-it-system
+        Return the IT system uuid belonging to the LDAP-it-system
         Return None if the LDAP-it-system is not found.
         """
         converter = self.user_context["converter"]
@@ -1053,7 +1053,7 @@ class DataLoader:
         if len(dns) == 1:
             return dns[0]
         engagement_uuid: UUID | None = getattr(engagement, "uuid", None)
-        ldap_it_system_uuid: UUID = self.get_ldap_it_system_uuid()
+        ldap_it_system_uuid: UUID = UUID(self.get_ldap_it_system_uuid())
 
         it_users: list[ITUser] = await self.load_mo_employee_it_users(
             employee_uuid,
@@ -1070,7 +1070,7 @@ class DataLoader:
         ]
 
         if len(matching_it_users) == 1:
-            # Single match, ObjectGUID is stored in ITUser.user_key (?)
+            # Single match, ObjectGUID is stored in ITUser.user_key
             object_guid: UUID = UUID(matching_it_users[0].user_key)
             dn: str = self.get_ldap_dn(object_guid)
             assert dn in dns
