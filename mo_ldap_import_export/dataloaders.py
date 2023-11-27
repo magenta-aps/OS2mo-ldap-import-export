@@ -873,7 +873,8 @@ class DataLoader:
         for it_user in result["itusers"]["objects"]:
             obj = it_user["current"]
             if obj["itsystem"]["uuid"] == self.get_ldap_it_system_uuid():
-                return UUID(obj["engagement"][0]["uuid"])
+                if obj["engagement"] is not None and len(obj["engagement"]) > 0:
+                    return UUID(obj["engagement"][0]["uuid"])
 
         return None
 
