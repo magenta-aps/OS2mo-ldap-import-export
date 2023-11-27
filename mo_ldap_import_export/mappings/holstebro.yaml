@@ -58,6 +58,7 @@ ldap_to_mo:
     itsystem: '{{ dict(uuid=get_it_system_uuid(''Active Directory'')) }}'
     validity: '{{ dict(from_date=now()|mo_datestring) }}'
     person: '{{ dict(uuid=employee_uuid) }}'
+    engagement: '{{ dict(uuid=engagement_uuid) }}'
   Custom:
     objectClass: Custom.JobTitleFromADToMO
     _import_to_mo_: "true"
