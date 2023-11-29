@@ -25,6 +25,7 @@ ldap_to_mo:
     surname: '{{ldap.sn}}'
     cpr_no: '{{ldap.employeeID|strip_non_digits or NONE}}'
     uuid: '{{ employee_uuid or NONE }}'
+    validity: '{{ dict(from_date=now()|mo_datestring) }}'
   # Note: This key needs to be a valid MO IT-system user_key*
   # Note2: An "Active Directory" IT system is needed in case LDAP objects do not
   # Contain CPR-numbers. Its user_key attribute must link to ldap.distinguishedName

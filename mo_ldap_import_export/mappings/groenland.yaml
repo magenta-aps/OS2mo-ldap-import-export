@@ -16,6 +16,7 @@ ldap_to_mo:
     _import_to_mo_: "true"
     givenname: '{{ldap.name|splitlast|first if '' '' in ldap.name else ldap.name}}'
     surname: '{{ldap.name|splitlast|last if '' '' in ldap.name else ''''}}'
+    validity: '{{ dict(from_date=now()|mo_datestring) }}'
     uuid: '{{ employee_uuid or NONE }}'
   ADGUID:
     objectClass: ramodels.mo.details.it_system.ITUser
