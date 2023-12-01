@@ -916,6 +916,14 @@ class SyncTool:
                     n=len(converted_objects),
                     dn=dn,
                 )
+                for mo_object in converted_objects:
+                    if json_key == "Engagement":
+                        engagement_uuid = mo_object.uuid
+                        logger.info(
+                            "[Import-single-user] Saving engagement UUID for DN",
+                            engagement_uuid=engagement_uuid,
+                            dn=dn,
+                        )
 
             try:
                 converted_objects = await self.format_converted_objects(
@@ -959,13 +967,6 @@ class SyncTool:
                 else:
                     for mo_object in converted_objects:
                         self.uuids_to_ignore.add(mo_object.uuid)
-                        if json_key == "Engagement":
-                            engagement_uuid = mo_object.uuid
-                            logger.info(
-                                "[Import-single-user] Saving engagement UUID for DN",
-                                engagement_uuid=engagement_uuid,
-                                dn=dn,
-                            )
                     try:
                         await self.dataloader.upload_mo_objects(converted_objects)
                     except HTTPStatusError as e:
