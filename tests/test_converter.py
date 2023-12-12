@@ -1114,6 +1114,11 @@ async def test_get_job_function_uuid(converter: LdapConverter):
     with pytest.raises(UUIDNotFoundException):
         await converter.get_or_create_job_function_uuid([])  # type: ignore
 
+    # Test that a provided `default` is used if the value of `job_function` is falsy.
+    assert await converter.get_or_create_job_function_uuid(
+        "", default="Default"
+    ) == str(uuid)
+
 
 async def test_get_org_unit_name(converter: LdapConverter) -> None:
     org_unit_uuid: str = str(uuid4())
