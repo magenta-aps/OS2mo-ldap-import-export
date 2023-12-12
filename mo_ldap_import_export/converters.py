@@ -683,14 +683,15 @@ class LdapConverter:
         job_function: str,
         default: str | None = None,
     ) -> str:
-        if (default is None) and (not job_function):
-            raise UUIDNotFoundException("job_function is empty")
-        elif default is not None:
-            logger.info(
-                "job_function is empty, using provided default",
-                default=default,
-            )
-            job_function = default
+        if not job_function:
+            if default is None:
+                raise UUIDNotFoundException("job_function is empty")
+            else:
+                logger.info(
+                    "job_function is empty, using provided default",
+                    default=default,
+                )
+                job_function = default
         try:
             return self.get_job_function_uuid(job_function)
         except UUIDNotFoundException:
