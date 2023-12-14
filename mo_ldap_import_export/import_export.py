@@ -1007,12 +1007,13 @@ class SyncTool:
                 if json_key == "Custom":
                     for obj, verb in converted_objects:
                         job_list = await obj.sync_to_mo(self.context)
-                        for job in job_list:
-                            self.uuids_to_ignore.add(job["uuid_to_ignore"])
-                            await self.context["graphql_session"].execute(
-                                document=job["document"],
-                                variable_values=job["variable_values"],
-                            )
+                        async with self.context["graphql_client"] as session:
+                            for job in job_list:
+                                self.uuids_to_ignore.add(job["uuid_to_ignore"])
+                                await session.execute(
+                                    document=job["document"],
+                                    variable_values=job["variable_values"],
+                                )
 
                 else:
                     for mo_object, verb in converted_objects:

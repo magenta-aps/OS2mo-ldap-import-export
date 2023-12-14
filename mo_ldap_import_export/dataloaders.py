@@ -171,10 +171,11 @@ class DataLoader:
     async def query_mo(
         self, query: DocumentNode, raise_if_empty: bool = True, variable_values={}
     ):
-        graphql_session: AsyncClientSession = self.user_context["gql_client"]
-        result = await graphql_session.execute(
-            query, variable_values=jsonable_encoder(variable_values)
-        )
+        graphql_client: AsyncClientSession = self.user_context["gql_client"]
+        async with graphql_client as session:
+            result = await session.execute(
+                query, variable_values=jsonable_encoder(variable_values)
+            )
         if raise_if_empty:
             self._check_if_empty(result)
         return result

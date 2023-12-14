@@ -76,6 +76,9 @@ def ldap_connection(ldap_attributes: dict) -> Iterator[MagicMock]:
 
 @pytest.fixture
 def gql_client() -> Iterator[AsyncMock]:
+    gql_session = AsyncMock()
+    gql_client = AsyncMock()
+    gql_client.__aenter__.return_value = gql_session
     yield AsyncMock()
 
 
@@ -447,7 +450,7 @@ async def test_load_mo_employee(dataloader: DataLoader, gql_client: AsyncMock) -
     cpr_no = "1407711900"
     uuid = uuid4()
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "employees": {
             "objects": [
                 {
@@ -573,7 +576,7 @@ async def test_load_mo_address_types(
     uuid = uuid4()
     name = "Email"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "name": name}]}},
@@ -592,7 +595,7 @@ async def test_load_mo_primary_types(
     uuid = uuid4()
     value_key = "primary"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "value_key": value_key}]}},
@@ -611,7 +614,7 @@ async def test_load_mo_job_functions(
     uuid = uuid4()
     name = "Manager"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "name": name}]}},
@@ -630,7 +633,7 @@ async def test_load_mo_visibility(
     uuid = uuid4()
     name = "Hemmelig"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "name": name}]}},
@@ -649,7 +652,7 @@ async def test_load_mo_engagement_types(
     uuid = uuid4()
     name = "Ansat"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "name": name}]}},
@@ -668,7 +671,7 @@ async def test_load_mo_org_unit_types(
     uuid = uuid4()
     name = "Direktørområde"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "name": name}]}},
@@ -687,7 +690,7 @@ async def test_load_mo_org_unit_levels(
     uuid = uuid4()
     name = "N1"
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "facets": {
             "objects": [
                 {"current": {"classes": [{"uuid": uuid, "name": name}]}},
@@ -704,7 +707,9 @@ async def test_load_mo_address_no_valid_addresses(
 ) -> None:
     uuid = uuid4()
 
-    gql_client.execute.return_value = {"addresses": {"objects": []}}
+    (await gql_client.__aenter__()).execute.return_value = {
+        "addresses": {"objects": []}
+    }
 
     with pytest.raises(NoObjectsReturnedException):
         await asyncio.gather(dataloader.load_mo_address(uuid))
@@ -737,7 +742,7 @@ async def test_load_mo_address(dataloader: DataLoader, gql_client: AsyncMock) ->
     address_dict["org_unit_uuid"] = uuid
     address_dict["engagement_uuid"] = uuid
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "addresses": {
             "objects": [
                 {"objects": [address_dict]},
@@ -806,7 +811,7 @@ async def test_load_mo_employee_addresses(
     address1_uuid = uuid4()
     address2_uuid = uuid4()
 
-    gql_client.execute.return_value = {
+    (await gql_client.__aenter__()).execute.return_value = {
         "employees": {
             "objects": [
                 {
@@ -841,7 +846,9 @@ async def test_load_mo_employee_addresses_not_found(
     dataloader: DataLoader, gql_client: AsyncMock
 ):
 
-    gql_client.execute.return_value = {"employees": {"objects": []}}
+    (await gql_client.__aenter__()).execute.return_value = {
+        "employees": {"objects": []}
+    }
 
     with pytest.raises(NoObjectsReturnedException):
         await asyncio.gather(
@@ -867,8 +874,7 @@ async def test_find_mo_employee_uuid(dataloader: DataLoader, gql_client: AsyncMo
             },
             "itusers": {"objects": []},
         }
-
-        gql_client.execute.return_value = return_value
+        (await gql_client.__aenter__()).execute.return_value = return_value
 
         output = await asyncio.gather(
             dataloader.find_mo_employee_uuid("CN=foo"),
@@ -889,7 +895,7 @@ async def test_find_mo_employee_uuid(dataloader: DataLoader, gql_client: AsyncMo
             }
         }
 
-        gql_client.execute.return_value = return_value
+        (await gql_client.__aenter__()).execute.return_value = return_value
 
         output = await asyncio.gather(dataloader.find_mo_employee_uuid("CN=foo"))
         assert output[0] == uuid
@@ -905,7 +911,7 @@ async def test_find_mo_employee_uuid_not_found(
             dn="CN=foo", employeeID="0101011221", objectGUID=str(uuid4())
         ),
     ):
-        gql_client.execute.return_value = {
+        (await gql_client.__aenter__()).execute.return_value = {
             "employees": {"objects": []},
             "itusers": {"objects": []},
         }
@@ -925,7 +931,7 @@ async def test_find_mo_employee_uuid_multiple_matches(
             dn="CN=foo", employeeID="0101011221", objectGUID=str(uuid4())
         ),
     ):
-        gql_client.execute.return_value = {
+        (await gql_client.__aenter__()).execute.return_value = {
             "employees": {"objects": [{"uuid": uuid4()}, {"uuid": uuid4()}]},
             "itusers": {"objects": []},
         }
@@ -937,7 +943,9 @@ async def test_find_mo_employee_uuid_multiple_matches(
 async def test_load_mo_employee_not_found(
     dataloader: DataLoader, gql_client: AsyncMock
 ):
-    gql_client.execute.return_value = {"employees": {"objects": []}}
+    (await gql_client.__aenter__()).execute.return_value = {
+        "employees": {"objects": []}
+    }
 
     uuid = uuid4()
 
@@ -950,7 +958,7 @@ async def test_load_mo_employee_not_found(
 async def test_load_mo_address_types_not_found(
     dataloader: DataLoader, gql_client: AsyncMock
 ):
-    gql_client.execute.return_value = {"facets": {"objects": []}}
+    (await gql_client.__aenter__()).execute.return_value = {"facets": {"objects": []}}
 
     assert await dataloader.load_mo_employee_address_types() == {}
     assert await dataloader.load_mo_org_unit_address_types() == {}
@@ -969,7 +977,7 @@ async def test_load_mo_it_systems(dataloader: DataLoader, gql_client: AsyncMock)
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     output = await dataloader.load_mo_it_systems()
     assert output[uuid1]["user_key"] == "AD"
@@ -997,7 +1005,7 @@ async def test_load_mo_org_units(dataloader: DataLoader, gql_client: AsyncMock):
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     output = await dataloader.load_mo_org_units()
     assert output[uuid1]["name"] == "Magenta Aps"
@@ -1011,7 +1019,7 @@ async def test_load_mo_org_units_empty_response(
 
     return_value: dict = {"org_units": {"objects": []}}
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     output = await dataloader.load_mo_org_units()
     assert output == {}
@@ -1022,7 +1030,7 @@ async def test_load_mo_it_systems_not_found(
 ):
 
     return_value: dict = {"itsystems": {"objects": []}}
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     output = await dataloader.load_mo_it_systems()
     assert output == {}
@@ -1049,7 +1057,7 @@ async def test_load_mo_it_user(dataloader: DataLoader, gql_client: AsyncMock):
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     output = await asyncio.gather(
         dataloader.load_mo_it_user(uuid4()),
@@ -1094,7 +1102,7 @@ async def test_load_mo_engagement(dataloader: DataLoader, gql_client: AsyncMock)
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     output = await asyncio.gather(
         dataloader.load_mo_engagement(uuid4()),
@@ -1109,7 +1117,7 @@ async def test_load_mo_engagement(dataloader: DataLoader, gql_client: AsyncMock)
 async def test_load_mo_it_user_not_found(dataloader: DataLoader, gql_client: AsyncMock):
     return_value: dict = {"itusers": {"objects": []}}
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     with pytest.raises(NoObjectsReturnedException):
         await asyncio.gather(
@@ -1147,7 +1155,7 @@ async def test_load_mo_employee_it_users(dataloader: DataLoader, gql_client: Asy
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     load_mo_it_user = AsyncMock()
     dataloader.load_mo_it_user = load_mo_it_user  # type: ignore
@@ -1186,7 +1194,7 @@ async def test_load_mo_employees_in_org_unit(
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     load_mo_employee = AsyncMock()
     dataloader.load_mo_employee = load_mo_employee  # type: ignore
@@ -1226,7 +1234,7 @@ async def test_load_mo_org_unit_addresses(
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     load_mo_address = AsyncMock()
     dataloader.load_mo_address = load_mo_address  # type: ignore
@@ -1264,7 +1272,7 @@ async def test_load_mo_employee_engagements(
         }
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     load_mo_engagement = AsyncMock()
     dataloader.load_mo_engagement = load_mo_engagement  # type: ignore
@@ -1282,7 +1290,7 @@ async def test_load_mo_employee_it_users_not_found(
 
     return_value: dict = {"employees": {"objects": []}}
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     with pytest.raises(NoObjectsReturnedException):
         await asyncio.gather(
@@ -1296,7 +1304,7 @@ async def test_is_primary(dataloader: DataLoader, gql_client: AsyncMock):
         "engagements": {"objects": [{"objects": [{"is_primary": True}]}]}
     }
 
-    gql_client.execute.return_value = return_value
+    (await gql_client.__aenter__()).execute.return_value = return_value
 
     primary = await asyncio.gather(dataloader.is_primary(uuid4()))
     assert primary == [True]
@@ -1304,7 +1312,7 @@ async def test_is_primary(dataloader: DataLoader, gql_client: AsyncMock):
 
 async def test_query_mo(dataloader: DataLoader, gql_client: AsyncMock):
     expected_output: dict = {"objects": {"objects": []}}
-    gql_client.execute.return_value = expected_output
+    (await gql_client.__aenter__()).execute.return_value = expected_output
 
     query = gql(
         """
@@ -1339,15 +1347,16 @@ async def test_query_mo_all_objects(dataloader: DataLoader, gql_client: AsyncMoc
         {"objects": {"objects": []}},
         {"objects": {"objects": ["item1", "item2"]}},
     ]
-    gql_client.execute.side_effect = expected_output
+    (await gql_client.__aenter__()).execute.side_effect = expected_output
 
     output = await asyncio.gather(
         dataloader.query_past_future_mo(query, current_objects_only=False)
     )
     assert output == [expected_output[1]]
 
-    query1 = print_ast(gql_client.execute.call_args_list[0].args[0])
-    query2 = print_ast(gql_client.execute.call_args_list[1].args[0])
+    call_args_list = (await gql_client.__aenter__()).execute.call_args_list
+    query1 = print_ast(call_args_list[0].args[0])
+    query2 = print_ast(call_args_list[1].args[0])
 
     # The first query attempts to request current objects only
     assert "from_date" not in query1
@@ -1535,7 +1544,7 @@ async def test_load_all_mo_objects_specify_uuid(
         {"itusers": {"objects": []}},
     ]
 
-    gql_client.execute.side_effect = return_values
+    (await gql_client.__aenter__()).execute.side_effect = return_values
 
     output = await dataloader.load_all_mo_objects(uuid=employee_uuid)
     assert output[0]["uuid"] == employee_uuid

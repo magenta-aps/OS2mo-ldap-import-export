@@ -917,7 +917,7 @@ def test_construct_gql_client():
 
     settings = MagicMock(mo_url="mo-url")
 
-    with patch("mo_ldap_import_export.main.PersistentGraphQLClient", MagicMock):
+    with patch("mo_ldap_import_export.main.GraphQLClient", MagicMock):
         gql_client = construct_gql_client(settings)
         assert gql_client.url == "mo-url/graphql/v7"
 

@@ -30,7 +30,7 @@ from gql.transport.exceptions import TransportQueryError
 from ldap3 import Connection
 from pydantic import parse_obj_as
 from pydantic import ValidationError
-from raclients.graph.client import PersistentGraphQLClient
+from raclients.graph.client import GraphQLClient
 from raclients.modelclient.mo import ModelClient
 from ramodels.mo._shared import validate_cpr
 from ramqp import AMQPSystem
@@ -263,7 +263,7 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
 
 
 def construct_gql_client(settings: Settings, version: str = "v7"):
-    return PersistentGraphQLClient(
+    return GraphQLClient(
         url=settings.mo_url + "/graphql/" + version,
         client_id=settings.client_id,
         client_secret=settings.client_secret.get_secret_value(),
@@ -286,14 +286,14 @@ def construct_model_client(settings: Settings):
 
 def construct_clients(
     settings: Settings,
-) -> tuple[PersistentGraphQLClient, ModelClient]:
+) -> tuple[GraphQLClient, ModelClient]:
     """Construct clients froms settings.
 
     Args:
         settings: Integration settings module.
 
     Returns:
-        Tuple with PersistentGraphQLClient and ModelClient.
+        Tuple with GraphQLClient and ModelClient.
     """
     gql_client = construct_gql_client(settings)
     model_client = construct_model_client(settings)

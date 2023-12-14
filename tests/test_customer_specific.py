@@ -54,8 +54,8 @@ async def test_import_jobtitlefromadtomo_objects(context: Context):
     start_time = str(datetime.now() - timedelta(minutes=10))
     end_time = str(datetime.now())
 
-    test_mock = AsyncMock()
-    test_mock.execute.return_value = {
+    session = AsyncMock()
+    session.execute.return_value = {
         "engagements": {
             "objects": [
                 {
@@ -67,8 +67,10 @@ async def test_import_jobtitlefromadtomo_objects(context: Context):
             ]
         }
     }
+    test_mock = AsyncMock()
+    test_mock.__aenter__.return_value = session
 
-    context["graphql_session"] = test_mock
+    context["graphql_client"] = test_mock
 
     test_object = JobTitleFromADToMO.from_simplified_fields(
         user_uuid=test_user_uuid,

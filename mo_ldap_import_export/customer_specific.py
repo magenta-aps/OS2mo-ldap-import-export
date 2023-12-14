@@ -60,7 +60,7 @@ class JobTitleFromADToMO(CustomerSpecific):
         )
 
     async def sync_to_mo(self, context: Context):
-        async def get_engagement_details(gql_session, employee_uuid):
+        async def get_engagement_details(gql_client, employee_uuid):
             query = gql(
                 """
             query GetEngagementUuids($employees: [UUID!]) {
@@ -78,14 +78,15 @@ class JobTitleFromADToMO(CustomerSpecific):
             }
             """
             )
-            result = await gql_session.execute(
-                query,
-                variable_values=jsonable_encoder(
-                    {
-                        "employees": employee_uuid,
-                    }
-                ),
-            )
+            async with gql_client as session:
+                result = await session.execute(
+                    query,
+                    variable_values=jsonable_encoder(
+                        {
+                            "employees": employee_uuid,
+                        }
+                    ),
+                )
 
             return [
                 {
@@ -131,7 +132,7 @@ class JobTitleFromADToMO(CustomerSpecific):
             return jobs
 
         engagement_details = await get_engagement_details(
-            gql_session=context["graphql_session"],
+            gql_client=context["graphql_client"],
             employee_uuid=self.user.uuid,
         )
         return await set_job_title(engagement_details=engagement_details)
