@@ -8,9 +8,9 @@ from typing import Any
 from typing import cast
 from uuid import UUID
 
+import httpx
 from fastapi.encoders import jsonable_encoder
 from gql import gql
-from gql.client import AsyncClientSession
 from gql.transport.exceptions import TransportQueryError
 from graphql import DocumentNode
 from ldap3 import BASE
@@ -20,6 +20,7 @@ from ldap3.utils.dn import safe_dn
 from ldap3.utils.dn import to_dn
 from more_itertools import only
 from more_itertools import partition
+from raclients.graph.client import GraphQLClient
 from ramodels.mo import MOBase
 from ramodels.mo._shared import EngagementRef
 from ramodels.mo._shared import validate_cpr
@@ -50,6 +51,7 @@ from .logging import logger
 from .processors import _hide_cpr as hide_cpr
 from .utils import add_filter_to_query
 from .utils import combine_dn_strings
+from .utils import construct_clients
 from .utils import extract_cn_from_dn
 from .utils import extract_ou_from_dn
 from .utils import mo_datestring_to_utc
@@ -168,16 +170,40 @@ class DataLoader:
                 f"'{attribute}' not found in 'mo_to_ldap' attributes"
             )
 
-    async def query_mo(
-        self, query: DocumentNode, raise_if_empty: bool = True, variable_values={}
+    async def _query_mo(
+        self,
+        gql_client: GraphQLClient,
+        query: DocumentNode,
+        raise_if_empty: bool = True,
+        variable_values={},
     ):
-        graphql_session: AsyncClientSession = self.user_context["gql_client"]
-        result = await graphql_session.execute(
+        result = await gql_client.execute(
             query, variable_values=jsonable_encoder(variable_values)
         )
         if raise_if_empty:
             self._check_if_empty(result)
         return result
+
+    async def query_mo(
+        self, query: DocumentNode, raise_if_empty: bool = True, variable_values={}
+    ):
+        context = self.user_context
+        gql_client: GraphQLClient = context["gql_client"]
+        try:
+            return await self._query_mo(
+                gql_client, query, raise_if_empty, variable_values
+            )
+        except httpx.ReadTimeout:
+            # This is strange code. We spuriously hit a ReadTimeout, but we do
+            # not observe the call ever reaching MO. We suspect this is some
+            # kind of deadlock in HTTPX or httpcore.
+            logger.error("Timeout from MO query - recreating client")
+            gql_client, model_client = construct_clients(context["settings"])
+            self.user_context["gql_client"] = gql_client
+            self.user_context["model_client"] = model_client
+            return await self._query_mo(
+                gql_client, query, raise_if_empty, variable_values
+            )
 
     async def query_mo_paged(self, query):
         result = await self.query_mo(query, raise_if_empty=False)

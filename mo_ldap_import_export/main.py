@@ -30,8 +30,6 @@ from gql.transport.exceptions import TransportQueryError
 from ldap3 import Connection
 from pydantic import parse_obj_as
 from pydantic import ValidationError
-from raclients.graph.client import PersistentGraphQLClient
-from raclients.modelclient.mo import ModelClient
 from ramodels.mo._shared import validate_cpr
 from ramqp import AMQPSystem
 from ramqp.depends import Context
@@ -70,6 +68,7 @@ from .ldap_classes import LdapObject
 from .logging import logger
 from .os2mo_init import InitEngine
 from .processors import _hide_cpr as hide_cpr
+from .utils import construct_clients
 from .utils import countdown
 from .utils import get_object_type_from_routing_key
 from .utils import listener
@@ -260,44 +259,6 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
     """
     with ldap_connection:
         yield
-
-
-def construct_gql_client(settings: Settings, version: str = "v7"):
-    return PersistentGraphQLClient(
-        url=settings.mo_url + "/graphql/" + version,
-        client_id=settings.client_id,
-        client_secret=settings.client_secret.get_secret_value(),
-        auth_server=settings.auth_server,
-        auth_realm=settings.auth_realm,
-        execute_timeout=settings.graphql_timeout,
-        httpx_client_kwargs={"timeout": settings.graphql_timeout},
-    )
-
-
-def construct_model_client(settings: Settings):
-    return ModelClient(
-        base_url=settings.mo_url,
-        client_id=settings.client_id,
-        client_secret=settings.client_secret.get_secret_value(),
-        auth_server=settings.auth_server,
-        auth_realm=settings.auth_realm,
-    )
-
-
-def construct_clients(
-    settings: Settings,
-) -> tuple[PersistentGraphQLClient, ModelClient]:
-    """Construct clients froms settings.
-
-    Args:
-        settings: Integration settings module.
-
-    Returns:
-        Tuple with PersistentGraphQLClient and ModelClient.
-    """
-    gql_client = construct_gql_client(settings)
-    model_client = construct_model_client(settings)
-    return gql_client, model_client
 
 
 # https://fastapi.tiangolo.com/advanced/events/

@@ -5,6 +5,7 @@ import datetime
 import re
 import time
 from unittest.mock import MagicMock
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -19,6 +20,7 @@ from structlog.testing import capture_logs
 from mo_ldap_import_export.exceptions import InvalidQuery
 from mo_ldap_import_export.utils import add_filter_to_query
 from mo_ldap_import_export.utils import combine_dn_strings
+from mo_ldap_import_export.utils import construct_gql_client
 from mo_ldap_import_export.utils import countdown
 from mo_ldap_import_export.utils import datetime_to_ldap_timestamp
 from mo_ldap_import_export.utils import delete_keys_from_dict
@@ -244,3 +246,12 @@ def test_extract_cn_from_dn():
     assert (
         extract_cn_from_dn("CN=Nick,CN=Janssen,OU=foo,DC=bar") == "CN=Nick,CN=Janssen"
     )
+
+
+def test_construct_gql_client():
+
+    settings = MagicMock(mo_url="mo-url")
+
+    with patch("mo_ldap_import_export.utils.GraphQLClient", MagicMock):
+        gql_client = construct_gql_client(settings)
+        assert gql_client.url == "mo-url/graphql/v7"

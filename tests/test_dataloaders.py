@@ -14,6 +14,7 @@ from unittest.mock import patch
 from uuid import UUID
 from uuid import uuid4
 
+import httpx
 import pytest
 from fastramqpi.context import Context
 from gql import gql
@@ -602,6 +603,39 @@ async def test_load_mo_primary_types(
 
     output = await dataloader.load_mo_primary_types()
     assert output[uuid]["value_key"] == value_key
+
+
+async def test_load_mo_primary_types_client_replaced(
+    dataloader: DataLoader, gql_client: AsyncMock
+) -> None:
+    # This is the same test as above, except that the first graphql call is
+    # mocked to timeout.
+
+    uuid = uuid4()
+    value_key = "primary"
+
+    def raise_timeout(*_, **__):
+        raise httpx.ReadTimeout("testing client replacement")
+
+    gql_client.execute = raise_timeout
+
+    replacement_gql_client = AsyncMock()
+    replacement_gql_client.execute = AsyncMock(
+        return_value={
+            "facets": {
+                "objects": [
+                    {"current": {"classes": [{"uuid": uuid, "value_key": value_key}]}},
+                ]
+            }
+        }
+    )
+
+    with patch(
+        "mo_ldap_import_export.dataloaders.construct_clients",
+        return_value=(replacement_gql_client, AsyncMock()),
+    ):
+        output = await dataloader.load_mo_primary_types()
+        assert output[uuid]["value_key"] == value_key
 
 
 async def test_load_mo_job_functions(

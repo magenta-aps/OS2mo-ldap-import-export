@@ -19,8 +19,6 @@ from pydantic import SecretStr
 from pydantic import validator
 from ramqp.config import AMQPConnectionSettings
 
-from .utils import import_class
-
 
 class ServerConfig(BaseModel):
     """Settings model for domain controllers."""
@@ -131,6 +129,8 @@ class LDAP2MOMapping(MappingBaseModel):
     @root_validator
     def check_uuid_refs_in_mo_objects(cls, values: dict[str, Any]) -> dict[str, Any]:
         # Check that MO objects have a uuid field
+        from .utils import import_class
+
         mo_class = import_class(values["objectClass"])
 
         properties = mo_class.schema()["properties"]
@@ -172,6 +172,8 @@ class LDAP2MOMapping(MappingBaseModel):
 
     @root_validator
     def check_mo_attributes(cls, values: dict[str, Any]) -> dict[str, Any]:
+        from .utils import import_class
+
         mo_class = import_class(values["objectClass"])
 
         accepted_attributes = set(mo_class.schema()["properties"].keys())

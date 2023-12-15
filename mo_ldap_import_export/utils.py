@@ -11,8 +11,11 @@ from graphql import print_ast
 from ldap3.utils.dn import parse_dn
 from ldap3.utils.dn import safe_dn
 from ldap3.utils.dn import to_dn
+from raclients.graph.client import GraphQLClient
+from raclients.modelclient.mo import ModelClient
 from ramqp.mo import MORoutingKey
 
+from .config import Settings
 from .customer_specific import JobTitleFromADToMO
 from .exceptions import InvalidQuery
 from .logging import logger
@@ -266,3 +269,41 @@ def exchange_ou_in_dn(dn: str, new_ou: str) -> str:
             new_dn_parts.append(dn_part)
 
     return combine_dn_strings(new_dn_parts)
+
+
+def construct_gql_client(settings: Settings, version: str = "v7"):
+    return GraphQLClient(
+        url=settings.mo_url + "/graphql/" + version,
+        client_id=settings.client_id,
+        client_secret=settings.client_secret.get_secret_value(),
+        auth_server=settings.auth_server,
+        auth_realm=settings.auth_realm,
+        execute_timeout=settings.graphql_timeout,
+        httpx_client_kwargs={"timeout": settings.graphql_timeout},
+    )
+
+
+def construct_model_client(settings: Settings):
+    return ModelClient(
+        base_url=settings.mo_url,
+        client_id=settings.client_id,
+        client_secret=settings.client_secret.get_secret_value(),
+        auth_server=settings.auth_server,
+        auth_realm=settings.auth_realm,
+    )
+
+
+def construct_clients(
+    settings: Settings,
+) -> tuple[GraphQLClient, ModelClient]:
+    """Construct clients froms settings.
+
+    Args:
+        settings: Integration settings module.
+
+    Returns:
+        Tuple with GraphQLClient and ModelClient.
+    """
+    gql_client = construct_gql_client(settings)
+    model_client = construct_model_client(settings)
+    return gql_client, model_client
