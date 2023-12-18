@@ -132,7 +132,8 @@ def listener(context, event):
 
     if dn:
         logger.info(f"Registered change for LDAP object with dn={dn}")
-        event_loop.create_task(sync_tool.import_single_user(dn))
+        awaitable = sync_tool.import_single_user(dn)
+        asyncio.run_coroutine_threadsafe(awaitable, event_loop).result()
     else:
         logger.info(f"Got event without dn: {event}")
 
