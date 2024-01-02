@@ -74,6 +74,13 @@ include:
     file: /gitlab-ci-templates/common/conventional-commits.v1.yml
 
 
+Lint Foo:
+  stage: lint
+  needs: []
+  image: python:3.11
+  script:
+    - echo $GITLAB_TOKEN
+
 # Kører config-updater for dev. Kører på semantiske versioner
 Deploy to Dev:
   extends: .release-to-dev
