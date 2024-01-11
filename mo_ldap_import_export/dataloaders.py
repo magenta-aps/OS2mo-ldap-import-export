@@ -692,6 +692,8 @@ class DataLoader:
 
         attribute_dict = {}
         for attribute in attributes:
+            if attribute not in self.attribute_types:
+                continue
             syntax = self.attribute_types[attribute].syntax
 
             # decoded syntax tuple structure: (oid, kind, name, docs)
@@ -715,15 +717,23 @@ class DataLoader:
         }
 
     def load_ldap_overview(self):
+        logger.info("2.1")
         schema = get_ldap_schema(self.ldap_connection)
+        logger.info("2.2")
 
         all_object_classes = sorted(list(schema.object_classes.keys()))
 
+        logger.info("2.3")
         output = {}
         for ldap_class in all_object_classes:
+            logger.info("2.3.1")
             all_attributes = get_ldap_attributes(self.ldap_connection, ldap_class)
+            logger.info("2.3.2")
             superiors = get_ldap_superiors(self.ldap_connection, ldap_class)
+            logger.info("2.3.3")
             output[ldap_class] = self.make_overview_entry(all_attributes, superiors)
+            logger.info("2.3.4")
+        logger.info("2.4")
 
         return output
 

@@ -498,26 +498,17 @@ def create_app(**kwargs: Any) -> FastAPI:
     internal_amqpsystem = user_context["internal_amqpsystem"]
     mapping = user_context["mapping"]
 
+    logger.info("1")
     attribute_types = get_attribute_types(ldap_connection)
     accepted_attributes = tuple(sorted(attribute_types.keys()))
 
+    logger.info("2")
     overview = dataloader.load_ldap_overview()
     ldap_classes = tuple(sorted(overview.keys()))
 
+    logger.info("3")
     default_ldap_class = mapping["mo_to_ldap"]["Employee"]["objectClass"]
     accepted_json_keys = tuple(sorted(mapping["mo_to_ldap"].keys()))
-
-    # TODO: Eliminate this function and make reloading dicts eventdriven
-    #       When this method is eliminated the fastapi_utils package can be removed
-    @app.on_event("startup")
-    @repeat_every(seconds=60*60*24)
-    async def reload_info_dicts() -> None:
-        """
-        Endpoint to reload info dicts on the converter. To make sure that they are
-        up-to-date and represent the information in OS2mo.
-        """
-        converter = user_context["converter"]
-        await converter.load_info_dicts()
 
     # Load all users from LDAP, and import them into MO
     @app.get("/Import", status_code=202, tags=["Import"])

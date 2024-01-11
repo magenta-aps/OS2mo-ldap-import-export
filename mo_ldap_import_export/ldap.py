@@ -14,6 +14,7 @@ from typing import ContextManager
 from uuid import UUID
 
 from fastramqpi.context import Context
+import ldap3.core.exceptions
 from ldap3 import BASE
 from ldap3 import Connection
 from ldap3 import NTLM
@@ -97,14 +98,24 @@ def configure_ldap_connection(settings: Settings) -> ContextManager:
 
     logger.info(f"Connecting to {server_pool}")
     logger.info(f"Client strategy: {client_strategy}")
-    connection = Connection(
-        server=server_pool,
-        user=settings.ldap_domain + "\\" + settings.ldap_user,
-        password=settings.ldap_password.get_secret_value(),
-        authentication=NTLM,
-        client_strategy=get_client_strategy(),
-        auto_bind=True,  # type: ignore
-    )
+    try:
+        connection = Connection(
+            server=server_pool,
+            user=settings.ldap_domain + "\\" + settings.ldap_user,
+            password=settings.ldap_password.get_secret_value(),
+            authentication=NTLM,
+            client_strategy=get_client_strategy(),
+            auto_bind=True,  # type: ignore
+        )
+    except ldap3.core.exceptions.LDAPBindError as exc:
+        logger.warning("Exception during NTLM auth, trying SIMPLE", exc_info=exc)
+        connection = Connection(
+            server=server_pool,
+            user= settings.ldap_user,
+            password=settings.ldap_password.get_secret_value(),
+            client_strategy=get_client_strategy(),
+            auto_bind=True,  # type: ignore
+        )
 
     # Turn off the alarm
     signal.alarm(0)
@@ -142,16 +153,19 @@ def get_ldap_object_schema(ldap_connection: Connection, ldap_object: str):
     return schema.object_classes[ldap_object]
 
 
-def get_ldap_superiors(ldap_connection: Connection, root_ldap_object: str):
+def get_ldap_superiors(ldap_connection: Connection, root_ldap_object: str) -> list:
+    if root_ldap_object is None:
+        return []
+
+    object_schema = get_ldap_object_schema(ldap_connection, root_ldap_object)
+    ldap_objects = list(always_iterable(object_schema.superior))
+    if not ldap_objects:
+        return []
 
     superiors = []
-    ldap_object: str | None = root_ldap_object
-    while ldap_object is not None:
-        object_schema = get_ldap_object_schema(ldap_connection, ldap_object)
-        ldap_object = only(always_iterable(object_schema.superior))
-        if ldap_object is not None:
-            superiors.append(ldap_object)
-
+    for ldap_object in ldap_objects:
+        superiors.append(ldap_object)
+        superiors.extend(get_ldap_superiors(ldap_connection, ldap_object))
     return superiors
 
 
@@ -160,7 +174,6 @@ def get_ldap_attributes(ldap_connection: Connection, root_ldap_object: str):
     ldap_connection : ldap connection object
     ldap_object : ldap class to fetch attributes for. for example "organizationalPerson"
     """
-
     all_attributes = []
     superiors = get_ldap_superiors(ldap_connection, root_ldap_object)
 
