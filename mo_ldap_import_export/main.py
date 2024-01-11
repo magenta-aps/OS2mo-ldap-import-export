@@ -567,13 +567,13 @@ def create_app(**kwargs: Any) -> FastAPI:
                 progress_bar.update()
 
     # Load a single user from LDAP, and import him/her/hir into MO
-    @app.get("/Import/{objectGUID}", status_code=202, tags=["Import"])
+    @app.get("/Import/{entryUUID}", status_code=202, tags=["Import"])
     async def import_single_user_from_LDAP(
-        objectGUID: UUID,
+        entryUUID: UUID,
     ) -> Any:
         sync_tool = user_context["sync_tool"]
 
-        dn = dataloader.get_ldap_dn(objectGUID)
+        dn = dataloader.get_ldap_dn(entryUUID)
         await sync_tool.import_single_user(dn, manual_import=True)
 
     class ExportQueryParams:
@@ -669,7 +669,7 @@ def create_app(**kwargs: Any) -> FastAPI:
         json_key: Literal[accepted_json_keys],  # type: ignore
         cpr: str = Depends(valid_cpr),
     ) -> Any:
-        result = dataloader.load_ldap_cpr_object(cpr, json_key, ["objectGUID"])
+        result = dataloader.load_ldap_cpr_object(cpr, json_key, ["entryUUID"])
         return encode_result(result)
 
     # Get a specific cpr-indexed object from LDAP - Converted to MO
@@ -696,11 +696,11 @@ def create_app(**kwargs: Any) -> FastAPI:
         json_key: Literal[accepted_json_keys],  # type: ignore
         entries_to_return: int = Query(ge=1),
     ) -> Any:
-        result = await dataloader.load_ldap_objects(json_key, ["objectGUID"])
+        result = await dataloader.load_ldap_objects(json_key, ["entryUUID"])
         return encode_result(result[-entries_to_return:])
 
-    @app.get("/Inspect/non_existing_objectGUIDs", status_code=202, tags=["LDAP"])
-    async def get_non_existing_objectGUIDs_from_MO() -> Any:
+    @app.get("/Inspect/non_existing_entryUUIDs", status_code=202, tags=["LDAP"])
+    async def get_non_existing_entryUUIDs_from_MO() -> Any:
         it_system_uuid = dataloader.get_ldap_it_system_uuid()
         if not it_system_uuid:
             raise ObjectGUIDITSystemNotFound("Could not find it_system_uuid")
@@ -711,25 +711,25 @@ def create_app(**kwargs: Any) -> FastAPI:
             except ValueError:
                 return uuid_string
 
-        all_objectGUIDs = [
-            to_uuid(u) for u in dataloader.load_ldap_attribute_values("objectGUID")
+        all_entryUUIDs = [
+            to_uuid(u) for u in dataloader.load_ldap_attribute_values("entryUUID")
         ]
         all_it_users = await dataloader.load_all_current_it_users(it_system_uuid)
 
-        # Find objectGUIDs which are stored in MO but do not exist in LDAP
-        non_existing_objectGUIDs = []
+        # Find entryUUIDs which are stored in MO but do not exist in LDAP
+        non_existing_entryUUIDs = []
         for it_user in all_it_users:
-            objectGUID = to_uuid(it_user["user_key"])
-            if objectGUID not in all_objectGUIDs:
+            entryUUID = to_uuid(it_user["user_key"])
+            if entryUUID not in all_entryUUIDs:
                 employee = await dataloader.load_mo_employee(it_user["employee_uuid"])
                 output_dict = {
                     "name": f"{employee.givenname} {employee.surname}".strip(),
                     "MO employee uuid": employee.uuid,
-                    "objectGUID in MO": it_user["user_key"],
+                    "entryUUID in MO": it_user["user_key"],
                 }
-                non_existing_objectGUIDs.append(output_dict)
+                non_existing_entryUUIDs.append(output_dict)
 
-        return non_existing_objectGUIDs
+        return non_existing_entryUUIDs
 
     @app.get("/Inspect/duplicate_cpr_numbers", status_code=202, tags=["LDAP"])
     async def get_duplicate_cpr_numbers_from_LDAP() -> Any:
@@ -855,12 +855,12 @@ def create_app(**kwargs: Any) -> FastAPI:
     ) -> Any:
         return dataloader.load_ldap_attribute_values(attribute, search_base=search_base)
 
-    # Get LDAP object by objectGUID
-    @app.get("/Inspect/object/objectGUID", status_code=202, tags=["LDAP"])
-    async def load_object_from_ldap_by_objectGUID(
-        objectGUID: UUID, nest: bool = False
+    # Get LDAP object by entryUUID
+    @app.get("/Inspect/object/entryUUID", status_code=202, tags=["LDAP"])
+    async def load_object_from_ldap_by_entryUUID(
+        entryUUID: UUID, nest: bool = False
     ) -> Any:
-        dn = dataloader.get_ldap_dn(objectGUID)
+        dn = dataloader.get_ldap_dn(entryUUID)
         return encode_result(dataloader.load_ldap_object(dn, ["*"], nest=nest))
 
     # Get LDAP object by DN
@@ -868,10 +868,10 @@ def create_app(**kwargs: Any) -> FastAPI:
     async def load_object_from_ldap_by_dn(dn: str, nest: bool = False) -> Any:
         return encode_result(dataloader.load_ldap_object(dn, ["*"], nest=nest))
 
-    # Get LDAP objectGUID
-    @app.get("/objectGUID/{dn}", status_code=202, tags=["LDAP"])
-    async def load_objectGUID_from_ldap(dn: str) -> Any:
-        return dataloader.get_ldap_objectGUID(dn)
+    # Get LDAP entryUUID
+    @app.get("/entryUUID/{dn}", status_code=202, tags=["LDAP"])
+    async def load_entryUUID_from_ldap(dn: str) -> Any:
+        return dataloader.get_ldap_entryUUID(dn)
 
     # Get MO address types
     @app.get("/MO/Address_types_org_unit", status_code=202, tags=["MO"])

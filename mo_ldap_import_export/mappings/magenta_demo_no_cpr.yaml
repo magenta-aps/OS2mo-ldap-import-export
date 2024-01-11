@@ -31,7 +31,7 @@ ldap_to_mo:
   ADGUID:
     objectClass: ramodels.mo.details.it_system.ITUser
     _import_to_mo_: "true"
-    user_key: '{{ ldap.objectGUID|remove_curly_brackets }}'
+    user_key: '{{ ldap.entryUUID|remove_curly_brackets }}'
     itsystem: '{{ dict(uuid=get_it_system_uuid(''ADGUID'')) }}'
     validity: '{{ dict(from_date=now()|mo_datestring) }}'
     person: '{{ dict(uuid=employee_uuid or NONE) }}'
@@ -107,7 +107,7 @@ mo_to_ldap:
   ADGUID:
     objectClass: user
     _export_to_ldap_: "true"
-    objectGUID: '{{ ''{'' + mo_employee_it_user.user_key + ''}'' }}'
+    entryUUID: '{{ ''{'' + mo_employee_it_user.user_key + ''}'' }}'
     employeeID: '{{mo_employee.cpr_no}}'
   # Note: This key needs to be a valid MO address type user_key*
   EmailEmployee:

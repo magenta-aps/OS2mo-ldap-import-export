@@ -650,17 +650,17 @@ def set_search_params_modify_timestamp(
     }
 
 
-def is_guid(objectGUID: Any):
+def is_guid(entryUUID: Any):
     """
     Check if a string is a valid UUID
     """
-    if type(objectGUID) is UUID:
+    if type(entryUUID) is UUID:
         return True
-    elif type(objectGUID) is not str:
+    elif type(entryUUID) is not str:
         return False
     else:
         try:
-            UUID(objectGUID)
+            UUID(entryUUID)
             return True
         except Exception:
             return False

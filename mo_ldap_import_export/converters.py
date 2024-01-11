@@ -78,8 +78,8 @@ async def find_ldap_it_system(mapping, mo_it_system_user_keys):
     for mo_it_system_user_key in mo_it_system_user_keys:
         if mo_it_system_user_key in mapping["ldap_to_mo"]:
             template = mapping["ldap_to_mo"][mo_it_system_user_key]["user_key"]
-            objectGUID = await template.render_async({"ldap": {"objectGUID": "foo"}})
-            if objectGUID == "foo":
+            entryUUID = await template.render_async({"ldap": {"entryUUID": "foo"}})
+            if entryUUID == "foo":
                 ldap_it_system = mo_it_system_user_key
                 logger.info(f"Found LDAP IT-system: '{ldap_it_system}'")
                 break
