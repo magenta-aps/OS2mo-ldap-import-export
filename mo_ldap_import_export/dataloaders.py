@@ -219,15 +219,15 @@ class DataLoader:
                 query = add_filter_to_query(query, "to_date: null, from_date: null")
                 return await self.query_mo(query)
 
-    def load_ldap_object(self, dn, attributes, nest=True):
+    async def load_ldap_object(self, dn, attributes, nest=True):
         searchParameters = {
             "search_base": dn,
             "search_filter": "(objectclass=*)",
             "attributes": attributes,
             "search_scope": BASE,
         }
-        search_result = single_object_search(searchParameters, self.context)
-        return make_ldap_object(search_result, self.context, nest=nest)
+        search_result = await single_object_search(searchParameters, self.context)
+        return await make_ldap_object(search_result, self.context, nest=nest)
 
     def load_ldap_attribute_values(self, attribute, search_base=None) -> list[str]:
         """
@@ -245,7 +245,7 @@ class DataLoader:
         )
         return sorted({str(r["attributes"][attribute]) for r in responses})
 
-    def load_ldap_cpr_object(
+    async def load_ldap_cpr_object(
         self,
         cpr_no: str,
         json_key: str,
@@ -287,9 +287,9 @@ class DataLoader:
             "search_filter": f"(&({object_class_filter})({cpr_filter}))",
             "attributes": list(set(attributes)),
         }
-        search_result = single_object_search(searchParameters, self.context)
+        search_result = await single_object_search(searchParameters, self.context)
 
-        ldap_object: LdapObject = make_ldap_object(search_result, self.context)
+        ldap_object: LdapObject = await make_ldap_object(search_result, self.context)
         logger.info("[Load-ldap-cpr-object] Found LDAP object.", dn=ldap_object.dn)
 
         return ldap_object
@@ -448,7 +448,9 @@ class DataLoader:
         )
 
         output: list[LdapObject]
-        output = [make_ldap_object(r, self.context, nest=False) for r in responses]
+        output = [
+            await make_ldap_object(r, self.context, nest=False) for r in responses
+        ]
 
         return output
 
@@ -811,7 +813,7 @@ class DataLoader:
         cpr_field = self.user_context["cpr_field"]
         cpr_no = None
         if cpr_field:
-            ldap_object = self.load_ldap_object(dn, [cpr_field])
+            ldap_object = await self.load_ldap_object(dn, [cpr_field])
 
             # Try to get the cpr number from LDAP and use that.
             with suppress(ValueError):
@@ -828,7 +830,7 @@ class DataLoader:
         else:
             cpr_query = ""
 
-        unique_uuid = self.get_ldap_unique_ldap_uuid(dn)
+        unique_uuid = await self.get_ldap_unique_ldap_uuid(dn)
         ituser_query = f"""
         itusers(filter: {{user_keys: "{unique_uuid}"}}) {{
           objects {{
@@ -856,7 +858,7 @@ class DataLoader:
         # Unique LADP UUID in MO.
 
         settings = self.user_context["settings"]
-        ldap_object = self.load_ldap_object(dn, [settings.ldap_unique_id_field])
+        ldap_object = await self.load_ldap_object(dn, [settings.ldap_unique_id_field])
         unique_uuid = filter_remove_curly_brackets(
             getattr(ldap_object, settings.ldap_unique_id_field)
         )
@@ -921,7 +923,7 @@ class DataLoader:
             )
             return None
 
-    def get_ldap_dn(self, unique_ldap_uuid: UUID) -> str:
+    async def get_ldap_dn(self, unique_ldap_uuid: UUID) -> str:
         """
         Given an unique_ldap_uuid, find the DistinguishedName
         """
@@ -935,17 +937,17 @@ class DataLoader:
             "search_scope": BASE,
         }
 
-        search_result = single_object_search(searchParameters, self.context)
+        search_result = await single_object_search(searchParameters, self.context)
         dn: str = search_result["dn"]
         return dn
 
-    def get_ldap_unique_ldap_uuid(self, dn: str) -> UUID:
+    async def get_ldap_unique_ldap_uuid(self, dn: str) -> UUID:
         """
         Given a DN, find the unique_ldap_uuid
         """
         settings = self.user_context["settings"]
         logger.info("[Get-ldap-unique_ldap_uuid] Looking for LDAP object.", dn=dn)
-        ldap_object = self.load_ldap_object(dn, [settings.ldap_unique_id_field])
+        ldap_object = await self.load_ldap_object(dn, [settings.ldap_unique_id_field])
         return UUID(getattr(ldap_object, settings.ldap_unique_id_field))
 
     def extract_unique_ldap_uuids(self, it_users: list[ITUser]) -> set[UUID]:
@@ -961,9 +963,9 @@ class DataLoader:
             )
         return {UUID(user_key) for user_key in uuids}
 
-    def extract_unique_dns(self, it_users: list[ITUser]) -> list[str]:
+    async def extract_unique_dns(self, it_users: list[ITUser]) -> list[str]:
         unique_uuids = self.extract_unique_ldap_uuids(it_users)
-        return list(map(self.get_ldap_dn, unique_uuids))
+        return [await self.get_ldap_dn(x) for x in unique_uuids]
 
     async def find_or_make_mo_employee_dn(self, uuid: UUID) -> DNList:
         """
@@ -995,7 +997,7 @@ class DataLoader:
 
         if ldap_it_system_exists:
             it_users = await self.load_mo_employee_it_users(uuid, it_system_uuid)
-            dns = self.extract_unique_dns(it_users)
+            dns = await self.extract_unique_dns(it_users)
             if dns:
                 # If we have an it-user (with a valid dn), use that dn
                 logger.info(
@@ -1015,7 +1017,7 @@ class DataLoader:
                 employee_uuid=uuid,
             )
             try:
-                dn = self.load_ldap_cpr_object(cpr_no, "Employee").dn
+                dn = (await self.load_ldap_cpr_object(cpr_no, "Employee")).dn
                 logger.info(
                     "[Find-or-make-employee-dn] Found DN using cpr-lookup.",
                     dn=dn,
@@ -1051,7 +1053,7 @@ class DataLoader:
             dn = await username_generator.generate_dn(employee)
 
             # Get its unique ldap uuid
-            unique_uuid = self.get_ldap_unique_ldap_uuid(dn)
+            unique_uuid = await self.get_ldap_unique_ldap_uuid(dn)
 
             # Make a new it-user
             it_user = ITUser.from_simplified_fields(
@@ -1101,7 +1103,7 @@ class DataLoader:
         if len(matching_it_users) == 1:
             # Single match, unique ldap UUID is stored in ITUser.user_key
             unique_uuid: UUID = UUID(matching_it_users[0].user_key)
-            dn: str = self.get_ldap_dn(unique_uuid)
+            dn: str = await self.get_ldap_dn(unique_uuid)
             assert dn in dns
             return dn
         elif len(matching_it_users) > 1:

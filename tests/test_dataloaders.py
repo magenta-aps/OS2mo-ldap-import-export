@@ -209,15 +209,15 @@ async def test_load_ldap_cpr_object(
     expected_result = LdapObject(dn=dn, **ldap_attributes)
     ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
 
-    output = dataloader.load_ldap_cpr_object("0101012002", "Employee")
+    output = await dataloader.load_ldap_cpr_object("0101012002", "Employee")
     assert output == expected_result
 
     with pytest.raises(NoObjectsReturnedException):
-        dataloader.load_ldap_cpr_object("None", "Employee")
+        await dataloader.load_ldap_cpr_object("None", "Employee")
 
     with pytest.raises(NoObjectsReturnedException):
         dataloader.user_context["cpr_field"] = None
-        dataloader.load_ldap_cpr_object("0101012002", "Employee")
+        await dataloader.load_ldap_cpr_object("0101012002", "Employee")
 
 
 async def test_load_ldap_objects(
@@ -1777,7 +1777,7 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
     dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
     dataloader.load_mo_employee = AsyncMock()  # type: ignore
-    dataloader.load_ldap_cpr_object = MagicMock()  # type: ignore
+    dataloader.load_ldap_cpr_object = AsyncMock()  # type: ignore
     dataloader.upload_mo_objects = AsyncMock()  # type: ignore
     dataloader.extract_unique_dns = MagicMock()  # type: ignore
     dataloader.get_ldap_unique_ldap_uuid = MagicMock()  # type: ignore
@@ -1889,14 +1889,14 @@ def test_get_ldap_dn(dataloader: DataLoader):
         assert dataloader.get_ldap_dn(uuid4()) == "CN=foo"
 
 
-def test_get_ldap_unique_ldap_uuid(dataloader: DataLoader):
+async def test_get_ldap_unique_ldap_uuid(dataloader: DataLoader):
     uuid = uuid4()
     dataloader.load_ldap_object = MagicMock()  # type: ignore
     dataloader.load_ldap_object.return_value = LdapObject(
         dn="foo", objectGUID=str(uuid)
     )
 
-    assert dataloader.get_ldap_unique_ldap_uuid("") == uuid
+    assert await dataloader.get_ldap_unique_ldap_uuid("") == uuid
 
 
 def test_load_ldap_attribute_values(dataloader: DataLoader):

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
 """LDAP Connection handling."""
+import asyncio
 import datetime
 import signal
 import time
@@ -9,7 +10,6 @@ from contextlib import suppress
 from functools import partial
 from ssl import CERT_NONE
 from ssl import CERT_REQUIRED
-from threading import Thread
 from typing import Any
 from typing import cast
 from typing import ContextManager
@@ -21,7 +21,7 @@ from ldap3 import BASE
 from ldap3 import Connection
 from ldap3 import NTLM
 from ldap3 import RANDOM
-from ldap3 import RESTARTABLE
+from ldap3 import REUSABLE
 from ldap3 import Server
 from ldap3 import ServerPool
 from ldap3 import SIMPLE
@@ -71,7 +71,7 @@ def construct_server(server_config: ServerConfig) -> Server:
 
 
 def get_client_strategy():
-    return RESTARTABLE
+    return REUSABLE
 
 
 def configure_ldap_connection(settings: Settings) -> ContextManager:
@@ -105,7 +105,7 @@ def configure_ldap_connection(settings: Settings) -> ContextManager:
 
     connection_kwargs = {
         "server": server_pool,
-        "client_strategy": get_client_strategy(),
+        "client_strategy": client_strategy,
         "password": settings.ldap_password.get_secret_value(),
         "auto_bind": True,
     }
@@ -152,6 +152,17 @@ async def ldap_healthcheck(context: dict | Context) -> bool:
     """
     ldap_connection = context["user_context"]["ldap_connection"]
     return cast(bool, ldap_connection.bound)
+
+
+async def messageid2response(ldap_connection, message_id) -> Any:
+    # Keep pooling until the LDAP result is back
+    while True:
+        response, result = ldap_connection.get_response(message_id)
+        if result:
+            logger.debug(f"resolved {message_id} to {response} + {result}")
+            return response
+        logger.debug(f"waiting for {message_id} to come back")
+        await asyncio.sleep(0.1)
 
 
 async def poller_healthcheck(context: dict | Context) -> bool:
@@ -307,7 +318,7 @@ def paged_search(
     return results
 
 
-def single_object_search(searchParameters, context: Context):
+async def single_object_search(searchParameters, context: Context):
     """
     Performs an LDAP search and throws an exception if there are multiple or no search
     results.
@@ -334,11 +345,12 @@ def single_object_search(searchParameters, context: Context):
         response = []
         for search_base in search_bases:
             modified_searchParameters["search_base"] = search_base
-            ldap_connection.search(**modified_searchParameters)
-            response.extend(ldap_connection.response)
+            message_id = ldap_connection.search(**modified_searchParameters)
+            response = await messageid2response(ldap_connection, message_id)
+            response.extend(response)
     else:
-        ldap_connection.search(**searchParameters)
-        response = ldap_connection.response
+        message_id = ldap_connection.search(**searchParameters)
+        response = await messageid2response(ldap_connection, message_id)
 
     search_entries = [r for r in response if r["type"] == "searchResEntry"]
 
@@ -374,7 +386,7 @@ def is_dn(value):
         return True
 
 
-def get_ldap_object(dn, context, nest=True):
+async def get_ldap_object(dn, context, nest=True):
     """
     Gets a ldap object based on its DN
 
@@ -386,13 +398,13 @@ def get_ldap_object(dn, context, nest=True):
         "attributes": ["*"],
         "search_scope": BASE,
     }
-    search_result = single_object_search(searchParameters, context)
+    search_result = await single_object_search(searchParameters, context)
     dn = search_result["dn"]
     logger.info(f"[get_ldap_object] Found {dn}")
-    return make_ldap_object(search_result, context, nest=nest)
+    return await make_ldap_object(search_result, context, nest=nest)
 
 
-def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
+async def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
     """
     Takes an ldap response and formats it as a class
 
@@ -401,14 +413,14 @@ def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
     attributes = sorted(list(response["attributes"].keys()))
     ldap_dict = {"dn": response["dn"]}
 
-    def get_nested_ldap_object(dn):
+    async def get_nested_ldap_object(dn):
         """
         Gets a ldap object based on its DN - unless we are in a nested loop
         """
 
         if nest:
             logger.info(f"[make_ldap_object] Loading nested ldap object with dn={dn}")
-            return get_ldap_object(dn, context, nest=False)
+            return await get_ldap_object(dn, context, nest=False)
         else:  # pragma: no cover
             raise Exception("Already running in nested loop")
 
@@ -427,7 +439,7 @@ def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
             ldap_dict[attribute] = get_nested_ldap_object(value)
         elif isinstance(value, list):
             ldap_dict[attribute] = [
-                get_nested_ldap_object(v) if is_other_dn(v) and nest else v
+                await get_nested_ldap_object(v) if is_other_dn(v) and nest else v
                 for v in value
             ]
         else:
@@ -479,7 +491,7 @@ async def cleanup(
     # Get matching LDAP object for this user (note that LDAP can contain
     # multiple entries in one object)
     attributes = converter.get_ldap_attributes(json_key)
-    ldap_object = dataloader.load_ldap_object(dn, attributes)
+    ldap_object = await dataloader.load_ldap_object(dn, attributes)
 
     logger.info(f"Found the following data in LDAP: {ldap_object}")
 
@@ -540,7 +552,7 @@ async def cleanup(
         await sync_tool.refresh_object(uuid, object_type)
 
 
-def setup_listener(context: Context, callback: Callable) -> list[Thread]:
+def setup_listener(context: Context, callback: Callable) -> list[Any]:
     user_context = context["user_context"]
 
     # Note:
@@ -578,24 +590,19 @@ def setup_poller(
     search_parameters: dict,
     init_search_time: datetime.datetime,
     poll_time: float,
-) -> Thread:
-    # TODO: Eliminate this thread and use asyncio code instead
-    poll = Thread(
-        target=_poller,
-        args=(
-            context,
-            search_parameters,
-            callback,
-            init_search_time,
-            poll_time,
-        ),
-        daemon=True,
+) -> Any:
+    def done_callback(future):
+        # This ensures exceptions go to the terminal
+        future.result()
+
+    handle = asyncio.create_task(
+        _poller(context, search_parameters, callback, init_search_time, poll_time)
     )
-    poll.start()
-    return poll
+    handle.add_done_callback(done_callback)
+    return handle
 
 
-def _poll(
+async def _poll(
     context: Context,
     search_parameters: dict,
     callback: Callable,
@@ -631,13 +638,14 @@ def _poll(
         last_search_time,
     )
     last_search_time = datetime.datetime.utcnow()
-    ldap_connection.search(**timed_search_parameters)
+    message_id = ldap_connection.search(**timed_search_parameters)
+    response = await messageid2response(ldap_connection, message_id)
 
-    if not ldap_connection.response:
+    if not response:
         return [], last_search_time
 
     last_events = []
-    responses = apply_discriminator(ldap_connection.response, context)
+    responses = apply_discriminator(response, context)
     for event in responses:
         if event.get("type") != "searchResEntry":
             continue
@@ -662,7 +670,7 @@ def _poll(
     return last_events, last_search_time
 
 
-def _poller(
+async def _poller(
     context: Context,
     search_parameters: dict,
     callback: Callable,
@@ -674,7 +682,7 @@ def _poller(
     Args:
         context:
             The entire settings context.
-        search_params:
+        search_parameters:
             LDAP search parameters.
         callback:
             Function to call with all changes since `last_search_time`.
@@ -683,6 +691,7 @@ def _poller(
         pool_time:
             The interval with which to poll.
     """
+    logger.info(f"poller started: {search_parameters}")
     seeded_poller = partial(
         _poll,
         context=context,
@@ -693,10 +702,10 @@ def _poller(
     last_search_time = init_search_time
     events_to_ignore: list[Any] = []
     while True:
-        events_to_ignore, last_search_time = seeded_poller(
+        events_to_ignore, last_search_time = await seeded_poller(
             events_to_ignore=events_to_ignore, last_search_time=last_search_time
         )
-        time.sleep(poll_time)
+        await asyncio.sleep(poll_time)
 
 
 def set_search_params_modify_timestamp(

@@ -890,7 +890,7 @@ class SyncTool:
             logger.info(
                 "[Import-single-user] Loading object.", dn=dn, json_key=json_key
             )
-            loaded_object = self.dataloader.load_ldap_object(
+            loaded_object = await self.dataloader.load_ldap_object(
                 dn,
                 self.converter.get_ldap_attributes(json_key),
             )
