@@ -15,6 +15,7 @@ from typing import cast
 from typing import ContextManager
 from uuid import UUID
 
+from db.queries import get_run_db_last_run, persist_status
 import ldap3.core.exceptions
 from fastramqpi.context import Context
 from ldap3 import BASE
@@ -558,14 +559,18 @@ def setup_listener(context: Context, callback: Callable) -> list[Thread]:
             "search_filter": "(cn=*)",
             "attributes": ["distinguishedName", "modifyTimestamp"],
         }
-
+        last_check = get_run_db_last_run()
+        if not last_check:
+            now = datetime.datetime.utcnow()
+            persist_status(timestamp=now)
+            last_check = now
         # Polling search
         pollers.append(
             setup_poller(
                 context,
                 callback,
                 search_parameters,
-                datetime.datetime.utcnow(),
+                last_check,
                 user_context["poll_time"],
             )
         )
@@ -631,8 +636,9 @@ def _poll(
         last_search_time,
     )
     last_search_time = datetime.datetime.utcnow()
+    
     ldap_connection.search(**timed_search_parameters)
-
+    
     if not ldap_connection.response:
         return [], last_search_time
 
@@ -659,6 +665,7 @@ def _poll(
             continue
         callback(event)
         last_events.append(event)
+    persist_status(last_search_time)
     return last_events, last_search_time
 
 

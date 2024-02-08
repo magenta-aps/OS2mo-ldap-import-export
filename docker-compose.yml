@@ -22,14 +22,37 @@ services:
   mo_ldap_import_export:
     container_name: mo_ldap_ie
     build: .
-    command: ["uvicorn", "--factory", "app.main:create_app", "--host", "0.0.0.0", "--reload"]
+    env_file:
+      ./dev-environment/mo_ldap_import_export.env
+    environment:
+      - APP_DBPASSWORD=secret
+      - ENVIRONMENT=development
     volumes:
-      - ./mo_ldap_import_export:/opt/app/
-      - ./dev-environment/mo_ldap_import_export.env:/var/run/.env
+      - ./mo_ldap_import_export:/opt/mo_ldap_import_export/
     networks:
       - os2mo_default
     ports:
       - "8000:8000"
+    depends_on:
+      ldap-db:
+        condition: service_healthy
+
+
+  ldap-db:
+    image: postgres:11.7  # Set image in global.sls
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ldap-integration
+    networks:
+      - os2mo_default
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 
 networks:
   os2mo_default:
