@@ -18,7 +18,7 @@ from pydantic import root_validator
 from pydantic import SecretStr
 from pydantic import validator
 from ramqp.config import AMQPConnectionSettings
-
+from pydantic import SecretStr
 from .utils import import_class
 
 
@@ -296,6 +296,13 @@ class AuthBackendEnum(str, Enum):
     NTLM = "ntlm"
     SIMPLE = "simple"
 
+class DBsettings(BaseModel):
+    """Settings model for database connections."""
+
+    pghost: str = "ldap-db"
+    database_name: str = "ldap-integration"
+    user: str = "postgres"
+    password: SecretStr
 
 class Settings(BaseSettings):
     class Config:
@@ -304,6 +311,11 @@ class Settings(BaseSettings):
 
         env_file = "/var/run/.env"
         env_file_encoding = "utf-8"
+    
+    db: DBsettings = Field(
+        default_factory=DBsettings,
+        description="database connection settings",
+    )
 
     conversion_mapping: ConversionMapping = Field(
         description="Conversion mapping between LDAP and OS2mo",

@@ -24,9 +24,6 @@ services:
     build: .
     env_file:
       ./dev-environment/mo_ldap_import_export.env
-    environment:
-      - APP_DBPASSWORD=secret
-      - ENVIRONMENT=development
     volumes:
       - ./mo_ldap_import_export:/opt/mo_ldap_import_export/
     networks:
