@@ -12,6 +12,7 @@ from db.models import Runs
 
 Session = sessionmaker()
 
+
 def persist_status(timestamp: datetime) -> None:
     Session.configure(bind=get_engine())
     session = Session()
@@ -24,6 +25,6 @@ def get_run_db_last_run() -> datetime:
     Session.configure(bind=get_engine())
     session = Session()
     # Note: we use the last to_date as the new from_date
-    statement = select(Runs.last_run).order_by(desc(Runs.id)).limit(1)
-    from_date = session.execute(statement).scalar_one_or_none()
+    statement = select(max(Runs.last_run))
+    from_date = session.scalar_one_or_none(statement)
     return from_date
