@@ -630,9 +630,10 @@ def _poll(
         search_parameters,
         last_search_time,
     )
-    last_search_time = datetime.datetime.utcnow()
+    redis = context["user_context"]["redis"]
+    last_search_time = redis.get("last_search_time") or datetime.datetime.utcnow()
     ldap_connection.search(**timed_search_parameters)
-
+    redis.set("last_search_time", datetime.datetime.utcnow())
     if not ldap_connection.response:
         return [], last_search_time
 

@@ -14,6 +14,8 @@ from typing import Literal
 from uuid import UUID
 from uuid import uuid4
 
+import redis
+
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import FastAPI
@@ -372,6 +374,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     gql_client, model_client = construct_clients(settings)
     fastramqpi.add_context(model_client=model_client)
     fastramqpi.add_context(gql_client=gql_client)
+    
+    r = redis.Redis(host='redis', port=6379, decode_responses=True)
+    fastramqpi.add_context(redis=r)
+
     fastramqpi._context["graphql_client"] = gql_client
 
     logger.info("Configuring LDAP connection")
