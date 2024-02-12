@@ -123,10 +123,17 @@ def datetime_to_ldap_timestamp(dt: datetime.datetime):
 class TaskManager:
     def __init__(self):
         self.background_tasks = set()
+        self.background_tasks_added = 0
+        self.background_tasks_removed = 0
 
     def add_background_task(self, task: Task) -> None:
+        def remove_task(task: Task) -> None:
+            self.background_tasks_removed += 1
+            self.background_tasks.discard(task)
+
+        self.background_tasks_added += 1
         self.background_tasks.add(task)
-        task.add_done_callback(self.background_tasks.discard)
+        task.add_done_callback(remove_task)
 
 
 def listener(context, event):

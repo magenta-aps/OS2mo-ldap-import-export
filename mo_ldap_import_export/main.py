@@ -26,6 +26,8 @@ from fastapi_utils.tasks import repeat_every
 from fastramqpi.main import FastRAMQPI
 from gql.transport.exceptions import TransportQueryError
 from ldap3 import Connection
+from prometheus_client import Counter
+from prometheus_fastapi_instrumentator.metrics import Info as CallbackInfo
 from pydantic import ValidationError
 from raclients.graph.client import PersistentGraphQLClient
 from raclients.modelclient.mo import ModelClient
@@ -66,11 +68,11 @@ from .ldap_classes import LdapObject
 from .logging import logger
 from .os2mo_init import InitEngine
 from .processors import _hide_cpr as hide_cpr
-from .utils import TaskManager
 from .utils import countdown
 from .utils import get_object_type_from_routing_key
 from .utils import listener
 from .utils import mo_datestring_to_utc
+from .utils import TaskManager
 
 fastapi_router = APIRouter()
 amqp_router = MORouter()
@@ -423,7 +425,24 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     logger.info("Starting LDAP listener")
     fastramqpi.add_context(event_loop=asyncio.get_event_loop())
     fastramqpi.add_context(poll_time=settings.poll_time)
-    fastramqpi.add_context(taskmanager=TaskManager())
+
+    taskmanager = TaskManager()
+    fastramqpi.add_context(taskmanager=taskmanager)
+
+    def background_tasks_metric():
+        background_tasks_added = Counter(
+            "background_tasks_added", "Number of background tasks added"
+        )
+        background_tasks_removed = Counter(
+            "background_tasks_removed", "Number of background tasks removed"
+        )
+        def instrumentation(info: CallbackInfo) -> None:
+            background_tasks_added.set(taskmanager.background_tasks_added)
+            background_tasks_removed.set(taskmanager.background_tasks_removed)
+
+        return instrumentation
+
+    fastramqpi._context["instrumentator"].add(background_tasks_metric())
 
     if settings.listen_to_changes_in_ldap:
         pollers = setup_listener(
