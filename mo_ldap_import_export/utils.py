@@ -4,6 +4,7 @@ import asyncio
 import copy
 import datetime
 import re
+from asyncio import Task
 
 from gql import gql
 from graphql import DocumentNode
@@ -119,6 +120,15 @@ def datetime_to_ldap_timestamp(dt: datetime.datetime):
     )
 
 
+class TaskManager:
+    def __init__(self):
+        self.background_tasks = set()
+
+    def add_background_task(self, task: Task) -> None:
+        self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
+
+
 def listener(context, event):
     """
     Calls import_single_user if changes are registered
@@ -133,9 +143,14 @@ def listener(context, event):
     user_context = context["user_context"]
     event_loop = user_context["event_loop"]
     sync_tool = user_context["sync_tool"]
+    taskmanager = user_context["taskmanager"]
 
     logger.info(f"Registered change for LDAP object with dn={dn}")
-    event_loop.create_task(sync_tool.import_single_user(dn))
+    # Ensure we have a strong reference to the task
+    # If we do not, the task could get garbage collected mid execution
+    # See https://docs.python.org/3.10/library/asyncio-task.html#asyncio.create_task
+    task = event_loop.create_task(sync_tool.import_single_user(dn))
+    taskmanager.add_background_task(task)
 
 
 async def countdown(

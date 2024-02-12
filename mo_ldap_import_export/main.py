@@ -66,6 +66,7 @@ from .ldap_classes import LdapObject
 from .logging import logger
 from .os2mo_init import InitEngine
 from .processors import _hide_cpr as hide_cpr
+from .utils import TaskManager
 from .utils import countdown
 from .utils import get_object_type_from_routing_key
 from .utils import listener
@@ -422,6 +423,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     logger.info("Starting LDAP listener")
     fastramqpi.add_context(event_loop=asyncio.get_event_loop())
     fastramqpi.add_context(poll_time=settings.poll_time)
+    fastramqpi.add_context(taskmanager=TaskManager())
 
     if settings.listen_to_changes_in_ldap:
         pollers = setup_listener(
