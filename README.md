@@ -1,3 +1,4 @@
+a
 ### Running the tests
 
 You use `poetry` and `pytest` to run the tests:
