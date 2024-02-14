@@ -73,8 +73,6 @@ class ExportChecks:
 
 
 class ImportChecks:
-    def __init__(self, context: Context):
-        self.context = context
 
     async def check_holstebro_ou_is_externals_issue_57426(
         self, ou_includes: list[str], current_dn: str, json_key: str

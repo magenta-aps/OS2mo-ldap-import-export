@@ -13,13 +13,17 @@ from typing import Any
 from uuid import UUID
 from uuid import uuid4
 
+from ramqp import AMQPSystem
 from fastramqpi.context import Context
 from httpx import HTTPStatusError
+from mo_ldap_import_export import converters
+from mo_ldap_import_export.config import Settings
+from mo_ldap_import_export.customer_specific_checks import ExportChecks, ImportChecks
 from ramodels.mo import MOBase
 from ramodels.mo.details import ITUser
 from ramqp.mo import MORoutingKey
 
-from .dataloaders import DNList
+from .dataloaders import DNList, DataLoader
 from .dataloaders import Verb
 from .exceptions import DNNotFound
 from .exceptions import IgnoreChanges
@@ -100,22 +104,20 @@ class IgnoreMe:
 
 
 class SyncTool:
-    def __init__(self, context: Context):
+    def __init__(self, dataloader: DataLoader, converter:converters, export_checks:ExportChecks, import_checks:ImportChecks, settings:Settings, internal_amqpsystem: AMQPSystem):
 
         # UUIDs in this list will be ignored by listen_to_changes ONCE
         self.uuids_to_ignore = IgnoreMe()
         self.dns_to_ignore = IgnoreMe()
 
-        self.context = context
-        self.user_context = self.context["user_context"]
-        self.dataloader = self.user_context["dataloader"]
-        self.converter = self.user_context["converter"]
+        self.dataloader = dataloader
+        self.converter = converter
         self.uuids_in_progress: list[UUID] = []
         self.dns_in_progress: list[str] = []
-        self.export_checks = self.user_context["export_checks"]
-        self.import_checks = self.user_context["import_checks"]
-        self.settings = self.user_context["settings"]
-        self.internal_amqpsystem = self.user_context["internal_amqpsystem"]
+        self.export_checks = export_checks
+        self.import_checks = import_checks
+        self.settings = settings
+        self.internal_amqpsystem = internal_amqpsystem
 
     @staticmethod
     def extract_uuid(obj) -> UUID:

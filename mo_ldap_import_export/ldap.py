@@ -141,7 +141,7 @@ def configure_ldap_connection(settings: Settings) -> ContextManager:
     return cast(ContextManager, connection)
 
 
-async def ldap_healthcheck(context: dict | Context) -> bool:
+async def ldap_healthcheck(ldap_connection: Connection | Context) -> bool:
     """LDAP connection Healthcheck.
 
     Args:
@@ -150,7 +150,6 @@ async def ldap_healthcheck(context: dict | Context) -> bool:
     Returns:
         Whether the LDAP connection is OK.
     """
-    ldap_connection = context["user_context"]["ldap_connection"]
     return cast(bool, ldap_connection.bound)
 
 
@@ -193,8 +192,7 @@ def get_ldap_attributes(ldap_connection: Connection, root_ldap_object: str):
     return all_attributes
 
 
-def apply_discriminator(search_result: list, context: Context) -> list:
-    settings = context["user_context"]["settings"]
+def apply_discriminator(search_result: list, settings: Settings) -> list:
 
     discriminator_field = settings.discriminator_field
     discriminator_values = settings.discriminator_values
@@ -224,14 +222,12 @@ def apply_discriminator(search_result: list, context: Context) -> list:
 
 
 def _paged_search(
-    context: Context,
+    ldap_connection: Connection,
     searchParameters: dict,
     search_base: str,
     mute: bool = False,
 ) -> list:
     responses = []
-    user_context = context["user_context"]
-    ldap_connection = user_context["ldap_connection"]
 
     # TODO: Find max. paged_size number from LDAP rather than hard-code it?
     searchParameters["paged_size"] = 500
@@ -273,7 +269,8 @@ def _paged_search(
 
 
 def paged_search(
-    context: Context,
+    ldap_connection: Connection,
+    settings: Settings,
     searchParameters: dict,
     search_base: str | None = None,
     **kwargs,
@@ -292,22 +289,20 @@ def paged_search(
 
     if search_base:
         # If the search base is explicitly defined: Don't try anything fancy.
-        results = _paged_search(context, searchParameters, search_base, **kwargs)
+        results = _paged_search(ldap_connection, searchParameters, search_base, **kwargs)
     else:
         # Otherwise, loop over all OUs to search in
-        settings = context["user_context"]["settings"]
-
         results = []
         for ou in settings.ldap_ous_to_search_in:
             search_base = combine_dn_strings([ou, settings.ldap_search_base])
             results.extend(
-                _paged_search(context, searchParameters.copy(), search_base, **kwargs)
+                _paged_search(ldap_connection, searchParameters.copy(), search_base, **kwargs)
             )
 
     return results
 
 
-def single_object_search(searchParameters, context: Context):
+def single_object_search(searchParameters, ldap_connection: Connection):
     """
     Performs an LDAP search and throws an exception if there are multiple or no search
     results.
@@ -327,7 +322,6 @@ def single_object_search(searchParameters, context: Context):
     object's dn (distinguished name) as the search base and set
     searchFilter = "(objectclass=*)" and search_scope = BASE
     """
-    ldap_connection = context["user_context"]["ldap_connection"]
     if type(searchParameters["search_base"]) is list:
         search_bases = searchParameters["search_base"].copy()
         modified_searchParameters = searchParameters.copy()
@@ -342,7 +336,7 @@ def single_object_search(searchParameters, context: Context):
 
     search_entries = [r for r in response if r["type"] == "searchResEntry"]
 
-    search_entries = apply_discriminator(search_entries, context)
+    search_entries = apply_discriminator(search_entries)
 
     if len(search_entries) > 1:
         logger.info(response)
@@ -540,13 +534,11 @@ async def cleanup(
         await sync_tool.refresh_object(uuid, object_type)
 
 
-def setup_listener(context: Context, callback: Callable) -> list[Thread]:
-    user_context = context["user_context"]
+def setup_listener(callback: Callable, settings: Settings) -> list[Thread]:
 
     # Note:
     # We need the dn attribute to trigger sync_tool.import_single_user()
     # We need the modifyTimeStamp attribute to check for duplicate events in _poller()
-    settings = user_context["settings"]
     pollers = []
     for ldap_ou_to_scan_for_changes in settings.ldap_ous_to_search_in:
         search_base = combine_dn_strings(
@@ -562,32 +554,26 @@ def setup_listener(context: Context, callback: Callable) -> list[Thread]:
         # Polling search
         pollers.append(
             setup_poller(
-                context,
                 callback,
                 search_parameters,
                 datetime.datetime.utcnow(),
-                user_context["poll_time"],
             )
         )
     return pollers
 
 
 def setup_poller(
-    context: Context,
     callback: Callable,
     search_parameters: dict,
     init_search_time: datetime.datetime,
-    poll_time: float,
 ) -> Thread:
     # TODO: Eliminate this thread and use asyncio code instead
     poll = Thread(
         target=_poller,
         args=(
-            context,
             search_parameters,
             callback,
             init_search_time,
-            poll_time,
         ),
         daemon=True,
     )
@@ -596,7 +582,7 @@ def setup_poller(
 
 
 def _poll(
-    context: Context,
+    ldap_connection: Connection,
     search_parameters: dict,
     callback: Callable,
     last_search_time: datetime.datetime,
@@ -623,7 +609,6 @@ def _poll(
         Should be provided as `last_search_time` and `events_to_ignore` in the
         next iteration.
     """
-    ldap_connection = context["user_context"]["ldap_connection"]
 
     logger.debug(f"Searching for changes since {last_search_time}")
     timed_search_parameters = set_search_params_modify_timestamp(
@@ -637,7 +622,7 @@ def _poll(
         return [], last_search_time
 
     last_events = []
-    responses = apply_discriminator(ldap_connection.response, context)
+    responses = apply_discriminator(ldap_connection.response)
     for event in responses:
         if event.get("type") != "searchResEntry":
             continue
@@ -663,11 +648,10 @@ def _poll(
 
 
 def _poller(
-    context: Context,
+    settings: Settings,
     search_parameters: dict,
     callback: Callable,
     init_search_time: datetime.datetime,
-    poll_time: float,
 ) -> None:
     """Poll the LDAP server continuously every `poll_time` seconds.
 
@@ -685,7 +669,6 @@ def _poller(
     """
     seeded_poller = partial(
         _poll,
-        context=context,
         search_parameters=search_parameters,
         callback=callback,
     )
@@ -696,7 +679,7 @@ def _poller(
         events_to_ignore, last_search_time = seeded_poller(
             events_to_ignore=events_to_ignore, last_search_time=last_search_time
         )
-        time.sleep(poll_time)
+        time.sleep(settings.poll_time)
 
 
 def set_search_params_modify_timestamp(

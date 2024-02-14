@@ -602,13 +602,14 @@ async def test_listen_to_changes_not_listening() -> None:
     settings = MagicMock()
     settings.listen_to_changes_in_mo = False
 
-    context: dict = {"user_context": {"settings": settings}}
+    dataloader = MagicMock()
+    sync_tool = MagicMock()
     payload = uuid4()
 
     mo_routing_key = "person"
 
     with pytest.raises(RejectMessage):
-        await process_person(context, payload, mo_routing_key, _=None)
+        await process_person(dataloader,settings,sync_tool,payload,mo_routing_key,_=None)
 
 
 def test_ldap_get_all_converted_endpoint_failure(

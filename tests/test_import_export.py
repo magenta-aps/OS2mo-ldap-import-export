@@ -59,8 +59,13 @@ def context(
 
 
 @pytest.fixture
-def sync_tool(context: Context) -> SyncTool:
-    sync_tool = SyncTool(context)
+def sync_tool(dataloader: AsyncMock,
+    converter: MagicMock,
+    export_checks: AsyncMock,
+    import_checks: AsyncMock,
+    settings: MagicMock,
+    internal_amqpsystem: MagicMock) -> SyncTool:
+    sync_tool = SyncTool(dataloader,converter,export_checks,import_checks,settings,internal_amqpsystem)
     return sync_tool
 
 

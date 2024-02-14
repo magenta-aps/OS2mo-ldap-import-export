@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from functools import partial
 from functools import wraps
 from inspect import iscoroutinefunction
-from typing import Annotated
 from typing import Any
 from typing import Literal
 from uuid import UUID
@@ -41,11 +40,11 @@ from ramqp.utils import RequeueMessage
 from tqdm import tqdm
 
 from . import usernames
-from .config import Settings
+from .config import Settings as Settings_
 from .converters import LdapConverter
 from .customer_specific_checks import ExportChecks
 from .customer_specific_checks import ImportChecks
-from .dataloaders import DataLoader
+from .dataloaders import DataLoader as DataLoader_
 from .dependencies import valid_cpr
 from .exceptions import CPRFieldNotFound
 from .exceptions import IgnoreChanges
@@ -54,7 +53,7 @@ from .exceptions import NoObjectsReturnedException
 from .exceptions import NotEnabledException
 from .exceptions import NotSupportedException
 from .exceptions import ObjectGUIDITSystemNotFound
-from .import_export import SyncTool
+from .import_export import SyncTool as SyncTool_
 from .ldap import check_ou_in_list_of_ous
 from .ldap import configure_ldap_connection
 from .ldap import get_attribute_types
@@ -70,13 +69,16 @@ from .utils import countdown
 from .utils import get_object_type_from_routing_key
 from .utils import listener
 from .utils import mo_datestring_to_utc
+from .depends import Settings, LdapConnection, DataLoader, SyncTool
+from ramqp.depends import RateLimit
+
+from mo_ldap_import_export import converters
 
 fastapi_router = APIRouter()
 amqp_router = MORouter()
 internal_amqp_router = MORouter()
 delay_on_error = 10  # Try errors again after a short period of time
 delay_on_requeue = 60 * 60 * 24  # Requeue messages for tomorrow (or after a reboot)
-RateLimit = Annotated[None, Depends(rate_limit(delay_on_error))]
 
 
 def reject_on_failure(func):
@@ -124,7 +126,7 @@ def get_delete_flag(mo_object) -> bool:
 
 
 async def unpack_payload(
-    context: Context, object_uuid: PayloadUUID, mo_routing_key: MORoutingKey
+    object_uuid: PayloadUUID, mo_routing_key: MORoutingKey, dataloader: DataLoader_, settings: Settings_
 ):
     """
     Takes the payload of an AMQP message, and returns a set of parameters to be used
@@ -132,7 +134,6 @@ async def unpack_payload(
     """
 
     # If we are not supposed to listen: reject and turn the message into a dead letter.
-    settings = context["user_context"]["settings"]
     if not settings.listen_to_changes_in_mo:
         logger.info("[Unpack-payload] listen_to_changes_in_mo = False. Aborting.")
         raise RejectMessage()
@@ -143,7 +144,6 @@ async def unpack_payload(
         object_uuid=str(object_uuid),
     )
 
-    dataloader = context["user_context"]["dataloader"]
 
     object_type = get_object_type_from_routing_key(mo_routing_key)
 
@@ -172,15 +172,14 @@ async def unpack_payload(
 @amqp_router.register("address")
 @reject_on_failure
 async def process_address(
-    context: Context,
+    dataloader: DataLoader, settings: Settings,sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, mo_object = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, mo_object = await unpack_payload(object_uuid, mo_routing_key, dataloader, settings)
     service_type = mo_object["service_type"]
 
-    sync_tool = context["user_context"]["sync_tool"]
     if service_type == "employee":
         await sync_tool.listen_to_changes_in_employees(**args)
     elif service_type == "org_unit":
@@ -191,14 +190,13 @@ async def process_address(
 @amqp_router.register("engagement")
 @reject_on_failure
 async def process_engagement(
-    context: Context,
+    dataloader: DataLoader, settings: Settings, sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(object_uuid, mo_routing_key, dataloader, settings)
 
-    sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
     await sync_tool.export_org_unit_addresses_on_engagement_change(**args)
 
@@ -207,14 +205,14 @@ async def process_engagement(
 @amqp_router.register("ituser")
 @reject_on_failure
 async def process_ituser(
-    context: Context,
+    dataloader: DataLoader, settings: Settings, sync_tool:SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(object_uuid, mo_routing_key, dataloader, settings)
 
-    sync_tool = context["user_context"]["sync_tool"]
+
     await sync_tool.listen_to_changes_in_employees(**args)
 
 
@@ -222,14 +220,13 @@ async def process_ituser(
 @amqp_router.register("person")
 @reject_on_failure
 async def process_person(
-    context: Context,
+    dataloader: DataLoader, settings: Settings,sync_tool:SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(object_uuid, mo_routing_key, dataloader, settings)
 
-    sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
 
 
@@ -237,14 +234,14 @@ async def process_person(
 @amqp_router.register("org_unit")
 @reject_on_failure
 async def process_org_unit(
-    context: Context,
+    dataloader: DataLoader, settings: Settings,sync_tool:SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(object_uuid, mo_routing_key, dataloader, settings)
 
-    sync_tool = context["user_context"]["sync_tool"]
+
     await sync_tool.listen_to_changes_in_org_units(**args)
 
 
@@ -259,7 +256,7 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
         yield
 
 
-def construct_gql_client(settings: Settings, version: str = "v21"):
+def construct_gql_client(settings: Settings_, version: str = "v21"):
     return PersistentGraphQLClient(
         url=settings.fastramqpi.mo_url + "/graphql/" + version,
         client_id=settings.fastramqpi.client_id,
@@ -271,7 +268,7 @@ def construct_gql_client(settings: Settings, version: str = "v21"):
     )
 
 
-def construct_model_client(settings: Settings):
+def construct_model_client(settings: Settings_):
     return ModelClient(
         base_url=settings.fastramqpi.mo_url,
         client_id=settings.fastramqpi.client_id,
@@ -282,7 +279,7 @@ def construct_model_client(settings: Settings):
 
 
 def construct_clients(
-    settings: Settings,
+    settings: Settings_,
 ) -> tuple[PersistentGraphQLClient, ModelClient]:
     """Construct clients froms settings.
 
@@ -299,9 +296,9 @@ def construct_clients(
 
 # https://fastapi.tiangolo.com/advanced/events/
 @asynccontextmanager
-async def initialize_sync_tool(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
+async def initialize_sync_tool(fastramqpi: FastRAMQPI, dataloader: DataLoader, converter: LdapConverter, export_checks:ExportChecks, import_checks:ImportChecks, settings:Settings, internal_amqpsystem: AMQPSystem) -> AsyncIterator[None]:
     logger.info("Initializing Sync tool")
-    sync_tool = SyncTool(fastramqpi.get_context())
+    sync_tool = SyncTool_(dataloader, converter, export_checks, import_checks, settings, internal_amqpsystem)
     fastramqpi.add_context(sync_tool=sync_tool)
     yield
 
@@ -387,7 +384,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(mapping=mapping)
 
     logger.info("Initializing dataloader")
-    dataloader = DataLoader(fastramqpi.get_context())
+    dataloader = DataLoader_(fastramqpi.get_context())
     fastramqpi.add_context(dataloader=dataloader)
 
     userNameGeneratorClass_string = mapping["username_generator"]["objectClass"]
@@ -425,8 +422,8 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
 
     if settings.listen_to_changes_in_ldap:
         pollers = setup_listener(
-            fastramqpi.get_context(),
-            partial(listener, fastramqpi.get_context()),
+            settings=settings,
+            callback=partial(listener, fastramqpi.get_context()),
         )
         fastramqpi.add_context(pollers=pollers)
         fastramqpi.add_healthcheck(name="LDAPPoller", healthcheck=poller_healthcheck)
