@@ -229,7 +229,9 @@ class DataLoader:
         search_result = await single_object_search(searchParameters, self.context)
         return await make_ldap_object(search_result, self.context, nest=nest)
 
-    def load_ldap_attribute_values(self, attribute, search_base=None) -> list[str]:
+    async def load_ldap_attribute_values(
+        self, attribute, search_base=None
+    ) -> list[str]:
         """
         Returns all values belonging to an LDAP attribute
         """
@@ -238,7 +240,7 @@ class DataLoader:
             "attributes": [attribute],
         }
 
-        responses = paged_search(
+        responses = await paged_search(
             self.context,
             searchParameters,
             search_base=search_base,
@@ -441,7 +443,7 @@ class DataLoader:
             "attributes": list(set(attributes)),
         }
 
-        responses = paged_search(
+        responses = await paged_search(
             self.context,
             searchParameters,
             search_base=search_base,
@@ -454,7 +456,7 @@ class DataLoader:
 
         return output
 
-    def load_ldap_OUs(self, search_base: str | None = None) -> dict:
+    async def load_ldap_OUs(self, search_base: str | None = None) -> dict:
         """
         Returns a dictionary where the keys are OU strings and the items are dicts
         which contain information about the OU
@@ -464,7 +466,7 @@ class DataLoader:
             "attributes": [],
         }
 
-        responses = paged_search(
+        responses = await paged_search(
             self.context,
             searchParameters,
             search_base=search_base,
@@ -481,7 +483,7 @@ class DataLoader:
                 "size_limit": 1,
             }
 
-            responses = paged_search(
+            responses = await paged_search(
                 self.context,
                 searchParameters,
                 search_base=dn,
@@ -550,7 +552,7 @@ class DataLoader:
 
         return output
 
-    def create_ou(self, ou: str) -> None:
+    async def create_ou(self, ou: str) -> None:
         """
         Creates an OU. If the parent OU does not exist, creates that one first
         """
@@ -561,7 +563,7 @@ class DataLoader:
         if not self.ou_in_ous_to_write_to(ou, "[Create-OU]"):
             return
 
-        ou_dict = self.load_ldap_OUs()
+        ou_dict = await self.load_ldap_OUs()
 
         # Create OUs top-down (unless they already exist)
         for ou_to_create in self.decompose_ou_string(ou)[::-1]:
@@ -572,7 +574,7 @@ class DataLoader:
                 self.ldap_connection.add(dn, "OrganizationalUnit")
                 self.log_ldap_response("[Create-OU]", dn=dn)
 
-    def delete_ou(self, ou: str) -> None:
+    async def delete_ou(self, ou: str) -> None:
         """
         Deletes an OU. If the parent OU is empty after deleting, also deletes that one
 
@@ -585,7 +587,7 @@ class DataLoader:
             return
 
         for ou_to_delete in self.decompose_ou_string(ou):
-            ou_dict = self.load_ldap_OUs()
+            ou_dict = await self.load_ldap_OUs()
             if (
                 ou_dict.get(ou_to_delete, {}).get("empty", False)
                 and ou_to_delete != settings.ldap_ou_for_new_users
@@ -740,7 +742,7 @@ class DataLoader:
 
         return output
 
-    def load_ldap_populated_overview(self, ldap_classes=None):
+    async def load_ldap_populated_overview(self, ldap_classes=None):
         """
         Like load_ldap_overview but only returns fields which actually contain data
         """
@@ -758,7 +760,7 @@ class DataLoader:
                 "attributes": ["*"],
             }
 
-            responses = paged_search(self.context, searchParameters)
+            responses = await paged_search(self.context, searchParameters)
             responses = [
                 r
                 for r in responses
@@ -1053,7 +1055,7 @@ class DataLoader:
             dn = await username_generator.generate_dn(employee)
 
             # Get its unique ldap uuid
-            unique_uuid = await self.get_ldap_unique_ldap_uuid(dn)
+            unique_uuid = self.get_ldap_unique_ldap_uuid(dn)
 
             # Make a new it-user
             it_user = ITUser.from_simplified_fields(
@@ -1081,6 +1083,7 @@ class DataLoader:
         engagement: EngagementRef,
         dns: DNList,
     ) -> str:
+        logger.warning(dns)
         if len(dns) == 1:
             return dns[0]
         engagement_uuid: UUID | None = getattr(engagement, "uuid", None)

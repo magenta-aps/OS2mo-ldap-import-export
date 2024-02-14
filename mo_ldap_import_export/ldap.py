@@ -4,7 +4,6 @@
 import asyncio
 import datetime
 import signal
-import time
 from collections.abc import Callable
 from contextlib import suppress
 from functools import partial
@@ -156,7 +155,7 @@ async def ldap_healthcheck(context: dict | Context) -> bool:
 
 async def messageid2response(ldap_connection, message_id) -> Any:
     # Keep pooling until the LDAP result is back
-    while True:
+    for _ in range(10):
         response, result = ldap_connection.get_response(message_id)
         if result:
             logger.debug(f"resolved {message_id} to {response} + {result}")
@@ -234,7 +233,7 @@ def apply_discriminator(search_result: list, context: Context) -> list:
     return list(filter(discriminator, search_result))
 
 
-def _paged_search(
+async def _paged_search(
     context: Context,
     searchParameters: dict,
     search_base: str,
@@ -283,7 +282,7 @@ def _paged_search(
     return responses
 
 
-def paged_search(
+async def paged_search(
     context: Context,
     searchParameters: dict,
     search_base: str | None = None,
@@ -303,16 +302,21 @@ def paged_search(
 
     if search_base:
         # If the search base is explicitly defined: Don't try anything fancy.
-        results = _paged_search(context, searchParameters, search_base, **kwargs)
+        results = await _paged_search(context, searchParameters, search_base, **kwargs)
     else:
         # Otherwise, loop over all OUs to search in
         settings = context["user_context"]["settings"]
 
+        search_bases = [
+            combine_dn_strings([ou, settings.ldap_search_base])
+            for ou in settings.ldap_ous_to_search_in
+        ]
         results = []
-        for ou in settings.ldap_ous_to_search_in:
-            search_base = combine_dn_strings([ou, settings.ldap_search_base])
+        for search_base in search_bases:
             results.extend(
-                _paged_search(context, searchParameters.copy(), search_base, **kwargs)
+                await _paged_search(
+                    context, searchParameters.copy(), search_base, **kwargs
+                )
             )
 
     return results
@@ -346,8 +350,8 @@ async def single_object_search(searchParameters, context: Context):
         for search_base in search_bases:
             modified_searchParameters["search_base"] = search_base
             message_id = ldap_connection.search(**modified_searchParameters)
-            response = await messageid2response(ldap_connection, message_id)
-            response.extend(response)
+            res = await messageid2response(ldap_connection, message_id)
+            response.extend(res)
     else:
         message_id = ldap_connection.search(**searchParameters)
         response = await messageid2response(ldap_connection, message_id)

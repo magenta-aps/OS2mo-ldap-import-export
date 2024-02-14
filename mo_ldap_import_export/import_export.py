@@ -283,6 +283,7 @@ class SyncTool:
 
         try:
             dns: DNList = await self.dataloader.find_or_make_mo_employee_dn(uuid)
+            logger.warn(dns)
         except DNNotFound:
             logger.info("[Listen-to-changes-in-employees] DN not found.", **logger_args)
             return

@@ -281,7 +281,7 @@ def test_configure_ldap_connection_unknown(
 
 def test_get_client_strategy() -> None:
     strategy = get_client_strategy()
-    assert strategy == "ASYNC"
+    assert strategy == "REUSABLE"
 
 
 async def test_ldap_healthcheck(ldap_connection: MagicMock) -> None:
@@ -430,7 +430,7 @@ async def test_paged_search(
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": ["foo", "bar"],
     }
-    output = paged_search(context, searchParameters, search_base="foo")
+    output = await paged_search(context, searchParameters, search_base="foo")
     assert output == expected_results * len(cookies)
 
 
@@ -469,7 +469,7 @@ async def test_paged_search_no_results(
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": ["foo", "bar"],
     }
-    output = paged_search(context, searchParameters)
+    output = await paged_search(context, searchParameters)
 
     assert output == expected_results
 
@@ -490,7 +490,7 @@ async def test_invalid_paged_search(
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": ["foo", "bar"],
     }
-    output = paged_search(context, searchParameters)
+    output = await paged_search(context, searchParameters)
 
     assert output == []
 
@@ -499,11 +499,10 @@ async def test_single_object_search(ldap_connection: MagicMock, context: Context
     dn = "CN=foo,DC=bar"
     search_entry = {"type": "searchResEntry", "dn": dn}
 
-    ldap_connection.response = [search_entry]
+    ldap_connection.get_response.return_value = ([search_entry], True)
     output = await single_object_search({"search_base": "CN=foo,DC=bar"}, context)
 
     assert output == search_entry
-    ldap_connection.response = [search_entry]
 
     search_parameters = {
         "search_base": "CN=foo,DC=bar",
@@ -511,14 +510,14 @@ async def test_single_object_search(ldap_connection: MagicMock, context: Context
     }
 
     with pytest.raises(MultipleObjectsReturnedException, match="010101-xxxx"):
-        ldap_connection.response = [search_entry] * 2
-        output = await single_object_search(search_parameters, context)
+        ldap_connection.get_response.return_value = ([search_entry] * 2, True)
+        await single_object_search(search_parameters, context)
 
     with pytest.raises(NoObjectsReturnedException, match="010101-xxxx"):
-        ldap_connection.response = [search_entry] * 0
-        output = await single_object_search(search_parameters, context)
+        ldap_connection.get_response.return_value = ([search_entry] * 0, True)
+        await single_object_search(search_parameters, context)
 
-    ldap_connection.response = [search_entry]
+    ldap_connection.get_response.return_value = ([search_entry], True)
     output = await single_object_search({"search_base": "CN=foo,DC=bar"}, context)
     assert output == search_entry
     output = await single_object_search(
@@ -587,7 +586,7 @@ def user_context(
 
 
 async def test_cleanup(
-    dataloader: AsyncMock,
+    dataloader: MagicMock,
     converter: MagicMock,
     user_context: dict,
 ):
@@ -601,8 +600,8 @@ async def test_cleanup(
     ]
 
     # but two in LDAP
-    dataloader.load_ldap_object.return_value = LdapObject(
-        dn="CN=foo", address=["addr1", "addr2"]
+    dataloader.load_ldap_object = AsyncMock(
+        return_value=LdapObject(dn="CN=foo", address=["addr1", "addr2"])
     )
 
     # We would expect one of the addresses in LDAP to be cleaned
@@ -636,7 +635,9 @@ async def test_cleanup_no_sync_required(
     ]
 
     # And it is also in LDAP
-    dataloader.load_ldap_object.return_value = LdapObject(dn="CN=foo", address="addr1")
+    dataloader.load_ldap_object = AsyncMock(
+        return_value=LdapObject(dn="CN=foo", address="addr1")
+    )
 
     # We would expect that no cleanup is required
     args = dict(
@@ -697,8 +698,8 @@ async def test_cleanup_refresh_mo_object(
     # And None in LDAP
     sync_tool = user_context["sync_tool"]
     for none_val in [[], None, ""]:  # type: ignore
-        dataloader.load_ldap_object.return_value = LdapObject(
-            dn="CN=foo", address=none_val
+        dataloader.load_ldap_object = AsyncMock(
+            return_value=LdapObject(dn="CN=foo", address=none_val)
         )
 
         # We would expect that an AMQP message is sent over the internal AMQP system
@@ -758,7 +759,7 @@ async def test_set_search_params_modify_timestamp():
 
 
 async def test_setup_poller(context: Context):
-    with patch("mo_ldap_import_export.ldap._poller", MagicMock()):
+    with patch("mo_ldap_import_export.ldap._poller", AsyncMock()):
 
         def callback():
             return
@@ -767,10 +768,10 @@ async def test_setup_poller(context: Context):
         init_search_time = datetime.datetime.utcnow()
 
         poll = setup_poller(context, callback, search_parameters, init_search_time, 5)
-        assert poll._initialized is True  # type: ignore
+        assert isinstance(poll, asyncio.Task)
 
 
-def test_poller(
+async def test_poller(
     load_settings_overrides: dict[str, str], ldap_connection: MagicMock
 ) -> None:
     event = {
@@ -780,7 +781,7 @@ def test_poller(
             "cpr_no": "010101-1234",
         },
     }
-    ldap_connection.response = [event]
+    ldap_connection.get_response.return_value = ([event], True)
 
     settings = MagicMock()
     settings.discriminator_function = None
@@ -792,7 +793,7 @@ def test_poller(
         hits.append(cpr_no)
 
     last_search_time = datetime.datetime.utcnow()
-    events_to_ignore, search_time = _poll(
+    events_to_ignore, search_time = await _poll(
         context={
             "user_context": {"ldap_connection": ldap_connection, "settings": settings}
         },
@@ -818,10 +819,10 @@ def test_poller(
         [{"type": "NOT_searchResEntry"}],
     ],
 )
-def test_poller_bad_result(
+async def test_poller_bad_result(
     load_settings_overrides: dict[str, str], ldap_connection: MagicMock, response: Any
 ) -> None:
-    ldap_connection.response = response
+    ldap_connection.get_response.return_value = [response, True]
 
     settings = MagicMock()
     settings.discriminator_function = None
@@ -829,7 +830,7 @@ def test_poller_bad_result(
     listener = MagicMock()
 
     last_search_time = datetime.datetime.utcnow()
-    events_to_ignore, search_time = _poll(
+    events_to_ignore, search_time = await _poll(
         context={
             "user_context": {"ldap_connection": ldap_connection, "settings": settings}
         },
@@ -847,7 +848,7 @@ def test_poller_bad_result(
     assert listener.call_count == 0
 
 
-def test_poller_invalidQuery(
+async def test_poller_invalidQuery(
     load_settings_overrides: dict[str, str], ldap_connection: MagicMock
 ) -> None:
     # Event without modifyTimeStamp makes it impossible to determine if it
@@ -858,7 +859,7 @@ def test_poller_invalidQuery(
             "cpr_no": "010101-1234",
         },
     }
-    ldap_connection.response = [event]
+    ldap_connection.get_response.return_value = ([event], True)
 
     settings = MagicMock()
     settings.discriminator_function = None
@@ -867,7 +868,7 @@ def test_poller_invalidQuery(
 
     with capture_logs() as cap_logs:
         last_search_time = datetime.datetime.utcnow()
-        events_to_ignore, search_time = _poll(
+        events_to_ignore, search_time = await _poll(
             context={
                 "user_context": {
                     "ldap_connection": ldap_connection,
@@ -891,7 +892,7 @@ def test_poller_invalidQuery(
         assert "'modifyTimeStamp' not found in event['attributes']" in last_log_message
 
 
-def test_poller_duplicate_event(
+async def test_poller_duplicate_event(
     load_settings_overrides: dict[str, str], ldap_connection: MagicMock
 ) -> None:
     # Event without modifyTimeStamp makes it impossible to determine if it
@@ -903,16 +904,16 @@ def test_poller_duplicate_event(
             "cpr_no": "010101-1234",
         },
     }
-    ldap_connection.response = [event]
+    ldap_connection.get_response.return_value = ([event], True)
 
     settings = MagicMock()
     settings.discriminator_function = None
 
-    listener = MagicMock()
+    listener = AsyncMock()
 
     with capture_logs() as cap_logs:
         last_search_time = datetime.datetime.utcnow()
-        events_to_ignore, search_time = _poll(
+        events_to_ignore, search_time = await _poll(
             context={
                 "user_context": {
                     "ldap_connection": ldap_connection,

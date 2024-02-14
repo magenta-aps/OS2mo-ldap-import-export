@@ -761,7 +761,7 @@ async def test_format_converted_primary_engagement_objects(
 
 
 async def test_import_single_object_from_LDAP_ignore_twice(
-    converter: MagicMock, dataloader: AsyncMock, sync_tool: SyncTool
+    converter: AsyncMock, dataloader: AsyncMock, sync_tool: SyncTool
 ) -> None:
     """
     When an uuid already is in the uuids_to_ignore dict, it should be added once more
@@ -769,7 +769,7 @@ async def test_import_single_object_from_LDAP_ignore_twice(
     """
 
     uuid = uuid4()
-    mo_object_mock = MagicMock
+    mo_object_mock = AsyncMock()
     mo_object_mock.uuid = uuid
     converter.from_ldap.return_value = [mo_object_mock]
 

@@ -207,7 +207,10 @@ async def test_load_ldap_cpr_object(
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
     expected_result = LdapObject(dn=dn, **ldap_attributes)
-    ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
+    ldap_connection.get_response.return_value = (
+        [mock_ldap_response(ldap_attributes, dn)],
+        True,
+    )
 
     output = await dataloader.load_ldap_cpr_object("0101012002", "Employee")
     assert output == expected_result
@@ -262,7 +265,7 @@ async def test_load_ldap_OUs(ldap_connection: MagicMock, dataloader: DataLoader)
 
     ldap_connection.search.side_effect = set_new_result
 
-    output = dataloader.load_ldap_OUs(None)
+    output = await dataloader.load_ldap_OUs(None)
 
     assert ou1 in output
     assert ou2 in output
@@ -551,7 +554,7 @@ async def test_get_populated_overview(dataloader: DataLoader):
         "mo_ldap_import_export.dataloaders.paged_search",
         return_value=responses,
     ):
-        output = dataloader.load_ldap_populated_overview()
+        output = await dataloader.load_ldap_populated_overview()
 
     assert sorted(list(output["user"]["attributes"].keys())) == sorted(
         ["attr1", "objectClass"]
@@ -740,18 +743,13 @@ async def test_load_mo_address(
     assert output[0] == expected_result
 
 
-def test_load_ldap_object(dataloader: DataLoader):
-    make_ldap_object = MagicMock()
-    with patch(
-        "mo_ldap_import_export.dataloaders.single_object_search",
-        return_value="foo",
-    ), patch(
-        "mo_ldap_import_export.dataloaders.make_ldap_object",
-        new_callable=make_ldap_object,
-    ):
-        dn = "CN=Nikki Minaj"
-        output = dataloader.load_ldap_object(dn, ["foo", "bar"])
-        assert output.called_once_with("foo", dataloader.context)
+@patch("mo_ldap_import_export.dataloaders.single_object_search", return_value="foo")
+@patch("mo_ldap_import_export.dataloaders.make_ldap_object")
+async def test_load_ldap_object(_, _1, dataloader: DataLoader):
+
+    dn = "CN=Nikki Minaj"
+    output = await dataloader.load_ldap_object(dn, ["foo", "bar"])
+    assert output.called_once_with("foo", dataloader.context)
 
 
 def test_cleanup_attributes_in_ldap(dataloader: DataLoader):
@@ -1779,7 +1777,7 @@ async def test_find_or_make_mo_employee_dn(
     dataloader.load_mo_employee = AsyncMock()  # type: ignore
     dataloader.load_ldap_cpr_object = AsyncMock()  # type: ignore
     dataloader.upload_mo_objects = AsyncMock()  # type: ignore
-    dataloader.extract_unique_dns = MagicMock()  # type: ignore
+    dataloader.extract_unique_dns = AsyncMock()  # type: ignore
     dataloader.get_ldap_unique_ldap_uuid = MagicMock()  # type: ignore
 
     # Case where there is an IT-system that contains the DN
@@ -1867,31 +1865,32 @@ def test_extract_unique_objectGUIDs(dataloader: DataLoader):
     assert len(objectGUIDs) == 2
 
 
-def test_extract_unique_dns(dataloader: DataLoader):
+async def test_extract_unique_dns(dataloader: DataLoader):
+
     dataloader.extract_unique_ldap_uuids = MagicMock()  # type: ignore
     dataloader.extract_unique_ldap_uuids.return_value = [uuid4(), uuid4()]
 
-    dataloader.get_ldap_dn = MagicMock()  # type: ignore
+    dataloader.get_ldap_dn = AsyncMock()  # type: ignore
     dataloader.get_ldap_dn.return_value = "CN=foo"
 
-    dns = dataloader.extract_unique_dns([])
+    dns = await dataloader.extract_unique_dns([])
 
     assert len(dns) == 2
     assert dns[0] == "CN=foo"
     assert dns[1] == "CN=foo"
 
 
-def test_get_ldap_dn(dataloader: DataLoader):
+async def test_get_ldap_dn(dataloader: DataLoader):
     with patch(
         "mo_ldap_import_export.dataloaders.single_object_search",
         return_value={"dn": "CN=foo"},
     ):
-        assert dataloader.get_ldap_dn(uuid4()) == "CN=foo"
+        assert await dataloader.get_ldap_dn(uuid4()) == "CN=foo"
 
 
 async def test_get_ldap_unique_ldap_uuid(dataloader: DataLoader):
     uuid = uuid4()
-    dataloader.load_ldap_object = MagicMock()  # type: ignore
+    dataloader.load_ldap_object = AsyncMock()  # type: ignore
     dataloader.load_ldap_object.return_value = LdapObject(
         dn="foo", objectGUID=str(uuid)
     )
@@ -1899,7 +1898,7 @@ async def test_get_ldap_unique_ldap_uuid(dataloader: DataLoader):
     assert await dataloader.get_ldap_unique_ldap_uuid("") == uuid
 
 
-def test_load_ldap_attribute_values(dataloader: DataLoader):
+async def test_load_ldap_attribute_values(dataloader: DataLoader):
     responses = [
         {"attributes": {"foo": 1}},
         {"attributes": {"foo": "2"}},
@@ -1909,7 +1908,7 @@ def test_load_ldap_attribute_values(dataloader: DataLoader):
         "mo_ldap_import_export.dataloaders.paged_search",
         return_value=responses,
     ):
-        values = dataloader.load_ldap_attribute_values("foo")
+        values = await dataloader.load_ldap_attribute_values("foo")
         assert "1" in values
         assert "2" in values
         assert "[]" in values
@@ -2428,8 +2427,8 @@ def test_decompose_ou_string(dataloader: DataLoader):
     assert output[2] == "OU=bar"
 
 
-def test_create_ou(dataloader: DataLoader):
-    dataloader.load_ldap_OUs = MagicMock()  # type: ignore
+async def test_create_ou(dataloader: DataLoader):
+    dataloader.load_ldap_OUs = AsyncMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
 
@@ -2443,7 +2442,7 @@ def test_create_ou(dataloader: DataLoader):
     }
 
     ou = "OU=foo,OU=mucki,OU=bar"
-    dataloader.create_ou(ou)
+    await dataloader.create_ou(ou)
     dataloader.ldap_connection.add.assert_called_once_with(
         "OU=foo,OU=mucki,OU=bar,DC=Magenta", "OrganizationalUnit"
     )
@@ -2451,18 +2450,19 @@ def test_create_ou(dataloader: DataLoader):
     dataloader.user_context["settings"].add_objects_to_ldap = False
 
     with pytest.raises(NotEnabledException):
-        dataloader.create_ou(ou)
+        await dataloader.create_ou(ou)
 
     dataloader.ldap_connection.reset_mock()
     dataloader.user_context["settings"].add_objects_to_ldap = True
     dataloader.ou_in_ous_to_write_to.return_value = False
 
-    dataloader.create_ou(ou)
+    await dataloader.create_ou(ou)
     dataloader.ldap_connection.add.assert_not_called()
 
 
-def test_delete_ou(dataloader: DataLoader):
-    dataloader.load_ldap_OUs = MagicMock()  # type: ignore
+async def test_delete_ou(dataloader: DataLoader):
+
+    dataloader.load_ldap_OUs = AsyncMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
 
@@ -2477,7 +2477,7 @@ def test_delete_ou(dataloader: DataLoader):
     }
 
     ou = "OU=foo,OU=mucki,OU=bar"
-    dataloader.delete_ou(ou)
+    await dataloader.delete_ou(ou)
     dataloader.ldap_connection.delete.assert_called_once_with(
         "OU=foo,OU=mucki,OU=bar,DC=Magenta"
     )
@@ -2486,18 +2486,18 @@ def test_delete_ou(dataloader: DataLoader):
     dataloader.user_context["settings"].add_objects_to_ldap = True
     dataloader.ou_in_ous_to_write_to.return_value = False
 
-    dataloader.delete_ou(ou)
+    await dataloader.delete_ou(ou)
     dataloader.ldap_connection.delete.assert_not_called()
 
     # Test that we do not remove the ou-for-new-users
     dataloader.ou_in_ous_to_write_to.return_value = True
     settings_mock.ldap_ou_for_new_users = ou
-    dataloader.delete_ou(ou)
+    await dataloader.delete_ou(ou)
     dataloader.ldap_connection.delete.assert_not_called()
 
     # Test that we do not try to remove an OU which is not in the ou-dict
     dataloader.ou_in_ous_to_write_to.return_value = False
-    dataloader.delete_ou("OU=non_existing_OU")
+    await dataloader.delete_ou("OU=non_existing_OU")
     dataloader.ldap_connection.delete.assert_not_called()
 
 
@@ -2583,7 +2583,7 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
             engagement_uuid=engagement_uuid,
         )
     ]
-    dataloader.get_ldap_dn = MagicMock()  # type: ignore
+    dataloader.get_ldap_dn = AsyncMock()  # type: ignore
     dataloader.get_ldap_dn.return_value = "CN=foo"
     dns = MagicMock()
     dns.__contains__.return_value = True

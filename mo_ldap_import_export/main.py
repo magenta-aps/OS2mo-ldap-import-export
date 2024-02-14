@@ -376,7 +376,6 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_lifespan_manager(initialize_sync_tool(fastramqpi), 3000)
 
     logger.info("Starting LDAP listener")
-    fastramqpi.add_context(event_loop=asyncio.get_event_loop())
     fastramqpi.add_context(poll_time=settings.poll_time)
 
     if settings.listen_to_changes_in_ldap:
@@ -679,7 +678,7 @@ def create_app(**kwargs: Any) -> FastAPI:
 
         responses = [
             r
-            for r in paged_search(fastramqpi._context, searchParameters)
+            for r in await paged_search(fastramqpi._context, searchParameters)
             if r["attributes"][cpr_field]
         ]
 

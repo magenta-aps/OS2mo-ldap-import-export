@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
 # -*- coding: utf-8 -*-
+import asyncio
 import datetime
 import os
 from collections.abc import Iterator
@@ -135,7 +136,6 @@ def dataloader(
     load_ldap_cpr_object.return_value = test_ldap_object
 
     dataloader = AsyncMock()
-    dataloader.load_ldap_object = sync_dataloader
     dataloader.load_ldap_OUs = sync_dataloader
     dataloader.load_ldap_populated_overview = sync_dataloader
     dataloader.load_ldap_overview = sync_dataloader
@@ -239,3 +239,10 @@ def read_mapping(filename):
     )
     with open(file_path) as file:
         return yaml.safe_load(file)
+
+
+# Not entirely sure why, but this fixes an issue with "ScopeMismatch"
+# https://github.com/tortoise/tortoise-orm/issues/638#issuecomment-830124562
+@pytest.fixture(scope="session")
+def event_loop():
+    return asyncio.get_event_loop()

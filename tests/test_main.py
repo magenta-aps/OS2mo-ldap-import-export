@@ -6,6 +6,7 @@
 import datetime
 import os
 import re
+from collections.abc import AsyncIterator
 from collections.abc import Iterator
 from contextlib import contextmanager
 from unittest.mock import AsyncMock
@@ -283,12 +284,12 @@ def patch_modules(
 
 
 @pytest.fixture(scope="module")
-def fastramqpi(patch_modules: None) -> FastRAMQPI:
+async def fastramqpi(patch_modules: None) -> FastRAMQPI:
     return create_fastramqpi()
 
 
 @pytest.fixture(scope="module")
-def app(fastramqpi: FastRAMQPI) -> Iterator[FastAPI]:
+async def app(fastramqpi: FastRAMQPI) -> AsyncIterator[FastAPI]:
     """Fixture to construct a FastAPI application.
 
     Yields:
@@ -299,7 +300,7 @@ def app(fastramqpi: FastRAMQPI) -> Iterator[FastAPI]:
 
 
 @pytest.fixture(scope="module")
-def test_client(app: FastAPI) -> Iterator[TestClient]:
+async def test_client(app: FastAPI) -> AsyncIterator[TestClient]:
     """Fixture to construct a FastAPI test-client.
 
     Note:
@@ -312,13 +313,13 @@ def test_client(app: FastAPI) -> Iterator[TestClient]:
 
 
 # Note: The modules patched by this test are used by all other tests
-def test_create_fastramqpi(patch_modules: None) -> None:
+async def test_create_fastramqpi(patch_modules: None) -> None:
     """Test that we can construct our FastRAMQPI system."""
     fastramqpi = create_fastramqpi()
     assert isinstance(fastramqpi, FastRAMQPI)
 
 
-def test_create_app() -> None:
+async def test_create_app() -> None:
     """Test that we can construct our FastAPI application."""
     app = create_app()
     assert isinstance(app, FastAPI)
@@ -722,7 +723,7 @@ async def test_load_faulty_username_generator() -> None:
             create_fastramqpi()
 
         with pytest.raises(TypeError):
-            mock = MagicMock()
+            mock = AsyncMock()
             mock.generate_dn = lambda a: a
             usernames_mock.UserNameGenerator.return_value = mock
             create_fastramqpi()
