@@ -8,7 +8,7 @@ from more_itertools import split_when
 from pydantic import parse_obj_as
 from ramodels.mo.employee import Employee
 
-from .config import UsernameGeneratorConfig
+from .config import Settings, UsernameGeneratorConfig
 from .ldap import paged_search
 from .logging import logger
 from .utils import combine_dn_strings
@@ -23,10 +23,10 @@ class UserNameGeneratorBase:
     to do, is refer to the proper function inside the json dict.
     """
 
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, settings: Settings):
         self.context = context
         self.user_context = context["user_context"]
-        self.settings = self.user_context["settings"]
+        self.settings = settings
 
         self.mapping = self.user_context["mapping"]
 
@@ -50,7 +50,7 @@ class UserNameGeneratorBase:
         }
         search_base = self.settings.ldap_search_base
         output = {}
-        search_result = paged_search(self.context, searchParameters, search_base)
+        search_result = paged_search(self.context, self.settings, searchParameters, search_base)
         for attribute in attributes:
             output[attribute] = [
                 entry["attributes"][attribute].lower()

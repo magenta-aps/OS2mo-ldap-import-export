@@ -201,7 +201,12 @@ def converter() -> MagicMock:
 
 @pytest.fixture
 def settings() -> MagicMock:
-    return MagicMock()
+    settings=MagicMock()
+    settings.ldap_search_base = "bar"
+    settings.default_org_unit_type = "Afdeling"
+    settings.default_org_unit_level = "N1"
+    settings.org_unit_path_string_separator = "\\"
+    return settings
 
 
 @pytest.fixture

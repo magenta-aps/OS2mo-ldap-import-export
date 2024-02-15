@@ -25,6 +25,7 @@ from structlog.testing import capture_logs
 
 from mo_ldap_import_export.customer_specific import JobTitleFromADToMO
 from mo_ldap_import_export.dataloaders import Verb
+from mo_ldap_import_export.depends import Settings
 from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import IgnoreChanges
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
@@ -59,8 +60,8 @@ def context(
 
 
 @pytest.fixture
-def sync_tool(context: Context) -> SyncTool:
-    sync_tool = SyncTool(context)
+def sync_tool(context: Context, settings: Settings) -> SyncTool:
+    sync_tool = SyncTool(context, settings=settings)
     return sync_tool
 
 

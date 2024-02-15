@@ -83,19 +83,19 @@ def existing_usernames_ldap(
 
 @pytest.fixture
 def username_generator(
-    context: Context, existing_usernames_ldap: list
+    context: Context, existing_usernames_ldap: list, settings
 ) -> Iterator[UserNameGenerator]:
 
     with patch(
         "mo_ldap_import_export.usernames.paged_search",
         return_value=existing_usernames_ldap,
     ):
-        yield UserNameGenerator(context)
+        yield UserNameGenerator(context, settings=settings)
 
 
 @pytest.fixture
 def alleroed_username_generator(
-    context: Context, existing_usernames_ldap: list
+    context: Context, existing_usernames_ldap: list, settings
 ) -> Iterator[AlleroedUserNameGenerator]:
 
     context["user_context"]["mapping"] = {}
@@ -186,7 +186,7 @@ def alleroed_username_generator(
         "mo_ldap_import_export.usernames.paged_search",
         return_value=existing_usernames_ldap,
     ):
-        yield AlleroedUserNameGenerator(context)
+        yield AlleroedUserNameGenerator(context, settings=settings)
 
 
 def test_get_existing_usernames(

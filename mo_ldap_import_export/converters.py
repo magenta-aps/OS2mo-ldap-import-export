@@ -111,10 +111,10 @@ async def find_ldap_it_system(
 
 
 class LdapConverter:
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, settings: Settings):
         self.context = context
         self.user_context = context["user_context"]
-        self.settings = self.user_context["settings"]
+        self.settings = settings
         self.raw_mapping = self.user_context["mapping"]
         self.dataloader = self.user_context["dataloader"]
         self.org_unit_path_string_separator: str = (

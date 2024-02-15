@@ -19,6 +19,7 @@ from ramodels.mo import MOBase
 from ramodels.mo.details import ITUser
 from ramqp.mo import MORoutingKey
 
+from .config import Settings
 from .dataloaders import DNList
 from .dataloaders import Verb
 from .exceptions import DNNotFound
@@ -100,7 +101,7 @@ class IgnoreMe:
 
 
 class SyncTool:
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, settings: Settings):
 
         # UUIDs in this list will be ignored by listen_to_changes ONCE
         self.uuids_to_ignore = IgnoreMe()
@@ -114,7 +115,7 @@ class SyncTool:
         self.dns_in_progress: list[str] = []
         self.export_checks = self.user_context["export_checks"]
         self.import_checks = self.user_context["import_checks"]
-        self.settings = self.user_context["settings"]
+        self.settings = settings
         self.internal_amqpsystem = self.user_context["internal_amqpsystem"]
 
     @staticmethod

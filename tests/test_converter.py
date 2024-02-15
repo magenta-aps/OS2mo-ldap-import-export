@@ -23,7 +23,7 @@ from ramodels.mo import Employee
 from ramqp.utils import RequeueMessage
 from structlog.testing import capture_logs
 
-from mo_ldap_import_export.config import check_attributes
+from mo_ldap_import_export.config import Settings, check_attributes
 from mo_ldap_import_export.config import ConversionMapping
 from mo_ldap_import_export.config import LDAP2MOMapping
 from mo_ldap_import_export.config import MO2LDAPMapping
@@ -103,12 +103,6 @@ def context(address_type_uuid: str) -> Context:
         },
     }
 
-    settings_mock = MagicMock()
-    settings_mock.ldap_search_base = "bar"
-    settings_mock.default_org_unit_type = "Afdeling"
-    settings_mock.default_org_unit_level = "N1"
-    settings_mock.org_unit_path_string_separator = "\\"
-
     dataloader = AsyncMock()
     uuid1 = address_type_uuid
     uuid2 = str(uuid4())
@@ -164,7 +158,6 @@ def context(address_type_uuid: str) -> Context:
     context: Context = {
         "user_context": {
             "mapping": mapping,
-            "settings": settings_mock,
             "dataloader": dataloader,
             "username_generator": MagicMock(),
             "event_loop": MagicMock(),
@@ -175,8 +168,8 @@ def context(address_type_uuid: str) -> Context:
 
 
 @pytest.fixture
-async def converter(context: Context) -> LdapConverter:
-    converter = LdapConverter(context)
+async def converter(context: Context, settings) -> LdapConverter:
+    converter = LdapConverter(context, settings=settings)
     await converter._init()
     return converter
 
@@ -413,7 +406,7 @@ async def test_mapping_loader() -> None:
     assert mapping == expected
 
 
-async def test_mapping_loader_failure(context: Context) -> None:
+async def test_mapping_loader_failure(context: Context, settings) -> None:
 
     good_context = copy.deepcopy(context)
 
@@ -423,11 +416,11 @@ async def test_mapping_loader_failure(context: Context) -> None:
         bad_context["user_context"]["mapping"] = bad_mapping
 
         with pytest.raises(IncorrectMapping):
-            await LdapConverter(context=bad_context)._init()
+            await LdapConverter(context=bad_context, settings=settings)._init()
         with pytest.raises(IncorrectMapping):
-            await LdapConverter(context=bad_context)._init()
+            await LdapConverter(context=bad_context, settings=settings)._init()
 
-        converter = LdapConverter(context=good_context)
+        converter = LdapConverter(context=good_context, settings=settings)
         await converter._init()
         converter.mapping = bad_mapping
         with pytest.raises(IncorrectMapping):
@@ -590,10 +583,11 @@ def test_get_ldap_attributes(converter: LdapConverter, context: Context) -> None
     assert all_attributes - attributes == {"objectClass", "_export_to_ldap_"}
 
 
-async def test_get_ldap_attributes_dn_removed(context: Context) -> None:
+async def test_get_ldap_attributes_dn_removed(context: Context, settings: Settings) -> None:
     context["user_context"]["mapping"]["mo_to_ldap"]["Employee"]["dn"] = "fixed"
 
-    converter = LdapConverter(context)
+    converter = LdapConverter(context, settings=settings
+                              )
     await converter._init()
 
     attributes = set(converter.get_ldap_attributes("Employee"))

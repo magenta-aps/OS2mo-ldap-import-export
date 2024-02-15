@@ -82,26 +82,6 @@ def model_client() -> Iterator[AsyncMock]:
     yield AsyncMock()
 
 
-@pytest.fixture
-def settings(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv(
-        "CONVERSION_MAPPING",
-        '{"ldap_to_mo": {}, "mo_to_ldap": {}, "username_generator": {}}',
-    )
-    monkeypatch.setenv("CLIENT_ID", "foo")
-    monkeypatch.setenv("CLIENT_SECRET", "bar")
-    monkeypatch.setenv("LDAP_CONTROLLERS", '[{"host": "0.0.0.0"}]')
-    monkeypatch.setenv("LDAP_DOMAIN", "LDAP")
-    monkeypatch.setenv("LDAP_USER", "foo")
-    monkeypatch.setenv("LDAP_PASSWORD", "bar")
-    monkeypatch.setenv("LDAP_SEARCH_BASE", "DC=ad,DC=addev")
-    monkeypatch.setenv("DEFAULT_ORG_UNIT_LEVEL", "foo")
-    monkeypatch.setenv("DEFAULT_ORG_UNIT_TYPE", "foo")
-    monkeypatch.setenv("FASTRAMQPI__AMQP__URL", "amqp://guest:guest@msg_broker:5672/")
-    monkeypatch.setenv("INTERNAL_AMQP__URL", "amqp://guest:guest@msg_broker:5672/")
-
-    return Settings()
-
 
 @pytest.fixture
 def ldap_connection() -> Iterator[MagicMock]:
@@ -302,7 +282,7 @@ async def test_is_dn():
     assert is_dn("cn@foo.dk") is False  # This passes the 'safe_dn' test
 
 
-async def test_make_generic_ldap_object(cpr_field: str, context: Context):
+async def test_make_generic_ldap_object(cpr_field: str, context: Context, settings:Settings):
     response: dict[str, Any] = {}
     response["dn"] = "CN=Harry Styles,OU=Band,DC=Stage"
     response["attributes"] = {
@@ -311,14 +291,14 @@ async def test_make_generic_ldap_object(cpr_field: str, context: Context):
         "manager": "CN=Jonie Mitchell,OU=Band,DC=Stage",
     }
 
-    ldap_object = make_ldap_object(response, context, nest=False)
+    ldap_object = make_ldap_object(response, context,settings, nest=False)
 
     expected_ldap_object = LdapObject(**response["attributes"], dn=response["dn"])
 
     assert ldap_object == expected_ldap_object
 
 
-async def test_make_nested_ldap_object(cpr_field: str, context: Context):
+async def test_make_nested_ldap_object(cpr_field: str, context: Context, settings: Settings):
     # Here we expect the manager's entry to be another ldap object instead of a string
     # As well as the band members
     attributes_without_nests = {
@@ -354,7 +334,7 @@ async def test_make_nested_ldap_object(cpr_field: str, context: Context):
         "mo_ldap_import_export.ldap.single_object_search",
         return_value=nested_response,
     ):
-        ldap_object = make_ldap_object(response, context, nest=True)
+        ldap_object = make_ldap_object(response, context,settings, nest=True)
 
     # harry is an Employee because he has a cpr no.
     assert isinstance(ldap_object, LdapObject)
@@ -400,7 +380,7 @@ async def test_get_ldap_attributes():
 
 
 async def test_paged_search(
-    context: Context, ldap_attributes: dict, ldap_connection: MagicMock
+    context: Context, ldap_attributes: dict, ldap_connection: MagicMock, settings
 ):
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
@@ -432,12 +412,12 @@ async def test_paged_search(
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": ["foo", "bar"],
     }
-    output = paged_search(context, searchParameters, search_base="foo")
+    output = paged_search(context, settings, searchParameters, search_base="foo")
     assert output == expected_results * len(cookies)
 
 
 async def test_paged_search_no_results(
-    context: Context, ldap_attributes: dict, ldap_connection: MagicMock
+    context: Context, ldap_attributes: dict, ldap_connection: MagicMock, settings: Settings
 ):
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
@@ -471,13 +451,13 @@ async def test_paged_search_no_results(
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": ["foo", "bar"],
     }
-    output = paged_search(context, searchParameters)
+    output = paged_search(context, settings, searchParameters)
 
     assert output == expected_results
 
 
 async def test_invalid_paged_search(
-    context: Context, ldap_attributes: dict, ldap_connection: MagicMock
+    context: Context, ldap_attributes: dict, ldap_connection: MagicMock, settings: Settings
 ):
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
@@ -492,17 +472,17 @@ async def test_invalid_paged_search(
         "search_filter": "(objectclass=organizationalPerson)",
         "attributes": ["foo", "bar"],
     }
-    output = paged_search(context, searchParameters)
+    output = paged_search(context, settings, searchParameters)
 
     assert output == []
 
 
-async def test_single_object_search(ldap_connection: MagicMock, context: Context):
+async def test_single_object_search(ldap_connection: MagicMock, context: Context, settings: Settings):
     dn = "CN=foo,DC=bar"
     search_entry = {"type": "searchResEntry", "dn": dn}
 
     ldap_connection.response = [search_entry]
-    output = single_object_search({"search_base": "CN=foo,DC=bar"}, context)
+    output = single_object_search({"search_base": "CN=foo,DC=bar"}, context, settings)
 
     assert output == search_entry
     ldap_connection.response = [search_entry]
@@ -514,38 +494,38 @@ async def test_single_object_search(ldap_connection: MagicMock, context: Context
 
     with pytest.raises(MultipleObjectsReturnedException, match="010101-xxxx"):
         ldap_connection.response = [search_entry] * 2
-        output = single_object_search(search_parameters, context)
+        single_object_search(search_parameters, context, settings)
 
     with pytest.raises(NoObjectsReturnedException, match="010101-xxxx"):
         ldap_connection.response = [search_entry] * 0
-        output = single_object_search(search_parameters, context)
+        single_object_search(search_parameters, context, settings)
 
     ldap_connection.response = [search_entry]
-    output = single_object_search({"search_base": "CN=foo,DC=bar"}, context)
+    output = single_object_search({"search_base": "CN=foo,DC=bar"}, context, settings)
     assert output == search_entry
-    output = single_object_search({"search_base": "CN=moo,CN=foo,DC=bar"}, context)
+    output = single_object_search({"search_base": "CN=moo,CN=foo,DC=bar"}, context, settings)
     assert output == search_entry
 
 
-async def test_apply_discriminator(ldap_connection: MagicMock, context: Context):
-    context["user_context"]["settings"] = MagicMock()
-
-    context["user_context"]["settings"].discriminator_function = "include"
-    context["user_context"]["settings"].discriminator_field = "xField"
-    context["user_context"]["settings"].discriminator_values = ["yes", "7"]
+async def test_apply_discriminator(ldap_connection: MagicMock):
+    
+    settings= MagicMock()
+    settings.discriminator_function = "include"
+    settings.discriminator_field = "xField",
+    settings.discriminator_values = ["yes", "7"]
 
     user1 = {"Name": "hej", "xField": 7}
     user2 = {"Name": "hej2", "xField": "yes"}
     user3 = {"Name": "hej3", "xField": "no"}
     user4 = {"Name": "hej4"}
 
-    res_list = apply_discriminator([user1, user2, user3, user4], context)
+    res_list = apply_discriminator([user1, user2, user3, user4], settings)
 
     assert res_list == [user1, user2]
 
-    context["user_context"]["settings"].discriminator_function = "exclude"
+    settings.discriminator_function = "exclude"
 
-    res_list = apply_discriminator([user1, user2, user3, user4], context)
+    res_list = apply_discriminator([user1, user2, user3, user4], settings)
 
     assert res_list == [user3, user4]
 
@@ -871,7 +851,6 @@ def test_poller_invalidQuery(
             context={
                 "user_context": {
                     "ldap_connection": ldap_connection,
-                    "settings": settings,
                 }
             },
             search_parameters={

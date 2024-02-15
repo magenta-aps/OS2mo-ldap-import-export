@@ -29,7 +29,7 @@ from ramodels.mo.details.address import Address
 from ramodels.mo.details.engagement import Engagement
 from ramodels.mo.details.it_system import ITUser
 from ramodels.mo.employee import Employee
-
+from .config import Settings
 from .environments import filter_remove_curly_brackets
 from .exceptions import AttributeNotFound
 from .exceptions import DNNotFound
@@ -66,7 +66,7 @@ class Verb(Enum):
 
 
 class DataLoader:
-    def __init__(self, context):
+    def __init__(self, context, settings:Settings):
         self.context = context
         self.user_context = context["user_context"]
         self.ldap_connection = self.user_context["ldap_connection"]
@@ -75,6 +75,7 @@ class DataLoader:
         self._mo_to_ldap_attributes = []
         self._sync_tool = None
         self.create_mo_class_lock = asyncio.Lock()
+        self.settings = settings
 
         # Relate graphQL object types (left) to AMQP routing key object types (right)
         self.object_type_dict = {
@@ -240,6 +241,7 @@ class DataLoader:
 
         responses = paged_search(
             self.context,
+            self.settings,
             searchParameters,
             search_base=search_base,
         )
@@ -267,10 +269,10 @@ class DataLoader:
         if not cpr_field:
             raise NoObjectsReturnedException("cpr_field is not configured")
 
-        settings = self.user_context["settings"]
+        
 
-        search_base = settings.ldap_search_base
-        ous_to_search_in = settings.ldap_ous_to_search_in
+        search_base = self.settings.ldap_search_base
+        ous_to_search_in = self.settings.ldap_ous_to_search_in
         search_bases = [
             combine_dn_strings([ou, search_base]) for ou in ous_to_search_in
         ]
@@ -287,9 +289,9 @@ class DataLoader:
             "search_filter": f"(&({object_class_filter})({cpr_filter}))",
             "attributes": list(set(attributes)),
         }
-        search_result = single_object_search(searchParameters, self.context)
+        search_result = single_object_search(searchParameters, self.context, settings=self.settings)
 
-        ldap_object: LdapObject = make_ldap_object(search_result, self.context)
+        ldap_object: LdapObject = make_ldap_object(search_result, self.context, settings=self.settings)
         logger.info("[Load-ldap-cpr-object] Found LDAP object.", dn=ldap_object.dn)
 
         return ldap_object
@@ -302,14 +304,12 @@ class DataLoader:
         """
         Determine if an OU is among those to which we are allowed to write.
         """
-        settings = self.user_context["settings"]
-
-        if "" in settings.ldap_ous_to_write_to:
+        if "" in self.settings.ldap_ous_to_write_to:
             # Empty string means that it is allowed to write to all OUs
             return True
 
         ou = extract_ou_from_dn(dn)
-        ous_to_write_to = [safe_dn(ou) for ou in settings.ldap_ous_to_write_to]
+        ous_to_write_to = [safe_dn(ou) for ou in self.settings.ldap_ous_to_write_to]
         for ou_to_write_to in ous_to_write_to:
             if ou.endswith(ou_to_write_to):
                 # If an OU ends with one of the OUs-to-write-to, it's OK.
@@ -443,12 +443,13 @@ class DataLoader:
 
         responses = paged_search(
             self.context,
+            self.settings,
             searchParameters,
             search_base=search_base,
         )
 
         output: list[LdapObject]
-        output = [make_ldap_object(r, self.context, nest=False) for r in responses]
+        output = [make_ldap_object(r, self.context, self.settings, nest=False) for r in responses]
 
         return output
 
@@ -464,6 +465,7 @@ class DataLoader:
 
         responses = paged_search(
             self.context,
+            self.settings,
             searchParameters,
             search_base=search_base,
             mute=True,
@@ -481,6 +483,7 @@ class DataLoader:
 
             responses = paged_search(
                 self.context,
+                self.settings,
                 searchParameters,
                 search_base=dn,
                 mute=True,
@@ -510,8 +513,7 @@ class DataLoader:
             See https://ldap3.readthedocs.io/en/latest/add.html for more information
 
         """
-        settings = self.user_context["settings"]
-        if not settings.add_objects_to_ldap:
+        if not self.settings.add_objects_to_ldap:
             logger.info("[Add-ldap-object] add_objects_to_ldap = False. Aborting.")
             raise NotEnabledException("Adding LDAP objects is disabled")
 
@@ -552,8 +554,7 @@ class DataLoader:
         """
         Creates an OU. If the parent OU does not exist, creates that one first
         """
-        settings = self.user_context["settings"]
-        if not settings.add_objects_to_ldap:
+        if not self.settings.add_objects_to_ldap:
             logger.info("[Create-OU] add_objects_to_ldap = False. Aborting.")
             raise NotEnabledException("Adding LDAP objects is disabled")
         if not self.ou_in_ous_to_write_to(ou, "[Create-OU]"):
@@ -565,7 +566,7 @@ class DataLoader:
         for ou_to_create in self.decompose_ou_string(ou)[::-1]:
             if ou_to_create not in ou_dict:
                 logger.info("[Create-OU] Creating OU.", ou_to_create=ou_to_create)
-                dn = combine_dn_strings([ou_to_create, settings.ldap_search_base])
+                dn = combine_dn_strings([ou_to_create, self.settings.ldap_search_base])
 
                 self.ldap_connection.add(dn, "OrganizationalUnit")
                 self.log_ldap_response("[Create-OU]", dn=dn)
@@ -578,7 +579,6 @@ class DataLoader:
         --------
         Only deletes OUs which are empty
         """
-        settings = self.user_context["settings"]
         if not self.ou_in_ous_to_write_to(ou, "[Delete-OU]"):
             return
 
@@ -586,10 +586,10 @@ class DataLoader:
             ou_dict = self.load_ldap_OUs()
             if (
                 ou_dict.get(ou_to_delete, {}).get("empty", False)
-                and ou_to_delete != settings.ldap_ou_for_new_users
+                and ou_to_delete != self.settings.ldap_ou_for_new_users
             ):
                 logger.info("[Delete-OU] Deleting OU.", ou_to_delete=ou_to_delete)
-                dn = combine_dn_strings([ou_to_delete, settings.ldap_search_base])
+                dn = combine_dn_strings([ou_to_delete, self.settings.ldap_search_base])
                 self.ldap_connection.delete(dn)
                 self.log_ldap_response("[Delete-OU]", dn=dn)
 
@@ -598,10 +598,9 @@ class DataLoader:
         Moves an LDAP object from one DN to another. Returns True if the move was
         successful.
         """
-        settings = self.user_context["settings"]
         if not self.ou_in_ous_to_write_to(new_dn, "[Move-LDAP-object]"):
             return False
-        if not settings.add_objects_to_ldap:
+        if not self.settings.add_objects_to_ldap:
             logger.info("[Move-LDAP-object] add_objects_to_ldap = False. Aborting.")
             raise NotEnabledException("Moving LDAP objects is disabled")
 
@@ -855,11 +854,9 @@ class DataLoader:
     async def find_mo_engagement_uuid(self, dn: str) -> None | UUID:
         # Get Unique LDAP UUID from DN, then get engagement by looking for IT user with that
         # Unique LADP UUID in MO.
-
-        settings = self.user_context["settings"]
-        ldap_object = self.load_ldap_object(dn, [settings.ldap_unique_id_field])
+        ldap_object = self.load_ldap_object(dn, [self.settings.ldap_unique_id_field])
         unique_uuid = filter_remove_curly_brackets(
-            getattr(ldap_object, settings.ldap_unique_id_field)
+            getattr(ldap_object, self.settings.ldap_unique_id_field)
         )
 
         query = gql(
@@ -944,10 +941,9 @@ class DataLoader:
         """
         Given a DN, find the unique_ldap_uuid
         """
-        settings = self.user_context["settings"]
         logger.info("[Get-ldap-unique_ldap_uuid] Looking for LDAP object.", dn=dn)
-        ldap_object = self.load_ldap_object(dn, [settings.ldap_unique_id_field])
-        return UUID(getattr(ldap_object, settings.ldap_unique_id_field))
+        ldap_object = self.load_ldap_object(dn, [self.settings.ldap_unique_id_field])
+        return UUID(getattr(ldap_object, self.settings.ldap_unique_id_field))
 
     def extract_unique_ldap_uuids(self, it_users: list[ITUser]) -> set[UUID]:
         """

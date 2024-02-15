@@ -86,7 +86,14 @@ def model_client() -> Iterator[AsyncMock]:
 
 
 @pytest.fixture
-def settings(monkeypatch: pytest.MonkeyPatch):
+def set_settings():
+
+    def setup_mock_settings(*args, **kwargs):
+        return Settings(*args, **kwargs)
+    yield setup_mock_settings
+
+@pytest.fixture
+def settings(set_settings, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(
         "CONVERSION_MAPPING",
         '{"ldap_to_mo": {}, "mo_to_ldap": {}, "username_generator": {}}',
@@ -103,9 +110,7 @@ def settings(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LDAP_OUS_TO_WRITE_TO", '[""]')
     monkeypatch.setenv("FASTRAMQPI__AMQP__URL", "amqp://guest:guest@msg_broker:5672/")
     monkeypatch.setenv("INTERNAL_AMQP__URL", "amqp://guest:guest@msg_broker:5672/")
-
-    return Settings()
-
+    yield set_settings()
 
 @pytest.fixture
 def converter() -> MagicMock:
@@ -176,7 +181,7 @@ def get_attribute_types() -> dict:
 
 
 @pytest.fixture
-def dataloader(context: Context, get_attribute_types: dict) -> DataLoader:
+def dataloader(context: Context, get_attribute_types: dict, settings:Settings) -> DataLoader:
     """Fixture to construct a dataloaders object using fixture mocks.
 
     Yields:
@@ -186,7 +191,7 @@ def dataloader(context: Context, get_attribute_types: dict) -> DataLoader:
         "mo_ldap_import_export.dataloaders.get_attribute_types",
         return_value=get_attribute_types,
     ):
-        return DataLoader(context)
+        return DataLoader(context, settings)
 
 
 def mock_ldap_response(ldap_attributes: dict, dn: str) -> dict[str, Collection[str]]:
@@ -2071,18 +2076,18 @@ async def test_create_mo_it_system(dataloader: DataLoader):
     assert type(await dataloader.create_mo_it_system("foo", "bar")) == UUID
 
 
-def test_add_ldap_object(dataloader: DataLoader):
+def test_add_ldap_object(dataloader: DataLoader, set_settings):
     dataloader.add_ldap_object("CN=foo", attributes={"foo": 2})
     dataloader.ldap_connection.add.assert_called_once()
 
-    dataloader.user_context["settings"] = MagicMock()  # type: ignore
-    dataloader.user_context["settings"].add_objects_to_ldap = False
+    
+    dataloader.settings = set_settings(add_objects_to_ldap = False)
 
     with pytest.raises(NotEnabledException):
         dataloader.add_ldap_object("CN=foo")
 
     dataloader.ldap_connection.reset_mock()
-    dataloader.user_context["settings"].add_objects_to_ldap = True
+    dataloader.settings = set_settings(add_objects_to_ldap = True)
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = False
 
@@ -2174,7 +2179,7 @@ def test_ou_in_ous_to_write_to(dataloader: DataLoader):
 
     settings_mock = MagicMock()
     settings_mock.ldap_ous_to_write_to = ["OU=foo", "OU=mucki,OU=bar"]
-    dataloader.user_context["settings"] = settings_mock
+    dataloader.settings = settings_mock
 
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=foo,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=bar,DC=k") is False
@@ -2182,7 +2187,6 @@ def test_ou_in_ous_to_write_to(dataloader: DataLoader):
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,DC=k") is False
 
     settings_mock.ldap_ous_to_write_to = [""]
-    dataloader.user_context["settings"] = settings_mock
 
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=foo,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=bar,DC=k") is True
@@ -2482,9 +2486,9 @@ def test_create_ou(dataloader: DataLoader):
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
 
-    settings_mock = MagicMock()
-    settings_mock.ldap_search_base = "DC=Magenta"
-    dataloader.user_context["settings"] = settings_mock  # type: ignore
+    settings = MagicMock()
+    settings.ldap_search_base = "DC=Magenta"
+    dataloader.settings = settings
 
     dataloader.load_ldap_OUs.return_value = {
         "OU=mucki,OU=bar": {"empty": False},
@@ -2497,13 +2501,13 @@ def test_create_ou(dataloader: DataLoader):
         "OU=foo,OU=mucki,OU=bar,DC=Magenta", "OrganizationalUnit"
     )
 
-    dataloader.user_context["settings"].add_objects_to_ldap = False
+    settings.add_objects_to_ldap = False
 
     with pytest.raises(NotEnabledException):
         dataloader.create_ou(ou)
 
     dataloader.ldap_connection.reset_mock()
-    dataloader.user_context["settings"].add_objects_to_ldap = True
+    settings.add_objects_to_ldap = True
     dataloader.ou_in_ous_to_write_to.return_value = False
 
     dataloader.create_ou(ou)
@@ -2516,9 +2520,9 @@ def test_delete_ou(dataloader: DataLoader):
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
 
-    settings_mock = MagicMock()
-    settings_mock.ldap_search_base = "DC=Magenta"
-    dataloader.user_context["settings"] = settings_mock  # type: ignore
+    settings = MagicMock()
+    settings.ldap_search_base = "DC=Magenta"
+    dataloader.settings = settings
 
     dataloader.load_ldap_OUs.return_value = {
         "OU=foo,OU=mucki,OU=bar": {"empty": True},
@@ -2533,7 +2537,7 @@ def test_delete_ou(dataloader: DataLoader):
     )
 
     dataloader.ldap_connection.reset_mock()
-    dataloader.user_context["settings"].add_objects_to_ldap = True
+    settings.add_objects_to_ldap = True
     dataloader.ou_in_ous_to_write_to.return_value = False
 
     dataloader.delete_ou(ou)
@@ -2541,7 +2545,7 @@ def test_delete_ou(dataloader: DataLoader):
 
     # Test that we do not remove the ou-for-new-users
     dataloader.ou_in_ous_to_write_to.return_value = True
-    settings_mock.ldap_ou_for_new_users = ou
+    settings.ldap_ou_for_new_users = ou
     dataloader.delete_ou(ou)
     dataloader.ldap_connection.delete.assert_not_called()
 
@@ -2556,7 +2560,7 @@ def test_move_ldap_object(dataloader: DataLoader):
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
     settings_mock = MagicMock()
-    dataloader.user_context["settings"] = settings_mock  # type: ignore
+    dataloader.settings = settings_mock  # type: ignore
 
     dataloader.log_ldap_response = MagicMock()  # type: ignore
     dataloader.log_ldap_response.return_value = {"description": "success"}
@@ -2573,13 +2577,13 @@ def test_move_ldap_object(dataloader: DataLoader):
     assert success is False
 
     dataloader.ou_in_ous_to_write_to.return_value = True
-    dataloader.user_context["settings"].add_objects_to_ldap = False
+    settings_mock.add_objects_to_ldap = False
 
     with pytest.raises(NotEnabledException):
         dataloader.move_ldap_object("CN=foo,OU=old_ou", "CN=foo,OU=new_ou")
 
 
-async def test_find_dn_by_engagement_uuid_uses_single_dn() -> None:
+async def test_find_dn_by_engagement_uuid_uses_single_dn(settings) -> None:
     """If passed a single-item `dns` list, simply return the first (and only) DN in that
     list.
     """
@@ -2592,7 +2596,7 @@ async def test_find_dn_by_engagement_uuid_uses_single_dn() -> None:
                 "gql_client": AsyncMock(),
                 "converter": AsyncMock(),
             }
-        }
+        }, settings=settings
     )
     # Act
     dn: str = await dataloader.find_dn_by_engagement_uuid(
@@ -2604,7 +2608,7 @@ async def test_find_dn_by_engagement_uuid_uses_single_dn() -> None:
     assert dn == "CN=foo"
 
 
-async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
+async def test_find_dn_by_engagement_uuid_finds_single_dn(settings) -> None:
     # We can't use the `dataloader` fixture here, as we are testing
     # `DataLoader.find_dn_by_engagement_uuid` itself (which is mocked by the
     # `dataloader` fixture.)
@@ -2621,7 +2625,7 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
                 "gql_client": AsyncMock(),
                 "converter": AsyncMock(),
             }
-        }
+        }, settings=settings
     )
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
     dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
@@ -2648,7 +2652,7 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
     assert dn == "CN=foo"
 
 
-async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() -> None:
+async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits(settings) -> None:
     # We can't use the `dataloader` fixture here, as we are testing
     # `DataLoader.find_dn_by_engagement_uuid` itself (which is mocked by the
     # `dataloader` fixture.)
@@ -2665,7 +2669,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
                 "gql_client": AsyncMock(),
                 "converter": AsyncMock(),
             }
-        }
+        }, settings=settings
     )
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
     dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
@@ -2692,7 +2696,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
         await dataloader.find_dn_by_engagement_uuid(uuid4(), engagement_ref, dns)
 
 
-async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits() -> None:
+async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits(settings) -> None:
     # We can't use the `dataloader` fixture here, as we are testing
     # `DataLoader.find_dn_by_engagement_uuid` itself (which is mocked by the
     # `dataloader` fixture.)
@@ -2708,7 +2712,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits() -> None:
                 "gql_client": AsyncMock(),
                 "converter": AsyncMock(),
             }
-        }
+        }, settings=settings
     )
     dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
     dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)

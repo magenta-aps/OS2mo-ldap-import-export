@@ -40,12 +40,13 @@ from ramqp.utils import RequeueMessage
 from tqdm import tqdm
 
 from . import usernames
-from .config import Settings
+from .config import Settings as Settings_
 from .converters import LdapConverter
 from .customer_specific_checks import ExportChecks
 from .customer_specific_checks import ImportChecks
 from .dataloaders import DataLoader
 from .dependencies import valid_cpr
+from .depends import Settings
 from .exceptions import CPRFieldNotFound
 from .exceptions import IgnoreChanges
 from .exceptions import IncorrectMapping
@@ -69,8 +70,6 @@ from .utils import countdown
 from .utils import get_object_type_from_routing_key
 from .utils import listener
 from .utils import mo_datestring_to_utc
-from ramqp.depends import RateLimit
-
 
 fastapi_router = APIRouter()
 amqp_router = MORouter()
@@ -124,7 +123,10 @@ def get_delete_flag(mo_object) -> bool:
 
 
 async def unpack_payload(
-    context: Context, object_uuid: PayloadUUID, mo_routing_key: MORoutingKey
+    context: Context,
+    object_uuid: PayloadUUID,
+    mo_routing_key: MORoutingKey,
+    settings: Settings_,
 ):
     """
     Takes the payload of an AMQP message, and returns a set of parameters to be used
@@ -132,7 +134,6 @@ async def unpack_payload(
     """
 
     # If we are not supposed to listen: reject and turn the message into a dead letter.
-    settings = context["user_context"]["settings"]
     if not settings.listen_to_changes_in_mo:
         logger.info("[Unpack-payload] listen_to_changes_in_mo = False. Aborting.")
         raise RejectMessage()
@@ -173,14 +174,17 @@ async def unpack_payload(
 @reject_on_failure
 async def process_address(
     context: Context,
+    settings: Settings,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, mo_object = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, mo_object = await unpack_payload(
+        context, object_uuid, mo_routing_key, settings
+    )
     service_type = mo_object["service_type"]
-
     sync_tool = context["user_context"]["sync_tool"]
+
     if service_type == "employee":
         await sync_tool.listen_to_changes_in_employees(**args)
     elif service_type == "org_unit":
@@ -192,11 +196,12 @@ async def process_address(
 @reject_on_failure
 async def process_engagement(
     context: Context,
+    settings: Settings,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(context, object_uuid, mo_routing_key, settings)
 
     sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
@@ -208,11 +213,12 @@ async def process_engagement(
 @reject_on_failure
 async def process_ituser(
     context: Context,
+    settings: Settings,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(context, object_uuid, mo_routing_key, settings)
 
     sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
@@ -223,11 +229,12 @@ async def process_ituser(
 @reject_on_failure
 async def process_person(
     context: Context,
+    settings: Settings,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(context, object_uuid, mo_routing_key, settings)
 
     sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
@@ -238,11 +245,12 @@ async def process_person(
 @reject_on_failure
 async def process_org_unit(
     context: Context,
+    settings: Settings,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(context, object_uuid, mo_routing_key, settings)
 
     sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_org_units(**args)
@@ -259,7 +267,7 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
         yield
 
 
-def construct_gql_client(settings: Settings, version: str = "v21"):
+def construct_gql_client(settings: Settings_, version: str = "v21"):
     return PersistentGraphQLClient(
         url=settings.fastramqpi.mo_url + "/graphql/" + version,
         client_id=settings.fastramqpi.client_id,
@@ -271,7 +279,7 @@ def construct_gql_client(settings: Settings, version: str = "v21"):
     )
 
 
-def construct_model_client(settings: Settings):
+def construct_model_client(settings: Settings_):
     return ModelClient(
         base_url=settings.fastramqpi.mo_url,
         client_id=settings.fastramqpi.client_id,
@@ -282,7 +290,7 @@ def construct_model_client(settings: Settings):
 
 
 def construct_clients(
-    settings: Settings,
+    settings: Settings_,
 ) -> tuple[PersistentGraphQLClient, ModelClient]:
     """Construct clients froms settings.
 
@@ -299,9 +307,12 @@ def construct_clients(
 
 # https://fastapi.tiangolo.com/advanced/events/
 @asynccontextmanager
-async def initialize_sync_tool(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
+async def initialize_sync_tool(
+    fastramqpi: FastRAMQPI,
+    settings: Settings,
+) -> AsyncIterator[None]:
     logger.info("Initializing Sync tool")
-    sync_tool = SyncTool(fastramqpi.get_context())
+    sync_tool = SyncTool(fastramqpi.get_context(), settings=settings)
     fastramqpi.add_context(sync_tool=sync_tool)
     yield
 
@@ -316,9 +327,9 @@ async def initialize_checks(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
 
 
 @asynccontextmanager
-async def initialize_converters(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
+async def initialize_converters(fastramqpi: FastRAMQPI, settings: Settings) -> AsyncIterator[None]:
     logger.info("Initializing converters")
-    converter = LdapConverter(fastramqpi.get_context())
+    converter = LdapConverter(fastramqpi.get_context(), settings=settings)
     await converter._init()
     fastramqpi.add_context(cpr_field=converter.cpr_field)
     fastramqpi.add_context(ldap_it_system_user_key=converter.ldap_it_system)
@@ -392,10 +403,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
 
     userNameGeneratorClass_string = mapping["username_generator"]["objectClass"]
     logger.info(f"Importing {userNameGeneratorClass_string}")
-    UserNameGenerator = getattr(usernames, userNameGeneratorClass_string)
+    UserNameGenerator = getattr(usernames, userNameGeneratorClass_string, settings)
 
     logger.info("Initializing username generator")
-    username_generator = UserNameGenerator(fastramqpi.get_context())
+    username_generator = UserNameGenerator(fastramqpi.get_context(), settings)
     fastramqpi.add_context(username_generator=username_generator)
 
     if not hasattr(username_generator, "generate_dn"):
@@ -405,7 +416,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
         raise TypeError("generate_dn function needs to be a coroutine")
 
     fastramqpi.add_lifespan_manager(initialize_init_engine(fastramqpi), 2700)
-    fastramqpi.add_lifespan_manager(initialize_converters(fastramqpi), 2800)
+    fastramqpi.add_lifespan_manager(initialize_converters(fastramqpi, settings=settings), 2800)
 
     logger.info("Initializing internal AMQP system")
     internal_amqpsystem = AMQPSystem(
@@ -417,7 +428,9 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     internal_amqpsystem.context = fastramqpi._context
 
     fastramqpi.add_lifespan_manager(initialize_checks(fastramqpi), 2900)
-    fastramqpi.add_lifespan_manager(initialize_sync_tool(fastramqpi), 3000)
+    fastramqpi.add_lifespan_manager(
+        initialize_sync_tool(fastramqpi, settings=settings), 3000
+    )
 
     logger.info("Starting LDAP listener")
     fastramqpi.add_context(event_loop=asyncio.get_event_loop())
@@ -425,8 +438,9 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
 
     if settings.listen_to_changes_in_ldap:
         pollers = setup_listener(
-            fastramqpi.get_context(),
-            partial(listener, fastramqpi.get_context()),
+            context=fastramqpi.get_context(),
+            settings=settings,
+            callback=partial(listener, fastramqpi.get_context()),
         )
         fastramqpi.add_context(pollers=pollers)
         fastramqpi.add_healthcheck(name="LDAPPoller", healthcheck=poller_healthcheck)
@@ -458,7 +472,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     ldap_connection = user_context["ldap_connection"]
     internal_amqpsystem = user_context["internal_amqpsystem"]
     mapping = user_context["mapping"]
-    settings = user_context["settings"]
 
     attribute_types = get_attribute_types(ldap_connection)
     accepted_attributes = tuple(sorted(attribute_types.keys()))

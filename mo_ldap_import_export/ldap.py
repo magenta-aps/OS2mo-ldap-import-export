@@ -193,9 +193,7 @@ def get_ldap_attributes(ldap_connection: Connection, root_ldap_object: str):
     return all_attributes
 
 
-def apply_discriminator(search_result: list, context: Context) -> list:
-    settings = context["user_context"]["settings"]
-
+def apply_discriminator(search_result: list, settings: Settings) -> list:
     discriminator_field = settings.discriminator_field
     discriminator_values = settings.discriminator_values
     match settings.discriminator_function:
@@ -225,6 +223,7 @@ def apply_discriminator(search_result: list, context: Context) -> list:
 
 def _paged_search(
     context: Context,
+    settings: Settings,
     searchParameters: dict,
     search_base: str,
     mute: bool = False,
@@ -254,7 +253,7 @@ def _paged_search(
             break
 
         entries = [r for r in ldap_connection.response if r["type"] == "searchResEntry"]
-        entries = apply_discriminator(entries, context)
+        entries = apply_discriminator(entries, settings=settings)
         responses.extend(entries)
 
         try:
@@ -274,6 +273,7 @@ def _paged_search(
 
 def paged_search(
     context: Context,
+    settings: Settings,
     searchParameters: dict,
     search_base: str | None = None,
     **kwargs,
@@ -292,22 +292,20 @@ def paged_search(
 
     if search_base:
         # If the search base is explicitly defined: Don't try anything fancy.
-        results = _paged_search(context, searchParameters, search_base, **kwargs)
+        results = _paged_search(context,settings, searchParameters, search_base, **kwargs)
     else:
         # Otherwise, loop over all OUs to search in
-        settings = context["user_context"]["settings"]
-
         results = []
         for ou in settings.ldap_ous_to_search_in:
             search_base = combine_dn_strings([ou, settings.ldap_search_base])
             results.extend(
-                _paged_search(context, searchParameters.copy(), search_base, **kwargs)
+                _paged_search(context,settings, searchParameters.copy(), search_base, **kwargs)
             )
 
     return results
 
 
-def single_object_search(searchParameters, context: Context):
+def single_object_search(searchParameters, context: Context, settings: Settings):
     """
     Performs an LDAP search and throws an exception if there are multiple or no search
     results.
@@ -342,7 +340,7 @@ def single_object_search(searchParameters, context: Context):
 
     search_entries = [r for r in response if r["type"] == "searchResEntry"]
 
-    search_entries = apply_discriminator(search_entries, context)
+    search_entries = apply_discriminator(search_entries, settings=settings)
 
     if len(search_entries) > 1:
         logger.info(response)
@@ -374,7 +372,7 @@ def is_dn(value):
         return True
 
 
-def get_ldap_object(dn, context, nest=True):
+def get_ldap_object(dn, context, settings:Settings, nest=True):
     """
     Gets a ldap object based on its DN
 
@@ -386,13 +384,13 @@ def get_ldap_object(dn, context, nest=True):
         "attributes": ["*"],
         "search_scope": BASE,
     }
-    search_result = single_object_search(searchParameters, context)
+    search_result = single_object_search(searchParameters, context, settings=settings)
     dn = search_result["dn"]
     logger.info(f"[get_ldap_object] Found {dn}")
-    return make_ldap_object(search_result, context, nest=nest)
+    return make_ldap_object(search_result, context, settings, nest=nest)
 
 
-def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
+def make_ldap_object(response: dict, context: Context,settings:Settings, nest=True) -> Any:
     """
     Takes an ldap response and formats it as a class
 
@@ -408,7 +406,7 @@ def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
 
         if nest:
             logger.info(f"[make_ldap_object] Loading nested ldap object with dn={dn}")
-            return get_ldap_object(dn, context, nest=False)
+            return get_ldap_object(dn, context, settings=settings, nest=False)
         else:  # pragma: no cover
             raise Exception("Already running in nested loop")
 
@@ -540,13 +538,14 @@ async def cleanup(
         await sync_tool.refresh_object(uuid, object_type)
 
 
-def setup_listener(context: Context, callback: Callable) -> list[Thread]:
+def setup_listener(
+    context: Context, settings: Settings, callback: Callable
+) -> list[Thread]:
     user_context = context["user_context"]
 
     # Note:
     # We need the dn attribute to trigger sync_tool.import_single_user()
     # We need the modifyTimeStamp attribute to check for duplicate events in _poller()
-    settings = user_context["settings"]
     pollers = []
     for ldap_ou_to_scan_for_changes in settings.ldap_ous_to_search_in:
         search_base = combine_dn_strings(
