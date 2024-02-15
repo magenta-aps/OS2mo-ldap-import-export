@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from functools import partial
 from functools import wraps
 from inspect import iscoroutinefunction
-from typing import Annotated
 from typing import Any
 from typing import Literal
 from uuid import UUID
@@ -32,7 +31,7 @@ from raclients.modelclient.mo import ModelClient
 from ramodels.mo._shared import validate_cpr
 from ramqp import AMQPSystem
 from ramqp.depends import Context
-from ramqp.depends import rate_limit
+from ramqp.depends import RateLimit
 from ramqp.mo import MORouter
 from ramqp.mo import MORoutingKey
 from ramqp.mo import PayloadUUID
@@ -70,13 +69,14 @@ from .utils import countdown
 from .utils import get_object_type_from_routing_key
 from .utils import listener
 from .utils import mo_datestring_to_utc
+from ramqp.depends import RateLimit
+
 
 fastapi_router = APIRouter()
 amqp_router = MORouter()
 internal_amqp_router = MORouter()
 delay_on_error = 10  # Try errors again after a short period of time
 delay_on_requeue = 60 * 60 * 24  # Requeue messages for tomorrow (or after a reboot)
-RateLimit = Annotated[None, Depends(rate_limit(delay_on_error))]
 
 
 def reject_on_failure(func):
