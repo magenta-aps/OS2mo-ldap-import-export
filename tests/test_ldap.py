@@ -405,9 +405,6 @@ async def test_paged_search(
 
     expected_results = [mock_ldap_response(ldap_attributes, dn)]
 
-    # Mock LDAP connection
-    ldap_connection.response = expected_results
-
     # Simulate three pages
     cookies = [bytes("first page", "utf-8"), bytes("second page", "utf-8"), None]
     results = iter(
@@ -421,7 +418,7 @@ async def test_paged_search(
     )
 
     def set_new_result(*args, **kwargs) -> None:
-        ldap_connection.result = next(results)
+        ldap_connection.get_response.return_value = (expected_results, next(results))
 
     # Every time a search is performed, point to the next page.
     ldap_connection.search.side_effect = set_new_result
@@ -442,9 +439,6 @@ async def test_paged_search_no_results(
 
     expected_results: list[dict] = []
 
-    # Mock LDAP connection
-    ldap_connection.response = expected_results
-
     results = iter(
         [
             {
@@ -460,7 +454,7 @@ async def test_paged_search_no_results(
     )
 
     def set_new_result(*args, **kwargs) -> None:
-        ldap_connection.result = next(results)
+        ldap_connection.get_response.return_value = (expected_results, next(results))
 
     # Every time a search is performed, point to the next page.
     ldap_connection.search.side_effect = set_new_result
@@ -480,11 +474,14 @@ async def test_invalid_paged_search(
     # Mock data
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
 
-    ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)]
-
-    ldap_connection.result = {
+    result = {
         "description": "operationsError",
     }
+
+    ldap_connection.get_response.return_value = (
+        [mock_ldap_response(ldap_attributes, dn)],
+        result,
+    )
 
     searchParameters = {
         "search_filter": "(objectclass=organizationalPerson)",

@@ -228,7 +228,10 @@ async def test_load_ldap_objects(
 ) -> None:
     dn = "CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev"
     expected_result = [LdapObject(dn=dn, **ldap_attributes)] * 2
-    ldap_connection.response = [mock_ldap_response(ldap_attributes, dn)] * 2
+    ldap_connection.get_response.return_value = (
+        [mock_ldap_response(ldap_attributes, dn)] * 2,
+        {"res": True},
+    )
 
     output = await asyncio.gather(
         dataloader.load_ldap_objects("Employee"),
@@ -261,7 +264,7 @@ async def test_load_ldap_OUs(ldap_connection: MagicMock, dataloader: DataLoader)
     )
 
     def set_new_result(*args, **kwargs) -> None:
-        ldap_connection.response = next(responses)
+        ldap_connection.get_response.return_value = (next(responses), {"res": True})
 
     ldap_connection.search.side_effect = set_new_result
 

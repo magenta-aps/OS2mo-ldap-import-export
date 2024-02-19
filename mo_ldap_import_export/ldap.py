@@ -159,8 +159,9 @@ async def messageid2response(ldap_connection, message_id) -> Any:
         response, result = ldap_connection.get_response(message_id)
         if result:
             logger.debug(f"resolved {message_id} to {response} + {result}")
-            return response
+            return response, result
         logger.debug(f"waiting for {message_id} to come back")
+
         await asyncio.sleep(0.1)
 
 
@@ -256,21 +257,22 @@ async def _paged_search(
     for page in range(0, 10_000):
         if not mute:
             logger.info(f"searching page {page}")
-        ldap_connection.search(**searchParameters)
+        message_id = ldap_connection.search(**searchParameters)
+        response, result = await messageid2response(ldap_connection, message_id)
 
-        if ldap_connection.result["description"] == "operationsError":
+        if result.get("description") == "operationsError":
             logger.warn(f"{search_filter} Search failed")
             logger.warn(ldap_connection.result)
             break
 
-        entries = [r for r in ldap_connection.response if r["type"] == "searchResEntry"]
+        entries = [r for r in response if r["type"] == "searchResEntry"]
         entries = apply_discriminator(entries, context)
         responses.extend(entries)
 
         try:
             # TODO: Skal "1.2.840.113556.1.4.319" være Configurerbar?
             extension = "1.2.840.113556.1.4.319"
-            cookie = ldap_connection.result["controls"][extension]["value"]["cookie"]
+            cookie = result["controls"][extension]["value"]["cookie"]
         except KeyError:
             break
 
@@ -350,11 +352,11 @@ async def single_object_search(searchParameters, context: Context):
         for search_base in search_bases:
             modified_searchParameters["search_base"] = search_base
             message_id = ldap_connection.search(**modified_searchParameters)
-            res = await messageid2response(ldap_connection, message_id)
+            res, _ = await messageid2response(ldap_connection, message_id)
             response.extend(res)
     else:
         message_id = ldap_connection.search(**searchParameters)
-        response = await messageid2response(ldap_connection, message_id)
+        response, _ = await messageid2response(ldap_connection, message_id)
 
     search_entries = [r for r in response if r["type"] == "searchResEntry"]
 
@@ -643,7 +645,7 @@ async def _poll(
     )
     last_search_time = datetime.datetime.utcnow()
     message_id = ldap_connection.search(**timed_search_parameters)
-    response = await messageid2response(ldap_connection, message_id)
+    response, _ = await messageid2response(ldap_connection, message_id)
 
     if not response:
         return [], last_search_time
