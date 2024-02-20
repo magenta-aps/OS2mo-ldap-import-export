@@ -442,7 +442,7 @@ async def make_ldap_object(response: dict, context: Context, nest=True) -> Any:
     for attribute in attributes:
         value = response["attributes"][attribute]
         if is_other_dn(value) and nest:
-            ldap_dict[attribute] = get_nested_ldap_object(value)
+            ldap_dict[attribute] = await get_nested_ldap_object(value)
         elif isinstance(value, list):
             ldap_dict[attribute] = [
                 await get_nested_ldap_object(v) if is_other_dn(v) and nest else v

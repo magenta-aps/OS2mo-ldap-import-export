@@ -45,6 +45,7 @@ from .ldap import get_ldap_schema
 from .ldap import get_ldap_superiors
 from .ldap import is_uuid
 from .ldap import make_ldap_object
+from .ldap import messageid2response
 from .ldap import paged_search
 from .ldap import single_object_search
 from .ldap_classes import LdapObject
@@ -323,7 +324,7 @@ class DataLoader:
         logger.info(f"{tag} {ou} is not in {ous_to_write_to}")
         return False
 
-    def modify_ldap(
+    async def modify_ldap(
         self,
         dn: str,
         changes: (
@@ -361,8 +362,9 @@ class DataLoader:
         # Modify LDAP
         if not value_exists or "DELETE" in ldap_command:
             logger.info(f"[Modify-ldap] Uploading the following changes: {changes}")
-            self.ldap_connection.modify(dn, changes)
-            response = self.log_ldap_response("[Modify-ldap]", dn=dn)
+            message_id = self.ldap_connection.modify(dn, changes)
+            response, _ = await messageid2response(self.ldap_connection, message_id)
+            self.log_ldap_response("[Modify-ldap]", dn=dn, response=response)
 
             # If successful, the importer should ignore this DN
             if response["description"] == "success":
@@ -384,7 +386,7 @@ class DataLoader:
                 f"[Modify-ldap] {attribute}['{value_to_modify}'] already exists"
             )
 
-    def cleanup_attributes_in_ldap(self, ldap_objects: list[LdapObject]):
+    async def cleanup_attributes_in_ldap(self, ldap_objects: list[LdapObject]):
         """
         Deletes the values belonging to the attributes in the given ldap objects.
 
@@ -419,7 +421,7 @@ class DataLoader:
                 )
 
                 changes = {attribute: [("MODIFY_DELETE", value_to_delete)]}
-                self.modify_ldap(dn, changes)
+                await self.modify_ldap(dn, changes)
 
     async def load_ldap_objects(
         self,
@@ -498,12 +500,10 @@ class DataLoader:
 
         return output
 
-    def log_ldap_response(self, tag, **kwargs) -> dict:
-        response: dict = self.ldap_connection.result
+    def log_ldap_response(self, tag, response, **kwargs) -> None:
         logger.info(f"{tag} Response:", response=response, **kwargs)
-        return response
 
-    def add_ldap_object(self, dn: str, attributes: dict[str, Any] | None = None):
+    async def add_ldap_object(self, dn: str, attributes: dict[str, Any] | None = None):
         """
         Adds a new object to LDAP
 
@@ -525,12 +525,13 @@ class DataLoader:
         logger.info(
             "[Add-ldap-object] Adding user to LDAP.", dn=dn, attributes=attributes
         )
-        self.ldap_connection.add(
+        message_id = self.ldap_connection.add(
             dn,
             self.user_context["converter"].find_ldap_object_class("Employee"),
             attributes=attributes,
         )
-        self.log_ldap_response("[Add-ldap-object]", dn=dn)
+        response, _ = await messageid2response(self.ldap_connection, message_id)
+        self.log_ldap_response("[Add-ldap-object]", dn=dn, response=response)
 
     @staticmethod
     def decompose_ou_string(ou: str) -> list[str]:
@@ -571,8 +572,9 @@ class DataLoader:
                 logger.info("[Create-OU] Creating OU.", ou_to_create=ou_to_create)
                 dn = combine_dn_strings([ou_to_create, settings.ldap_search_base])
 
-                self.ldap_connection.add(dn, "OrganizationalUnit")
-                self.log_ldap_response("[Create-OU]", dn=dn)
+                message_id = self.ldap_connection.add(dn, "OrganizationalUnit")
+                response, _ = await messageid2response(self.ldap_connection, message_id)
+                self.log_ldap_response("[Create-OU]", dn=dn, response=response)
 
     async def delete_ou(self, ou: str) -> None:
         """
@@ -594,10 +596,11 @@ class DataLoader:
             ):
                 logger.info("[Delete-OU] Deleting OU.", ou_to_delete=ou_to_delete)
                 dn = combine_dn_strings([ou_to_delete, settings.ldap_search_base])
-                self.ldap_connection.delete(dn)
-                self.log_ldap_response("[Delete-OU]", dn=dn)
+                message_id = self.ldap_connection.delete(dn)
+                response, _ = await messageid2response(self.ldap_connection, message_id)
+                self.log_ldap_response("[Delete-OU]", dn=dn, response=response)
 
-    def move_ldap_object(self, old_dn: str, new_dn: str) -> bool:
+    async def move_ldap_object(self, old_dn: str, new_dn: str) -> bool:
         """
         Moves an LDAP object from one DN to another. Returns True if the move was
         successful.
@@ -611,12 +614,13 @@ class DataLoader:
 
         logger.info("[Move-LDAP-object] Moving entry.", old_dn=old_dn, new_dn=new_dn)
 
-        self.ldap_connection.modify_dn(
+        message_id = self.ldap_connection.modify_dn(
             old_dn, extract_cn_from_dn(new_dn), new_superior=remove_cn_from_dn(new_dn)
         )
+        response, _ = await messageid2response(self.ldap_connection, message_id)
 
-        response = self.log_ldap_response(
-            "[Move-LDAP-object]", new_dn=new_dn, old_dn=old_dn
+        self.log_ldap_response(
+            "[Move-LDAP-object]", response=response, new_dn=new_dn, old_dn=old_dn
         )
         return True if response["description"] == "success" else False
 
@@ -679,7 +683,7 @@ class DataLoader:
                 changes = {parameter_to_modify: [("MODIFY_ADD", value_to_modify)]}
 
             try:
-                response = self.modify_ldap(dn, changes)
+                response = await self.modify_ldap(dn, changes)
             except LDAPInvalidValueError as e:
                 logger.warning("[Modify-ldap-object] " + str(e))
                 failed += 1

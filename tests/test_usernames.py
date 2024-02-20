@@ -17,9 +17,8 @@ from mo_ldap_import_export.usernames import UserNameGenerator
 
 
 @pytest.fixture
-def dataloader() -> MagicMock:
-    mock = MagicMock()
-    mock.load_all_it_users = AsyncMock()
+def dataloader() -> AsyncMock:
+    mock = AsyncMock()
     return mock
 
 
