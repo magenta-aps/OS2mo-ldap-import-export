@@ -1966,7 +1966,7 @@ class DataLoader:
 
     async def load_mo_object(
         self,
-        uuid: str,
+        uuid: UUID,
         object_type: str,
         add_validity: bool = False,
         current_objects_only: bool = True,

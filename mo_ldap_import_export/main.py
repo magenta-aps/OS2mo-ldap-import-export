@@ -23,14 +23,14 @@ from fastapi import Response
 from fastapi import status
 from fastapi.encoders import jsonable_encoder
 from fastapi_utils.tasks import repeat_every
+from fastramqpi.depends import from_user_context
 from fastramqpi.main import FastRAMQPI
 from gql.transport.exceptions import TransportQueryError
 from ldap3 import Connection
 from pydantic import ValidationError
 from ramodels.mo._shared import validate_cpr
 from ramqp import AMQPSystem
-from ramqp.depends import Context
-from ramqp.depends import rate_limit
+from ramqp.depends import RateLimit
 from ramqp.mo import MORouter
 from ramqp.mo import MORoutingKey
 from ramqp.mo import PayloadUUID
@@ -39,11 +39,11 @@ from ramqp.utils import RequeueMessage
 from tqdm import tqdm
 
 from . import usernames
-from .config import Settings
+from .config import Settings as Settings_
 from .converters import LdapConverter
 from .customer_specific_checks import ExportChecks
 from .customer_specific_checks import ImportChecks
-from .dataloaders import DataLoader
+from .dataloaders import DataLoader as DataLoader_
 from .dependencies import valid_cpr
 from .exceptions import CPRFieldNotFound
 from .exceptions import IgnoreChanges
@@ -52,7 +52,7 @@ from .exceptions import NoObjectsReturnedException
 from .exceptions import NotEnabledException
 from .exceptions import NotSupportedException
 from .exceptions import ObjectGUIDITSystemNotFound
-from .import_export import SyncTool
+from .import_export import SyncTool as SyncTool_
 from .ldap import check_ou_in_list_of_ous
 from .ldap import configure_ldap_connection
 from .ldap import get_attribute_types
@@ -74,7 +74,9 @@ amqp_router = MORouter()
 internal_amqp_router = MORouter()
 delay_on_error = 10  # Try errors again after a short period of time
 delay_on_requeue = 60 * 60 * 24  # Requeue messages for tomorrow (or after a reboot)
-RateLimit = Annotated[None, Depends(rate_limit(delay_on_error))]
+SyncTool = Annotated[SyncTool_, Depends(from_user_context("sync_tool"))]
+DataLoader = Annotated[DataLoader_, Depends(from_user_context("dataloader"))]
+Settings = Annotated[Settings_, Depends(from_user_context("settings"))]
 
 
 def reject_on_failure(func):
@@ -122,7 +124,10 @@ def get_delete_flag(mo_object) -> bool:
 
 
 async def unpack_payload(
-    context: Context, object_uuid: PayloadUUID, mo_routing_key: MORoutingKey
+    settings: Settings_,
+    dataloader: DataLoader_,
+    object_uuid: PayloadUUID,
+    mo_routing_key: MORoutingKey,
 ):
     """
     Takes the payload of an AMQP message, and returns a set of parameters to be used
@@ -130,7 +135,6 @@ async def unpack_payload(
     """
 
     # If we are not supposed to listen: reject and turn the message into a dead letter.
-    settings = context["user_context"]["settings"]
     if not settings.listen_to_changes_in_mo:
         logger.info("[Unpack-payload] listen_to_changes_in_mo = False. Aborting.")
         raise RejectMessage()
@@ -140,8 +144,6 @@ async def unpack_payload(
         mo_routing_key=mo_routing_key,
         object_uuid=str(object_uuid),
     )
-
-    dataloader = context["user_context"]["dataloader"]
 
     object_type = get_object_type_from_routing_key(mo_routing_key)
 
@@ -170,15 +172,18 @@ async def unpack_payload(
 @amqp_router.register("address")
 @reject_on_failure
 async def process_address(
-    context: Context,
+    settings: Settings,
+    dataloader: DataLoader,
+    sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, mo_object = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, mo_object = await unpack_payload(
+        settings, dataloader, object_uuid, mo_routing_key
+    )
     service_type = mo_object["service_type"]
 
-    sync_tool = context["user_context"]["sync_tool"]
     if service_type == "employee":
         await sync_tool.listen_to_changes_in_employees(**args)
     elif service_type == "org_unit":
@@ -189,14 +194,15 @@ async def process_address(
 @amqp_router.register("engagement")
 @reject_on_failure
 async def process_engagement(
-    context: Context,
+    settings: Settings,
+    dataloader: DataLoader,
+    sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(settings, dataloader, object_uuid, mo_routing_key)
 
-    sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
     await sync_tool.export_org_unit_addresses_on_engagement_change(**args)
 
@@ -205,14 +211,15 @@ async def process_engagement(
 @amqp_router.register("ituser")
 @reject_on_failure
 async def process_ituser(
-    context: Context,
+    settings: Settings,
+    dataloader: DataLoader,
+    sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(settings, dataloader, object_uuid, mo_routing_key)
 
-    sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
 
 
@@ -220,14 +227,15 @@ async def process_ituser(
 @amqp_router.register("person")
 @reject_on_failure
 async def process_person(
-    context: Context,
+    settings: Settings,
+    dataloader: DataLoader,
+    sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(settings, dataloader, object_uuid, mo_routing_key)
 
-    sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_employees(**args)
 
 
@@ -235,14 +243,15 @@ async def process_person(
 @amqp_router.register("org_unit")
 @reject_on_failure
 async def process_org_unit(
-    context: Context,
+    settings: Settings,
+    dataloader: DataLoader,
+    sync_tool: SyncTool,
     object_uuid: PayloadUUID,
     mo_routing_key: MORoutingKey,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
+    args, _ = await unpack_payload(settings, dataloader, object_uuid, mo_routing_key)
 
-    sync_tool = context["user_context"]["sync_tool"]
     await sync_tool.listen_to_changes_in_org_units(**args)
 
 
@@ -261,7 +270,7 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
 @asynccontextmanager
 async def initialize_sync_tool(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
     logger.info("Initializing Sync tool")
-    sync_tool = SyncTool(fastramqpi.get_context())
+    sync_tool = SyncTool_(fastramqpi.get_context())
     fastramqpi.add_context(sync_tool=sync_tool)
     yield
 
@@ -303,7 +312,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
         FastRAMQPI system.
     """
     logger.info("Retrieving settings")
-    settings = Settings(**kwargs)
+    settings = Settings_(**kwargs)
 
     # ldap_ou_for_new_users needs to be in the search base. Otherwise we cannot
     # find newly created users...
@@ -342,7 +351,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     fastramqpi.add_context(mapping=mapping)
 
     logger.info("Initializing dataloader")
-    dataloader = DataLoader(fastramqpi.get_context())
+    dataloader = DataLoader_(fastramqpi.get_context())
     fastramqpi.add_context(dataloader=dataloader)
 
     userNameGeneratorClass_string = mapping["username_generator"]["objectClass"]
@@ -440,6 +449,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Load all users from LDAP, and import them into MO
     @app.get("/Import", status_code=202, tags=["Import"])
     async def import_all_objects_from_LDAP(
+        sync_tool: SyncTool,
         test_on_first_20_entries: bool = False,
         delay_in_hours: int = 0,
         delay_in_minutes: int = 0,
@@ -449,7 +459,6 @@ def create_app(**kwargs: Any) -> FastAPI:
     ) -> Any:
         converter = user_context["converter"]
         cpr_field = converter.cpr_field
-        sync_tool = user_context["sync_tool"]
 
         if cpr_indexed_entries_only and not cpr_field:
             raise CPRFieldNotFound("cpr_field is not configured")
@@ -496,10 +505,9 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Load a single user from LDAP, and import him/her/hir into MO
     @app.get("/Import/{unique_ldap_uuid}", status_code=202, tags=["Import"])
     async def import_single_user_from_LDAP(
+        sync_tool: SyncTool,
         unique_ldap_uuid: UUID,
     ) -> Any:
-        sync_tool = user_context["sync_tool"]
-
         dn = dataloader.get_ldap_dn(unique_ldap_uuid)
         await sync_tool.import_single_user(dn, manual_import=True)
 
@@ -538,9 +546,9 @@ def create_app(**kwargs: Any) -> FastAPI:
     # Export all objects related to a single employee from MO to LDAP
     @app.post("/Export/{employee_uuid}", status_code=202, tags=["Export"])
     async def export_mo_employee(
+        sync_tool: SyncTool,
         employee_uuid: UUID,
     ) -> Any:
-        sync_tool = user_context["sync_tool"]
         await sync_tool.refresh_employee(employee_uuid)
 
     # Export object(s) from MO to LDAP

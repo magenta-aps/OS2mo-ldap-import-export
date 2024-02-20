@@ -274,7 +274,7 @@ def patch_modules(
     """
     with patch(
         "mo_ldap_import_export.main.configure_ldap_connection", new_callable=MagicMock()
-    ), patch("mo_ldap_import_export.main.DataLoader", return_value=dataloader), patch(
+    ), patch("mo_ldap_import_export.main.DataLoader_", return_value=dataloader), patch(
         "mo_ldap_import_export.main.get_attribute_types", return_value={"foo": {}}
     ), patch(
         "mo_ldap_import_export.main.AMQPSystem", return_value=internal_amqpsystem
@@ -331,7 +331,7 @@ async def test_initialize_sync_tool(
     user_context = fastramqpi.get_context()["user_context"]
     assert user_context.get("sync_tool") is None
 
-    with patch("mo_ldap_import_export.main.SyncTool", return_value=sync_tool):
+    with patch("mo_ldap_import_export.main.SyncTool_", return_value=sync_tool):
         async with initialize_sync_tool(fastramqpi):
             assert user_context.get("sync_tool") is not None
 
@@ -540,13 +540,6 @@ async def test_listen_to_changes(dataloader: AsyncMock, sync_tool: AsyncMock):
     settings = MagicMock()
     settings.listen_to_changes_in_mo = True
 
-    context = {
-        "user_context": {
-            "dataloader": dataloader,
-            "sync_tool": sync_tool,
-            "settings": settings,
-        }
-    }
     payload = uuid4()
 
     dataloader.load_mo_object.return_value = {
@@ -555,7 +548,7 @@ async def test_listen_to_changes(dataloader: AsyncMock, sync_tool: AsyncMock):
         "parent_uuid": uuid4(),
     }
 
-    await process_address(context, payload, "address", _=None)
+    await process_address(settings, dataloader, sync_tool, payload, "address", _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
 
     dataloader.load_mo_object.return_value = {
@@ -565,24 +558,26 @@ async def test_listen_to_changes(dataloader: AsyncMock, sync_tool: AsyncMock):
     }
 
     sync_tool.reset_mock()
-    await process_address(context, payload, "address", _=None)
+    await process_address(settings, dataloader, sync_tool, payload, "address", _=None)
     sync_tool.listen_to_changes_in_org_units.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_engagement(context, payload, "engagement", _=None)
+    await process_engagement(
+        settings, dataloader, sync_tool, payload, "engagement", _=None
+    )
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
     sync_tool.export_org_unit_addresses_on_engagement_change.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_ituser(context, payload, "ituser", _=None)
+    await process_ituser(settings, dataloader, sync_tool, payload, "ituser", _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_person(context, payload, "person", _=None)
+    await process_person(settings, dataloader, sync_tool, payload, "person", _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_org_unit(context, payload, "org_unit", _=None)
+    await process_org_unit(settings, dataloader, sync_tool, payload, "org_unit", _=None)
     sync_tool.listen_to_changes_in_org_units.assert_awaited_once()
 
 
@@ -590,13 +585,14 @@ async def test_listen_to_changes_not_listening() -> None:
     settings = MagicMock()
     settings.listen_to_changes_in_mo = False
 
-    context: dict = {"user_context": {"settings": settings}}
     payload = uuid4()
 
     mo_routing_key = "person"
 
     with pytest.raises(RejectMessage):
-        await process_person(context, payload, mo_routing_key, _=None)
+        await process_person(
+            settings, dataloader, sync_tool, payload, mo_routing_key, _=None
+        )
 
 
 def test_ldap_get_all_converted_endpoint_failure(
