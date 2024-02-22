@@ -296,6 +296,12 @@ async def initialize_init_engine(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
     yield
 
 
+def enable_debugging() -> None:  # pragma: no cover
+    import debugpy  # type: ignore
+
+    debugpy.listen(("0.0.0.0", 5678))
+
+
 def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     """FastRAMQPI factory.
 
@@ -304,6 +310,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     """
     logger.info("Retrieving settings")
     settings = Settings(**kwargs)
+
+    if settings.dap:  # pragma: no cover
+        logger.info("Enabling debugging via DAP")
+        enable_debugging()
 
     # ldap_ou_for_new_users needs to be in the search base. Otherwise we cannot
     # find newly created users...
@@ -404,6 +414,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     Returns:
         FastAPI application.
     """
+
     fastramqpi = create_fastramqpi(**kwargs)
 
     app = fastramqpi.get_app()

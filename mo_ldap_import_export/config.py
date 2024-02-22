@@ -305,6 +305,11 @@ class Settings(BaseSettings):
         env_file = "/var/run/.env"
         env_file_encoding = "utf-8"
 
+    dap: bool = Field(
+        False,
+        description="Whether to enable debugging, requires debugpy to be installed.",
+    )
+
     conversion_mapping: ConversionMapping = Field(
         description="Conversion mapping between LDAP and OS2mo",
     )
