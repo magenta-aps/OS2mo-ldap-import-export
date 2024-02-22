@@ -297,6 +297,21 @@ class AuthBackendEnum(str, Enum):
     SIMPLE = "simple"
 
 
+class DebugSettings(BaseModel):
+    enabled: bool = Field(
+        False,
+        description="Whether to enable debugging, requires debugpy to be installed",
+    )
+    host: str = Field("0.0.0.0", description="Hostname / IP to expose DAP on")
+    port: int = Field(5678, description="Port to expose DAP on")
+    wait_for_client: bool = Field(
+        False,
+        description=(
+            "Whether to wait for a client to attach before starting the integration"
+        ),
+    )
+
+
 class Settings(BaseSettings):
     class Config:
         frozen = True
@@ -304,6 +319,11 @@ class Settings(BaseSettings):
 
         env_file = "/var/run/.env"
         env_file_encoding = "utf-8"
+
+    dap: DebugSettings = Field(
+        default_factory=DebugSettings,  # type: ignore
+        description="Settings related to debugging",
+    )
 
     conversion_mapping: ConversionMapping = Field(
         description="Conversion mapping between LDAP and OS2mo",

@@ -1,0 +1,7 @@
+version: "3"
+services:
+  mo_ldap_import_export:
+    environment:
+      DAP__ENABLED: "true"
+    ports:
+      - "5678:5678"

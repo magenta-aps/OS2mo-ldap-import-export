@@ -21,7 +21,10 @@ services:
 
   mo_ldap_import_export:
     container_name: mo_ldap_ie
-    build: .
+    build:
+      context: .
+      args:
+        POETRY_INSTALL_ARGS: "--all-extras"
     command: ["uvicorn", "--factory", "app.main:create_app", "--host", "0.0.0.0", "--reload"]
     volumes:
       - ./mo_ldap_import_export:/opt/app/

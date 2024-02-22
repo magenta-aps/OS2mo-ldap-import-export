@@ -39,6 +39,7 @@ from ramqp.utils import RequeueMessage
 from tqdm import tqdm
 
 from . import usernames
+from .config import DebugSettings
 from .config import Settings
 from .converters import LdapConverter
 from .customer_specific_checks import ExportChecks
@@ -296,6 +297,14 @@ async def initialize_init_engine(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
     yield
 
 
+def enable_debugging(settings: DebugSettings) -> None:
+    import debugpy
+
+    debugpy.listen((settings.host, settings.port))
+    if settings.wait_for_client:
+        debugpy.wait_for_client()
+
+
 def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     """FastRAMQPI factory.
 
@@ -304,6 +313,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     """
     logger.info("Retrieving settings")
     settings = Settings(**kwargs)
+
+    if settings.dap.enabled:
+        logger.info("Enabling debugging via DAP")
+        enable_debugging(settings.dap)
 
     # ldap_ou_for_new_users needs to be in the search base. Otherwise we cannot
     # find newly created users...
@@ -404,6 +417,7 @@ def create_app(**kwargs: Any) -> FastAPI:
     Returns:
         FastAPI application.
     """
+
     fastramqpi = create_fastramqpi(**kwargs)
 
     app = fastramqpi.get_app()
