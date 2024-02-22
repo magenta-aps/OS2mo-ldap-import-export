@@ -298,7 +298,7 @@ async def initialize_init_engine(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
 
 
 def enable_debugging(settings: DebugSettings) -> None:
-    import debugpy
+    import debugpy  # type: ignore
 
     debugpy.listen((settings.host, settings.port))
     if settings.wait_for_client:
