@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: MPL-2.0
 from __future__ import annotations
 
+import asyncio
 import copy
 import datetime
 import json
 import re
 import string
 from itertools import compress
+from itertools import starmap
 from json.decoder import JSONDecodeError
 from typing import Any
 from uuid import UUID
@@ -1204,7 +1206,7 @@ class LdapConverter:
             except KeyError:
                 raise IncorrectMapping(f"Missing '{json_key}' in mapping 'ldap_to_mo'")
 
-            async def render_template(template):
+            async def render_template(mo_field_name, template):
                 try:
                     value = (await template.render_async(context)).strip()
 
@@ -1232,11 +1234,10 @@ class LdapConverter:
                         )
                 return value
 
-            mo_dict = {}
-            for mo_field_name, template in object_mapping.items():
-                value = await render_template(template)
-                if value:
-                    mo_dict[mo_field_name] = value
+            render_tasks = starmap(render_template, object_mapping.items())
+            rendered_values = await asyncio.gather(*render_tasks)
+            mo_dict = dict(zip(object_mapping.keys(), rendered_values))
+            mo_dict = {key: value for key, value in mo_dict.items() if value}
 
             mo_class: Any = self.import_mo_object_class(json_key)
             required_attributes = set(self.get_required_attributes(mo_class))
