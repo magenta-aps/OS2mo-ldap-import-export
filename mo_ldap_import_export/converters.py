@@ -1154,15 +1154,9 @@ class LdapConverter:
         single LDAP field to contain multiple values. This function determines
         if that is the case.
         """
-        n = []
-        for value in ldap_object.dict().values():
-            if isinstance(value, list):
-                n.append(len(value))
-            else:
-                n.append(1)
-
-        number_of_entries_in_this_ldap_object = max(n)
-        return number_of_entries_in_this_ldap_object
+        values = ldap_object.dict().values()
+        list_lengths = [len(value) for value in values if isinstance(value, list)]
+        return max([1] + list_lengths)
 
     async def from_ldap(
         self,
