@@ -620,6 +620,77 @@ class SyncTool:
                     logger.info("[Listen-to-changes-in-orgs] " + str(e), **logger_args)
                     continue
 
+
+    async def find_matching_addresses(
+        self,
+        converted_objects
+    ):
+        if converted_objects[0].person:
+            objects_in_mo = await self.dataloader.load_mo_employee_addresses(
+                converted_objects[0].person.uuid,
+                converted_objects[0].address_type.uuid,
+            )
+        elif converted_objects[0].org_unit:
+            objects_in_mo = await self.dataloader.load_mo_org_unit_addresses(
+                converted_objects[0].org_unit.uuid,
+                converted_objects[0].address_type.uuid,
+            )
+        else:
+            logger.info(
+                "[Format-converted-objects] Could not format converted "
+                "objects: An address needs to have either a person uuid "
+                "OR an org unit uuid"
+            )
+            return []
+        return objects_in_mo
+
+    async def find_matching_engagements(
+        self,
+        converted_objects
+    ):
+        objects_in_mo = await self.dataloader.load_mo_employee_engagements(
+            converted_objects[0].person.uuid
+        )
+        user_keys = [o.user_key for o in objects_in_mo]
+
+        # If we have duplicate user_keys, remove those which are the same as the
+        # primary engagement's user_key
+        if len(set(user_keys)) < len(user_keys):
+            primary = [
+                await self.dataloader.is_primary(o.uuid) for o in objects_in_mo
+            ]
+
+            # There can be only one primary unit. Not sure what to do if there are
+            # multiple, so better just do nothing.
+            if sum(primary) == 1:
+                primary_engagement = objects_in_mo[primary.index(True)]
+                logger.info(
+                    "[Format-converted-objects] Found primary engagement.",
+                    uuid=str(primary_engagement.uuid),
+                    user_key=primary_engagement.user_key,
+                )
+                logger.info(
+                    "[Format-converted-objects] Removing engagements "
+                    "with identical user keys"
+                )
+                objects_in_mo = [
+                    o
+                    for o in objects_in_mo
+                    if o == primary_engagement
+                    or o.user_key != primary_engagement.user_key
+                ]
+
+    async def find_matching_itusers(
+        self,
+        converted_objects
+    ):
+        objects_in_mo = []
+        for converted_object in converted_objects:
+            objects_in_mo.extend(await self.dataloader.load_mo_employee_it_users(
+                converted_object.person.uuid, converted_object.itsystem.uuid
+            ))
+        return objects_in_mo
+
     async def format_converted_objects(
         self,
         converted_objects,
@@ -635,72 +706,28 @@ class SyncTool:
 
         mo_object_class = self.converter.find_mo_object_class(json_key).split(".")[-1]
 
-        # Load addresses already in MO
-        if mo_object_class == "Address":
-            if converted_objects[0].person:
-                objects_in_mo = await self.dataloader.load_mo_employee_addresses(
-                    converted_objects[0].person.uuid,
-                    converted_objects[0].address_type.uuid,
-                )
-            elif converted_objects[0].org_unit:
-                objects_in_mo = await self.dataloader.load_mo_org_unit_addresses(
-                    converted_objects[0].org_unit.uuid,
-                    converted_objects[0].address_type.uuid,
-                )
-            else:
-                logger.info(
-                    "[Format-converted-objects] Could not format converted "
-                    "objects: An address needs to have either a person uuid "
-                    "OR an org unit uuid"
-                )
-                return []
-            value_key = "value"
-
-        # Load engagements already in MO
-        elif mo_object_class == "Engagement":
-            objects_in_mo = await self.dataloader.load_mo_employee_engagements(
-                converted_objects[0].person.uuid
-            )
-            value_key = "user_key"
-            user_keys = [o.user_key for o in objects_in_mo]
-
-            # If we have duplicate user_keys, remove those which are the same as the
-            # primary engagement's user_key
-            if len(set(user_keys)) < len(user_keys):
-                primary = [
-                    await self.dataloader.is_primary(o.uuid) for o in objects_in_mo
+        objects_in_mo = []
+        match mo_object_class:
+            # Load addresses already in MO
+            case "Address":
+                objects_in_mo = await self.find_matching_addresses(converted_objects)
+                value_key = "value"
+            # Load engagements already in MO
+            case "Engagement":
+                objects_in_mo = await self.find_matching_engagements(converted_objects)
+                value_key = "user_key"
+            case "ITUser":
+                objects_in_mo = []
+                for converted_object in converted_objects:
+                    objects_in_mo.extend(await self.dataloader.load_mo_employee_it_users(
+                        converted_object.person.uuid, converted_object.itsystem.uuid
+                    ))
+                value_key = "user_key"
+            case _:
+                return [
+                    (converted_object, Verb.CREATE)
+                    for converted_object in converted_objects
                 ]
-
-                # There can be only one primary unit. Not sure what to do if there are
-                # multiple, so better just do nothing.
-                if sum(primary) == 1:
-                    primary_engagement = objects_in_mo[primary.index(True)]
-                    logger.info(
-                        "[Format-converted-objects] Found primary engagement.",
-                        uuid=str(primary_engagement.uuid),
-                        user_key=primary_engagement.user_key,
-                    )
-                    logger.info(
-                        "[Format-converted-objects] Removing engagements "
-                        "with identical user keys"
-                    )
-                    objects_in_mo = [
-                        o
-                        for o in objects_in_mo
-                        if o == primary_engagement
-                        or o.user_key != primary_engagement.user_key
-                    ]
-
-        elif mo_object_class == "ITUser":
-            objects_in_mo = await self.dataloader.load_mo_employee_it_users(
-                converted_objects[0].person.uuid, converted_objects[0].itsystem.uuid
-            )
-            value_key = "user_key"
-        else:
-            return [
-                (converted_object, Verb.CREATE)
-                for converted_object in converted_objects
-            ]
 
         objects_in_mo_dict = {a.uuid: a for a in objects_in_mo}
         mo_attributes = self.converter.get_mo_attributes(json_key)
