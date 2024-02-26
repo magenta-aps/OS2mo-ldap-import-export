@@ -508,7 +508,7 @@ class LdapConverter:
                 attribute not in accepted_attributes
                 and not attribute.startswith("extensionAttribute")
                 and not attribute.startswith("__")
-                and not attribute == "sAMAccountName"
+                and not attribute == self.settings.ldap_username_field
                 and not attribute == "entryUUID"
             ):
                 raise IncorrectMapping(
