@@ -15,7 +15,6 @@ from uuid import uuid4
 from fastramqpi.context import Context
 from httpx import HTTPStatusError
 from ramodels.mo import MOBase
-from ramodels.mo.details import ITUser
 from ramqp.depends import handle_exclusively_decorator
 from ramqp.mo import MORoutingKey
 
@@ -627,12 +626,9 @@ class SyncTool:
         json_key,
     ) -> list[tuple[MOBase, Verb]]:
         """
-        for Address and Engagement objects:
+        for Address, Engagement and ITUser objects:
             Loops through the objects, and sets the uuid if an existing matching object
             is found
-        for ITUser objects:
-            Loops through the objects and removes it if an existing matchin object is
-            found
         for all other objects:
             returns the input list of converted_objects
         """
@@ -696,34 +692,10 @@ class SyncTool:
                     ]
 
         elif mo_object_class == "ITUser":
-            # If an ITUser already exists, MO throws an error - it cannot be updated if
-            # the key is identical to an existing key.
-            it_users_in_mo = await self.dataloader.load_mo_employee_it_users(
+            objects_in_mo = await self.dataloader.load_mo_employee_it_users(
                 converted_objects[0].person.uuid, converted_objects[0].itsystem.uuid
             )
-            user_keys_in_mo = {a.user_key: a.uuid for a in it_users_in_mo}
-
-            def mark_edit(obj) -> tuple[MOBase, Verb]:
-                if obj.user_key in user_keys_in_mo:
-                    obj = ITUser(
-                        # Use the UUID of the existing IT user
-                        uuid=user_keys_in_mo[obj.user_key],
-                        # Copy all other values from the new IT user object
-                        user_key=obj.user_key,
-                        itsystem=obj.itsystem,
-                        person=obj.person,
-                        org_unit=obj.org_unit,
-                        engagement=obj.engagement,
-                        validity=obj.validity,
-                    )
-                    return obj, Verb.EDIT
-                else:
-                    return obj, Verb.CREATE
-
-            return [
-                mark_edit(converted_object) for converted_object in converted_objects
-            ]
-
+            value_key = "user_key"
         else:
             return [
                 (converted_object, Verb.CREATE)
