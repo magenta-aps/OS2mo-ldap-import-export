@@ -503,6 +503,7 @@ class LdapConverter:
         return list(self.mapping["ldap_to_mo"][json_key].keys())
 
     def check_attributes(self, detected_attributes, accepted_attributes):
+        accepted_attributes.append("sn")
         for attribute in detected_attributes:
             if (
                 attribute not in accepted_attributes
