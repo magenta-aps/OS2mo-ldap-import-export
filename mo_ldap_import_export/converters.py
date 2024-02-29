@@ -505,12 +505,12 @@ class LdapConverter:
     def check_attributes(self, detected_attributes, accepted_attributes):
         accepted_attributes.append("sn")
         for attribute in detected_attributes:
-            if (
-                attribute not in accepted_attributes
-                and not attribute.startswith("extensionAttribute")
-                and not attribute.startswith("__")
-                and not attribute == self.settings.ldap_username_field
-                and not attribute == "entryUUID"
+            if not (
+                attribute in accepted_attributes
+                or attribute.startswith("extensionAttribute")
+                or attribute.startswith("__")
+                or attribute == self.settings.ldap_username_field
+                or attribute == self.settings.ldap_unique_id_field
             ):
                 raise IncorrectMapping(
                     f"Attribute '{attribute}' not allowed."

@@ -663,7 +663,7 @@ def test_check_converter_attributes(converter: LdapConverter):
 
     with pytest.raises(IncorrectMapping):
         converter.check_attributes(detected_attributes, accepted_attributes)
-
+    converter.settings.ldap_username_field = "sAMAccountName"
     detected_attributes = ["bar", "extensionAttribute14", "sAMAccountName"]
     accepted_attributes = ["bar"]
     converter.check_attributes(detected_attributes, accepted_attributes)
