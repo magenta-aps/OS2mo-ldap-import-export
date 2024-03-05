@@ -1303,6 +1303,18 @@ class DataLoader:
         itsystem = one(result.objects, too_short=too_short, too_long=too_long)
         return itsystem.uuid
 
+    async def load_mo_it_system_user_key(self, uuid: UUID) -> str:
+        result = await self.graphql_client.read_itsystem_user_key(uuid)
+        too_short = NoObjectsReturnedException(
+            f"Could not find itsystem with user_key = '{uuid}"
+        )
+        itsystem = one(result.objects, too_short=too_short)
+        if itsystem.current is None:
+            raise NoObjectsReturnedException(
+                f"Could not active itsystem with user_key = '{uuid}"
+            )
+        return itsystem.current.user_key
+
     async def load_mo_class_uuid(self, user_key: str) -> UUID:
         """Find the UUID of a class by user-key.
 

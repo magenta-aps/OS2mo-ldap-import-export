@@ -863,7 +863,8 @@ class LdapConverter:
         )
 
     async def get_it_system_user_key(self, uuid: str) -> str:
-        return await self.get_object_user_key_from_uuid("it_system_info", uuid)
+        # TODO: Accept the UUID type
+        return await self.dataloader.load_mo_it_system_user_key(UUID(uuid))
 
     async def get_engagement_type_name(self, uuid: str) -> str:
         return await self.get_object_name_from_uuid("engagement_type_info", uuid)

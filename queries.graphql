@@ -48,3 +48,13 @@ query read_itsystem_uuid($user_key: String!) {
     }
   }
 }
+
+query read_itsystem_user_key($uuid: UUID!) {
+  itsystems(filter: {uuids: [$uuid]}) {
+    objects {
+      current {
+        user_key
+      }
+    }
+  }
+}

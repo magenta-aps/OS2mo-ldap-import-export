@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from .async_base_client import AsyncBaseClient
 from .create_class import CreateClass
 from .create_class import CreateClassClassCreate
@@ -10,6 +12,8 @@ from .read_class_uuid import ReadClassUuid
 from .read_class_uuid import ReadClassUuidClasses
 from .read_facet_uuid import ReadFacetUuid
 from .read_facet_uuid import ReadFacetUuidFacets
+from .read_itsystem_user_key import ReadItsystemUserKey
+from .read_itsystem_user_key import ReadItsystemUserKeyItsystems
 from .read_itsystem_uuid import ReadItsystemUuid
 from .read_itsystem_uuid import ReadItsystemUuidItsystems
 from .read_root_org_uuid import ReadRootOrgUuid
@@ -135,3 +139,22 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return ReadItsystemUuid.parse_obj(data).itsystems
+
+    async def read_itsystem_user_key(self, uuid: UUID) -> ReadItsystemUserKeyItsystems:
+        query = gql(
+            """
+            query read_itsystem_user_key($uuid: UUID!) {
+              itsystems(filter: {uuids: [$uuid]}) {
+                objects {
+                  current {
+                    user_key
+                  }
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"uuid": uuid}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ReadItsystemUserKey.parse_obj(data).itsystems
