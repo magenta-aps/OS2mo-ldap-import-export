@@ -1358,7 +1358,7 @@ class DataLoader:
             query ItSystems {
               itsystems {
                 objects {
-                  current{
+                  current {
                     uuid
                     user_key
                   }
@@ -1368,16 +1368,9 @@ class DataLoader:
             """
         )
         result = await self.query_mo(query, raise_if_empty=False)
-
-        if len(result["itsystems"]["objects"]) == 0:
-            output = {}
-        else:
-            output = {
-                d["current"]["uuid"]: d["current"]
-                for d in result["itsystems"]["objects"]
-            }
-
-        return output
+        return {
+            d["current"]["uuid"]: d["current"] for d in result["itsystems"]["objects"]
+        }
 
     async def load_mo_root_org_uuid(self) -> UUID:
         """Get the UUID of the root organisational unit in MO.
