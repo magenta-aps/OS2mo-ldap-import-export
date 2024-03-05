@@ -40,3 +40,11 @@ query read_root_org_uuid {
     uuid
   }
 }
+
+query read_itsystem_uuid($user_key: String!) {
+  itsystems(filter: {user_key: [$user_key]}) {
+    objects {
+      uuid
+    }
+  }
+}

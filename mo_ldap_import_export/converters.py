@@ -684,7 +684,8 @@ class LdapConverter:
         )
 
     def get_it_system_uuid(self, it_system: str) -> str:
-        return self.get_object_uuid_from_user_key(self.it_system_info, it_system)
+        # TODO: Propagate the UUID type
+        return str(self.dataloader.load_mo_it_system_uuid(it_system))
 
     def get_visibility_uuid(self, visibility: str) -> str:
         return self.get_object_uuid_from_user_key(self.visibility_info, visibility)

@@ -1278,6 +1278,31 @@ class DataLoader:
 
         return output
 
+    async def load_mo_it_system_uuid(self, user_key: str) -> UUID:
+        """Find the UUID of an itsystem by user-key.
+
+        Args:
+            user_key: The user-key to lookup.
+
+        Raises:
+            MultipleObjectsReturnedException:
+                If multiple itsystems share the same user-key.
+            NoObjectsReturnedException:
+                If no active itsystems were found with the user-key.
+
+        Returns:
+            The uuid of the corresponding itsystem.
+        """
+        result = await self.graphql_client.read_itsystem_uuid(user_key)
+        too_long = MultipleObjectsReturnedException(
+            f"Found multiple itsystems with user_key = '{user_key}': {result}"
+        )
+        too_short = NoObjectsReturnedException(
+            f"Could not find itsystem with user_key = '{user_key}"
+        )
+        itsystem = one(result.objects, too_short=too_short, too_long=too_long)
+        return itsystem.uuid
+
     async def load_mo_class_uuid(self, user_key: str) -> UUID:
         """Find the UUID of a class by user-key.
 
