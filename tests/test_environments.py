@@ -11,6 +11,7 @@ from mo_ldap_import_export.environments import filter_remove_curly_brackets
 from mo_ldap_import_export.environments import filter_splitfirst
 from mo_ldap_import_export.environments import filter_splitlast
 from mo_ldap_import_export.environments import filter_strip_non_digits
+from mo_ldap_import_export.environments import environment
 
 
 def test_splitfirst() -> None:
@@ -75,3 +76,16 @@ def test_filter_parse_datetime():
     assert filter_parse_datetime("NONE") is None
     assert filter_parse_datetime([]) is None
     assert filter_parse_datetime(None) is None
+
+
+def test_bitwise_and():
+    bitwise_template = environment.from_string("{{ input|int|bitwise_and(mask) }}")
+
+    result = bitwise_template.render(input=0x01, mask=0x01)
+    assert result == "1"
+
+    result = bitwise_template.render(input=0x07, mask=0x03)
+    assert result == "3"
+
+    result = bitwise_template.render(input=0x08, mask=0x03)
+    assert result == "0"
