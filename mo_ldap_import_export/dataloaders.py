@@ -50,6 +50,7 @@ from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NoObjectsReturnedException
 from .exceptions import NotEnabledException
 from .exceptions import UUIDNotFoundException
+from .import_export import SyncTool
 from .ldap import get_attribute_types
 from .ldap import get_ldap_attributes
 from .ldap import get_ldap_schema
@@ -85,7 +86,6 @@ class DataLoader:
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self._mo_to_ldap_attributes = []
-        self._sync_tool = None
         self.create_mo_class_lock = asyncio.Lock()
 
         # Relate graphQL object types (left) to AMQP routing key object types (right)
@@ -117,10 +117,8 @@ class DataLoader:
         return cast(GraphQLClient, self.context["graphql_client"])
 
     @property
-    def sync_tool(self):
-        if not self._sync_tool:
-            self._sync_tool = self.user_context["sync_tool"]
-        return self._sync_tool
+    def sync_tool(self) -> SyncTool:
+        return cast(SyncTool, self.user_context["sync_tool"])
 
     @property
     def mo_to_ldap_attributes(self):
