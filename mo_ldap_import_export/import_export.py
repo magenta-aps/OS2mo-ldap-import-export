@@ -19,6 +19,7 @@ from fastramqpi.ramqp.utils import RequeueMessage
 from httpx import HTTPStatusError
 from more_itertools import all_equal
 from more_itertools import first
+from more_itertools import quantify
 from ramodels.mo import MOBase
 
 from .dataloaders import DataLoader
@@ -691,7 +692,7 @@ class SyncTool:
                 primaries = await self.dataloader.is_primaries(
                     [o.uuid for o in objects_in_mo]
                 )
-                num_primaries = sum(primaries)
+                num_primaries = quantify(primaries)
                 if num_primaries > 1:
                     raise RequeueMessage(
                         "Waiting for multiple primary engagements to be resolved"
@@ -725,23 +726,11 @@ class SyncTool:
             assert all_equal([obj.itsystem for obj in converted_objects])
             itsystem = first(converted_objects).itsystem
 
-            # If an ITUser already exists, MO throws an error - it cannot be updated if
-            # the key is identical to an existing key.
-            it_users_in_mo = await self.dataloader.load_mo_employee_it_users(
+            objects_in_mo = await self.dataloader.load_mo_employee_it_users(
                 person.uuid, itsystem.uuid
             )
-            user_keys_in_mo = {a.user_key: a.uuid for a in it_users_in_mo}
 
-            def mark_edit(obj) -> tuple[MOBase, Verb]:
-                if obj.user_key in user_keys_in_mo:
-                    obj = obj.copy(update={"uuid": user_keys_in_mo[obj.user_key]})
-                    return obj, Verb.EDIT
-                else:
-                    return obj, Verb.CREATE
-
-            return [
-                mark_edit(converted_object) for converted_object in converted_objects
-            ]
+            value_key = "user_key"
 
         else:
             return [
@@ -752,11 +741,12 @@ class SyncTool:
         objects_in_mo_dict = {a.uuid: a for a in objects_in_mo}
         mo_attributes = self.converter.get_mo_attributes(json_key)
 
+        values_in_mo = [getattr(a, value_key) for a in objects_in_mo_dict.values()]
+
         # Set uuid if a matching one is found. so an object gets updated
         # instead of duplicated
         converted_objects_uuid_checked = []
         for converted_object in converted_objects:
-            values_in_mo = [getattr(a, value_key) for a in objects_in_mo_dict.values()]
             converted_object_value = getattr(converted_object, value_key)
 
             if values_in_mo.count(converted_object_value) == 1:
@@ -948,11 +938,13 @@ class SyncTool:
                 # In case the engagement exists, but is outdated. If it exists,
                 # but is identical, the list will be empty.
                 if json_key == "Engagement" and len(converted_objects):
-                    engagement_uuid = converted_objects[0][0].uuid
+                    operation = first(converted_objects)
+                    engagement, _ = operation
+                    engagement_uuid = engagement.uuid
                     logger.info(
                         "[Import-single-user] Updating engagement UUID",
                         engagement_uuid=engagement_uuid,
-                        source_object=converted_objects[0][0],
+                        source_object=engagement,
                         dn=dn,
                     )
             except NoObjectsReturnedException:
