@@ -694,13 +694,10 @@ async def test_format_converted_primary_engagement_objects(
     converter.find_mo_object_class.return_value = "Engagement"
     converter.import_mo_object_class.return_value = Engagement
 
-    def is_primary(uuid):
-        if uuid == engagement1_in_mo_uuid:
-            return True
-        else:
-            return False
+    async def is_primaries(uuids):
+        return [uuid == engagement1_in_mo_uuid for uuid in uuids]
 
-    dataloader.is_primary.side_effect = is_primary
+    dataloader.is_primaries = is_primaries
 
     engagement1 = Engagement.from_simplified_fields(
         org_unit_uuid=uuid4(),
