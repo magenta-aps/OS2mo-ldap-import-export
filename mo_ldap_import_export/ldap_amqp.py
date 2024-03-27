@@ -29,7 +29,8 @@ async def process_dn(
     dn: PayloadDN,
     _: RateLimit,
 ) -> None:
-    logger.info("Received LDAP AMQP event", dn=dn)
+    logger.bind(dn=dn)
+    logger.info("Received LDAP AMQP event")
     await sync_tool.import_single_user(dn)
 
 

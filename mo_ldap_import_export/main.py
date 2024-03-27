@@ -15,7 +15,6 @@ from fastapi import FastAPI
 from fastapi_utils.tasks import repeat_every
 from fastramqpi.main import FastRAMQPI
 from fastramqpi.ramqp import AMQPSystem
-from fastramqpi.ramqp.depends import Context
 from fastramqpi.ramqp.depends import rate_limit
 from fastramqpi.ramqp.mo import MORouter
 from fastramqpi.ramqp.mo import MORoutingKey
@@ -102,20 +101,14 @@ def get_delete_flag(mo_object: dict[str, Any]) -> bool:
     return False
 
 
-async def unpack_payload(
-    context: Context, object_uuid: PayloadUUID, mo_routing_key: MORoutingKey
-) -> tuple[dict[Any, Any], Any]:
-    """
-    Takes the payload of an AMQP message, and returns a set of parameters to be used
-    by export functions in `import_export.py`. Also return the mo object as a dict
-    """
+async def mo_object_loader(
+    dataloader: DataLoader, object_uuid: PayloadUUID, mo_routing_key: MORoutingKey
+) -> Any:
     logger.info(
         "[Unpack-payload] Unpacking payload.",
         mo_routing_key=mo_routing_key,
         object_uuid=str(object_uuid),
     )
-
-    dataloader: DataLoader = context["user_context"]["dataloader"]
 
     object_type = get_object_type_from_routing_key(mo_routing_key)
 
@@ -127,32 +120,44 @@ async def unpack_payload(
     )
     if mo_object is None:
         raise RejectMessage("Unable to load mo object")
+    return mo_object
 
+
+MOObject = Annotated[Any, Depends(mo_object_loader)]
+
+
+async def construct_import_args(
+    object_uuid: PayloadUUID,
+    mo_routing_key: MORoutingKey,
+    mo_object: MOObject,
+) -> dict[str, Any]:
+    """
+    Takes the payload of an AMQP message, and returns a set of parameters to be used
+    by export functions in `import_export.py`. Also return the mo object as a dict
+    """
     delete = get_delete_flag(mo_object)
-    current_objects_only = False if delete else True
 
-    args = dict(
-        uuid=mo_object["parent_uuid"],
-        object_uuid=object_uuid,
-        routing_key=mo_routing_key,
-        delete=delete,
-        current_objects_only=current_objects_only,
-    )
+    return {
+        "uuid": mo_object["parent_uuid"],
+        "object_uuid": object_uuid,
+        "routing_key": mo_routing_key,
+        "delete": delete,
+        "current_objects_only": not delete,
+    }
 
-    return args, mo_object
+
+ImportArgs = Annotated[dict[str, Any], Depends(construct_import_args)]
 
 
 @internal_amqp_router.register("address")
 @amqp_router.register("address")
 @reject_on_failure
 async def process_address(
-    context: Context,
-    object_uuid: PayloadUUID,
-    mo_routing_key: MORoutingKey,
+    args: ImportArgs,
+    mo_object: MOObject,
     sync_tool: depends.SyncTool,
     _: RateLimit,
 ) -> None:
-    args, mo_object = await unpack_payload(context, object_uuid, mo_routing_key)
     service_type = mo_object["service_type"]
 
     if service_type == "employee":
@@ -165,14 +170,12 @@ async def process_address(
 @amqp_router.register("engagement")
 @reject_on_failure
 async def process_engagement(
-    context: Context,
-    object_uuid: PayloadUUID,
-    mo_routing_key: MORoutingKey,
+    args: ImportArgs,
     sync_tool: depends.SyncTool,
+    mo_routing_key: MORoutingKey,
+    object_uuid: PayloadUUID,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
-
     await sync_tool.listen_to_changes_in_employees(**args)
     await sync_tool.export_org_unit_addresses_on_engagement_change(
         mo_routing_key, object_uuid
@@ -183,14 +186,10 @@ async def process_engagement(
 @amqp_router.register("ituser")
 @reject_on_failure
 async def process_ituser(
-    context: Context,
-    object_uuid: PayloadUUID,
-    mo_routing_key: MORoutingKey,
+    args: ImportArgs,
     sync_tool: depends.SyncTool,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
-
     await sync_tool.listen_to_changes_in_employees(**args)
 
 
@@ -198,14 +197,10 @@ async def process_ituser(
 @amqp_router.register("person")
 @reject_on_failure
 async def process_person(
-    context: Context,
-    object_uuid: PayloadUUID,
-    mo_routing_key: MORoutingKey,
+    args: ImportArgs,
     sync_tool: depends.SyncTool,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
-
     await sync_tool.listen_to_changes_in_employees(**args)
 
 
@@ -213,14 +208,10 @@ async def process_person(
 @amqp_router.register("org_unit")
 @reject_on_failure
 async def process_org_unit(
-    context: Context,
-    object_uuid: PayloadUUID,
-    mo_routing_key: MORoutingKey,
+    args: ImportArgs,
     sync_tool: depends.SyncTool,
     _: RateLimit,
 ) -> None:
-    args, _ = await unpack_payload(context, object_uuid, mo_routing_key)
-
     await sync_tool.listen_to_changes_in_org_units(**args)
 
 

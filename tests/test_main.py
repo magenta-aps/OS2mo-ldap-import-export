@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastramqpi.main import FastRAMQPI
 from fastramqpi.ramqp.depends import get_context
+from fastramqpi.ramqp.mo import MORoutingKey
 from fastramqpi.ramqp.utils import RejectMessage
 from fastramqpi.ramqp.utils import RequeueMessage
 from gql.transport.exceptions import TransportQueryError
@@ -34,6 +35,7 @@ from mo_ldap_import_export.exceptions import IncorrectMapping
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.exceptions import NotSupportedException
 from mo_ldap_import_export.ldap_classes import LdapObject
+from mo_ldap_import_export.main import construct_import_args
 from mo_ldap_import_export.main import create_app
 from mo_ldap_import_export.main import create_fastramqpi
 from mo_ldap_import_export.main import get_delete_flag
@@ -42,6 +44,7 @@ from mo_ldap_import_export.main import initialize_converters
 from mo_ldap_import_export.main import initialize_init_engine
 from mo_ldap_import_export.main import initialize_ldap_listener
 from mo_ldap_import_export.main import initialize_sync_tool
+from mo_ldap_import_export.main import mo_object_loader
 from mo_ldap_import_export.main import open_ldap_connection
 from mo_ldap_import_export.main import process_address
 from mo_ldap_import_export.main import process_engagement
@@ -577,46 +580,41 @@ def test_ldap_get_objectGUID_endpoint(test_client: TestClient) -> None:
     assert response.status_code == 202
 
 
-async def test_listen_to_missing_uuid(dataloader: AsyncMock):
-    settings = MagicMock()
-    settings.listen_to_changes_in_mo = True
-
-    context = {
-        "user_context": {
-            "dataloader": dataloader,
-            "sync_tool": sync_tool,
-            "settings": settings,
-        }
-    }
-    payload = uuid4()
-
+async def test_object_load_missing_uuid(dataloader: AsyncMock):
     dataloader.load_mo_object.return_value = None
 
-    with pytest.raises(RejectMessage):  # as exc_info:
-        await process_address(context, payload, "address", sync_tool, _=None)
-    # assert "Unable to load mo object" in str(exc_info.value)
+    object_uuid = uuid4()
+    mo_routing_key: MORoutingKey = "address"
+
+    with pytest.raises(RejectMessage) as exc_info:
+        await mo_object_loader(
+            dataloader=dataloader,
+            object_uuid=object_uuid,
+            mo_routing_key=mo_routing_key,
+        )
+    assert "Unable to load mo object" in str(exc_info.value)
 
 
 async def test_listen_to_changes(dataloader: AsyncMock, sync_tool: AsyncMock):
-    settings = MagicMock()
-    settings.listen_to_changes_in_mo = True
-
-    context = {
-        "user_context": {
-            "dataloader": dataloader,
-            "sync_tool": sync_tool,
-            "settings": settings,
-        }
-    }
-    payload = uuid4()
-
     dataloader.load_mo_object.return_value = {
         "service_type": "employee",
         "validity": {"to": None},
         "parent_uuid": uuid4(),
     }
 
-    await process_address(context, payload, "address", sync_tool, _=None)
+    object_uuid = uuid4()
+    mo_routing_key: MORoutingKey = "address"
+
+    mo_object = await mo_object_loader(
+        dataloader=dataloader, object_uuid=object_uuid, mo_routing_key=mo_routing_key
+    )
+    args = await construct_import_args(
+        object_uuid=object_uuid,
+        mo_routing_key=mo_routing_key,
+        mo_object=mo_object,
+    )
+
+    await process_address(args, mo_object, sync_tool, _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
 
     dataloader.load_mo_object.return_value = {
@@ -625,25 +623,34 @@ async def test_listen_to_changes(dataloader: AsyncMock, sync_tool: AsyncMock):
         "parent_uuid": uuid4(),
     }
 
+    mo_object = await mo_object_loader(
+        dataloader=dataloader, object_uuid=object_uuid, mo_routing_key=mo_routing_key
+    )
+    args = await construct_import_args(
+        object_uuid=object_uuid,
+        mo_routing_key=mo_routing_key,
+        mo_object=mo_object,
+    )
+
     sync_tool.reset_mock()
-    await process_address(context, payload, "address", sync_tool, _=None)
+    await process_address(args, mo_object, sync_tool, _=None)
     sync_tool.listen_to_changes_in_org_units.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_engagement(context, payload, "engagement", sync_tool, _=None)
+    await process_engagement(args, sync_tool, mo_routing_key, object_uuid, _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
     sync_tool.export_org_unit_addresses_on_engagement_change.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_ituser(context, payload, "ituser", sync_tool, _=None)
+    await process_ituser(args, sync_tool, _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_person(context, payload, "person", sync_tool, _=None)
+    await process_person(args, sync_tool, _=None)
     sync_tool.listen_to_changes_in_employees.assert_awaited_once()
 
     sync_tool.reset_mock()
-    await process_org_unit(context, payload, "org_unit", sync_tool, _=None)
+    await process_org_unit(args, sync_tool, _=None)
     sync_tool.listen_to_changes_in_org_units.assert_awaited_once()
 
 
