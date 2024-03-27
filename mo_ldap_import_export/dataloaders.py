@@ -201,7 +201,7 @@ class DataLoader:
             page_counter = 0
 
             while cursor:
-                logger.info(f"[Paged-query] Loading {key} - page {page_counter}")
+                logger.info(f"[Paged-query] Loading", key=key, page=page_counter)
                 next_result = await self.query_mo(
                     query,
                     raise_if_empty=False,

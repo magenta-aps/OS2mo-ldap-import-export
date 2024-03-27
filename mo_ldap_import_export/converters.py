@@ -64,7 +64,7 @@ async def find_cpr_field(mapping):
 
         if value == search_result:
             cpr_field = ldap_field_name
-            logger.info(f"Found CPR field in LDAP: '{cpr_field}'")
+            logger.info("Found CPR field in LDAP", cpr_field=cpr_field)
             break
 
     if cpr_field is None:
@@ -108,7 +108,7 @@ async def find_ldap_it_system(
         logger.error("Multiple LDAP IT-system found!")
         return None
     found_itsystem = one(found_itsystems)
-    logger.info(f"Found LDAP IT-system: '{found_itsystem}'")
+    logger.info("Found LDAP IT-system", itsystem=found_itsystem)
     return found_itsystem
 
 
@@ -289,8 +289,7 @@ class LdapConverter:
         json_keys = set(mo_to_ldap_json_keys + ldap_to_mo_json_keys)
         accepted_json_keys = set(self.get_accepted_json_keys())
 
-        logger.info(f"[json check] Accepted keys: {accepted_json_keys}")
-        logger.info(f"[json check] Detected keys: {json_keys}")
+        logger.info("[json check]", accepted_json_keys=accepted_json_keys, detected_keys=json_keys)
 
         unaccepted_keys = json_keys - accepted_json_keys
         if unaccepted_keys:
@@ -504,7 +503,7 @@ class LdapConverter:
 
                         # And if the argument is a hard-coded string:
                         if argument.startswith("'") and argument.endswith("'"):
-                            logger.info(f"[json check] Checking {template}")
+                            logger.info(f"[json check] Checking", tempalte=template)
 
                             # Check if the argument is a valid user_key
                             user_key = argument.replace("'", "")
@@ -777,7 +776,7 @@ class LdapConverter:
             )
         else:
             engagement = engagement_dicts[0]
-            logger.info(f"Match found in engagement with uuid = {engagement['uuid']}")
+            logger.info("Match found in engagement", uuid=engagement['uuid'])
             return {"uuid": engagement[attribute]}
 
     async def get_current_org_unit_uuid_dict(
@@ -888,7 +887,7 @@ class LdapConverter:
             try:
                 await self.get_org_unit_uuid_from_path(partial_path_string)
             except UUIDNotFoundException:
-                logger.info(f"Importing {partial_path_string}")
+                logger.info("Importing", path=partial_path_string)
 
                 if nesting_level == 0:
                     parent_uuid = str(await self.dataloader.load_mo_root_org_uuid())
@@ -1038,7 +1037,8 @@ class LdapConverter:
             return await self.get_org_unit_uuid_from_path(org_unit_path_string)
         except UUIDNotFoundException:
             logger.info(
-                f"Could not find '{org_unit_path_string}'. " "Creating organisation."
+                "Could not find org path. Creating organisation.",
+                org_path=org_unit_path_string
             )
             await self.create_org_unit(org_unit_path_string)
             return await self.get_org_unit_uuid_from_path(org_unit_path_string)
@@ -1249,8 +1249,10 @@ class LdapConverter:
             missing_attributes = required_attributes - set(mo_dict.keys())
             if missing_attributes:
                 logger.info(
-                    f"Could not convert {mo_dict} to {mo_class}. "
-                    f"The following attributes are missing: {missing_attributes}"
+                    "Could not convert mo_dict to mo_class - Missing attributes.",
+                    mo_dict=mo_dict,
+                    mo_class=mo_class,
+                    missing_attributes=missing_attributes,
                 )
                 continue
 
