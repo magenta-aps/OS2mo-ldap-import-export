@@ -10,6 +10,8 @@ from fastramqpi.ramqp.depends import get_payload_as_type
 from fastramqpi.ramqp.depends import rate_limit
 
 from .config import LDAPAMQPConnectionSettings
+from .depends import LoggerBoundCorrelationID
+from .depends import LoggerBoundMessageID
 from .depends import SyncTool
 from .logging import logger
 
@@ -28,6 +30,8 @@ async def process_dn(
     sync_tool: SyncTool,
     dn: PayloadDN,
     _: RateLimit,
+    _2: LoggerBoundMessageID,
+    _3: LoggerBoundCorrelationID,
 ) -> None:
     logger.info("Received LDAP AMQP event", dn=dn)
     await sync_tool.import_single_user(dn)
