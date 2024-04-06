@@ -438,6 +438,9 @@ class Settings(BaseSettings):
         "objectGUID",
         description="Name of the attribute that holds the server-assigned unique identifier. `objectGUID` on Active Directory and `entryUUID` on most standard LDAP implementations (per RFC4530).",
     )
+    ldap_read_only: bool = Field(
+        False, description="Whether to establish a read-only connection to the server."
+    )
 
     mo_url: AnyHttpUrl = Field(
         parse_obj_as(AnyHttpUrl, "http://mo-service:5000"),
