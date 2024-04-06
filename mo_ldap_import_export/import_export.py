@@ -1021,51 +1021,6 @@ class SyncTool:
                     self.uuids_to_ignore.remove(mo_object.uuid)
         return engagement_uuid
 
-    async def refresh_mo_object(self, mo_object_dict: dict[str, Any]) -> None:
-        routing_key = mo_object_dict["object_type"]
-        payload = mo_object_dict["payload"]
-
-        logger.info(
-            "Publishing",
-            routing_key=routing_key,
-            payload=payload,
-        )
-        match routing_key:
-            case "engagement":
-                await self.refresh_engagement(payload)
-            case "address":
-                await self.refresh_address(payload)
-            case "ituser":
-                await self.refresh_ituser(payload)
-            case _:  # pragma: no cover
-                raise NotImplementedError(
-                    f"Refreshing {routing_key} is not implemented!"
-                )
-
-    async def refresh_object(self, uuid: UUID, object_type: str) -> None:
-        """
-        Sends out an AMQP message on the internal AMQP system to refresh an object
-        """
-        mo_object_dict = await self.dataloader.load_mo_object(str(uuid), object_type)
-        if mo_object_dict is None:
-            raise ValueError(f"Unable to look up {object_type} with UUID: {uuid}")
-        await self.refresh_mo_object(mo_object_dict)
-
-    async def refresh_engagement(self, uuid: UUID) -> None:
-        await self.dataloader.graphql_client.engagement_refresh(
-            self.amqpsystem.exchange_name, uuid
-        )
-
-    async def refresh_address(self, uuid: UUID) -> None:
-        await self.dataloader.graphql_client.address_refresh(
-            self.amqpsystem.exchange_name, uuid
-        )
-
-    async def refresh_ituser(self, uuid: UUID) -> None:
-        await self.dataloader.graphql_client.ituser_refresh(
-            self.amqpsystem.exchange_name, uuid
-        )
-
     async def export_org_unit_addresses_on_engagement_change(
         self, engagement_uuid: UUID
     ) -> None:

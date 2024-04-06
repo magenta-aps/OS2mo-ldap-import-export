@@ -25,7 +25,6 @@ from ramodels.mo.employee import Employee
 from structlog.testing import capture_logs
 
 from mo_ldap_import_export.customer_specific import JobTitleFromADToMO
-from mo_ldap_import_export.dataloaders import DataLoader
 from mo_ldap_import_export.dataloaders import Verb
 from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import IgnoreChanges
@@ -1224,43 +1223,6 @@ async def test_wait_for_import_to_finish(sync_tool: SyncTool):
 
     assert elapsed_time >= 0.2
     assert elapsed_time < 0.3
-
-
-@pytest.mark.parametrize(
-    "object_type,function_name",
-    [
-        ("address", "address_refresh"),
-        ("ituser", "ituser_refresh"),
-        ("engagement", "engagement_refresh"),
-    ],
-)
-async def test_refresh_object(
-    sync_tool: SyncTool, dataloader: AsyncMock, object_type: str, function_name: str
-) -> None:
-    uuid = uuid4()
-
-    dataloader.load_mo_object.return_value = {
-        "payload": uuid,
-        "parent_uuid": uuid,
-        "object_type": object_type,
-        "service_type": "employee",
-    }
-    await sync_tool.refresh_object(uuid, object_type)
-    dataloader.load_mo_object.assert_awaited_once_with(str(uuid), object_type)
-
-    refresh_function = getattr(dataloader.graphql_client, function_name)
-    refresh_function.assert_awaited_once_with("os2mo_ldap_ie", uuid)
-
-
-async def test_refresh_object_missing(
-    sync_tool: SyncTool, dataloader: DataLoader
-) -> None:
-    dataloader.load_mo_object.return_value = None  # type: ignore
-
-    uuid = uuid4()
-    with pytest.raises(ValueError) as exc_info:
-        await sync_tool.refresh_object(uuid, "address")
-    assert f"Unable to look up address with UUID: {uuid}" in str(exc_info.value)
 
 
 async def test_export_org_unit_addresses_on_engagement_change(
