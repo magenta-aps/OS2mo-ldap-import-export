@@ -163,7 +163,9 @@ def context(address_type_uuid: str) -> Context:
     org_unit_type_uuid = str(uuid4())
     org_unit_level_uuid = str(uuid4())
 
-    async def read_class_uuid_by(facet_user_key: str, class_user_key: str) -> ReadClassUuidByFacetAndClassUserKeyClasses:
+    async def read_class_uuid_by(
+        facet_user_key: str, class_user_key: str
+    ) -> ReadClassUuidByFacetAndClassUserKeyClasses:
         mapping = read_class_uuid_by.map  # type: ignore
         uuid = mapping.get((facet_user_key, class_user_key))
         objects = []
@@ -181,10 +183,6 @@ def context(address_type_uuid: str) -> Context:
 
     graphql_client: AsyncMock = cast(AsyncMock, dataloader.graphql_client)
     graphql_client.read_class_uuid_by_facet_and_class_user_key = read_class_uuid_by
-
-    dataloader.load_mo_org_unit_levels.return_value = {
-        org_unit_level_uuid: {"uuid": org_unit_level_uuid, "user_key": "N1"}
-    }
 
     context: Context = {
         "user_context": {
