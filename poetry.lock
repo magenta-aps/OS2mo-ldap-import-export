@@ -1011,7 +1011,7 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "respx"
-version = "0.21.0"
+version = "0.21.1"
 description = "A utility for mocking out the Python HTTPX and HTTP Core libraries."
 category = "main"
 optional = false
@@ -1328,7 +1328,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.11"
-content-hash = "e8a01e8e9cdb9e35b4e97cef69505a6b97f55ce0088f1e33b560b160350e6b6a"
+content-hash = "a6f6cb54915155f7a53f247cac960905839b18e4b846a203336f2a94ba80c947"
 
 [metadata.files]
 aio-pika = [
@@ -2333,8 +2333,8 @@ requests = [
     {file = "requests-2.31.0.tar.gz", hash = "sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1"},
 ]
 respx = [
-    {file = "respx-0.21.0-py2.py3-none-any.whl", hash = "sha256:0293d9c92b58f5d31bf24e4545129779b4194de156227eae8f5f8eedb5eaa6cc"},
-    {file = "respx-0.21.0.tar.gz", hash = "sha256:30f6ec0e82d00bc7b664d79155e5df34ce40b5183f6eb4460e371ced7ae7232e"},
+    {file = "respx-0.21.1-py2.py3-none-any.whl", hash = "sha256:05f45de23f0c785862a2c92a3e173916e8ca88e4caad715dd5f68584d6053c20"},
+    {file = "respx-0.21.1.tar.gz", hash = "sha256:0bd7fe21bfaa52106caa1223ce61224cf30786985f17c63c5d71eff0307ee8af"},
 ]
 ruff = [
     {file = "ruff-0.2.2-py3-none-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:0a9efb032855ffb3c21f6405751d5e147b0c6b631e3ca3f6b20f917572b97eb6"},
