@@ -735,19 +735,21 @@ def test_cleanup_attributes_in_ldap(dataloader: DataLoader):
         )
 
 
-async def test_load_mo_employee_addresses(dataloader: DataLoader) -> None:
+async def test_load_mo_employee_addresses(
+    dataloader: DataLoader, graphql_mock: GraphQLMocker
+) -> None:
     address1_uuid = uuid4()
     address2_uuid = uuid4()
 
-    dataloader.graphql_client.read_employee_addresses.return_value = parse_obj_as(  # type: ignore
-        ReadEmployeeAddressesAddresses,
-        {
+    route = graphql_mock.query("read_employee_addresses")
+    route.result = {
+        "addresses": {
             "objects": [
                 {"uuid": address1_uuid},
                 {"uuid": address2_uuid},
             ]
-        },
-    )
+        }
+    }
 
     load_mo_address = AsyncMock()
     dataloader.load_mo_address = load_mo_address  # type: ignore
@@ -756,6 +758,7 @@ async def test_load_mo_employee_addresses(dataloader: DataLoader) -> None:
     address_type_uuid = uuid4()
     await dataloader.load_mo_employee_addresses(employee_uuid, address_type_uuid)
 
+    assert route.called
     load_mo_address.assert_any_call(address1_uuid)
     load_mo_address.assert_any_call(address2_uuid)
 
@@ -1153,38 +1156,24 @@ async def test_load_mo_employees_in_org_unit(
 
 
 async def test_load_mo_org_unit_addresses(
-    dataloader: DataLoader, legacy_graphql_session: AsyncMock
+    dataloader: DataLoader, graphql_mock: GraphQLMocker
 ):
     address_uuid1 = uuid4()
     address_uuid2 = uuid4()
-    return_value = {
-        "org_units": {
-            "objects": [
-                {
-                    "objects": [
-                        {
-                            "addresses": [
-                                {
-                                    "uuid": address_uuid1,
-                                },
-                                {
-                                    "uuid": address_uuid2,
-                                },
-                            ]
-                        }
-                    ]
-                }
-            ]
-        }
-    }
 
-    legacy_graphql_session.execute.return_value = return_value
+    route = graphql_mock.query("read_org_unit_addresses")
+    route.result = {
+        "addresses": {"objects": [{"uuid": address_uuid1}, {"uuid": address_uuid2}]}
+    }
 
     load_mo_address = AsyncMock()
     dataloader.load_mo_address = load_mo_address  # type: ignore
 
-    await dataloader.load_mo_org_unit_addresses(uuid4(), uuid4())
+    org_unit_uuid = uuid4()
+    address_type_uuid = uuid4()
+    await dataloader.load_mo_org_unit_addresses(org_unit_uuid, address_type_uuid)
 
+    assert route.called
     load_mo_address.assert_any_call(address_uuid1)
     load_mo_address.assert_any_call(address_uuid2)
 
