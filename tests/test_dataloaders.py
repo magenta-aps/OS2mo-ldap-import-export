@@ -1247,7 +1247,7 @@ async def test_is_primary(dataloader: DataLoader) -> None:
 
     dataloader.graphql_client.read_is_primary_engagements.return_value = parse_obj_as(  # type: ignore
         ReadIsPrimaryEngagementsEngagements,
-        {"objects": [{"current": {"is_primary": True, "uuid": engagement_uuid}}]},
+        {"objects": [{"current": {"is_primary": True, "uuid": str(engagement_uuid)}}]},
     )
 
     primary = await dataloader.is_primary(engagement_uuid)
