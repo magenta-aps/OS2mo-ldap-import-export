@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
+import structlog
 from structlog.testing import capture_logs
 
-from mo_ldap_import_export.logging import logger
 from mo_ldap_import_export.processors import _hide_cpr
+
+logger = structlog.get_logger()
 
 
 def test_hide_cpr():

@@ -6,6 +6,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
+import structlog
 from fastramqpi.ramqp.mo import MORoutingKey
 from gql import gql
 from graphql import DocumentNode
@@ -16,7 +17,8 @@ from ldap3.utils.dn import to_dn
 
 from .customer_specific import JobTitleFromADToMO
 from .exceptions import InvalidQuery
-from .logging import logger
+
+logger = structlog.stdlib.get_logger()
 
 
 # https://stackoverflow.com/questions/547829/how-to-dynamically-load-a-python-class
