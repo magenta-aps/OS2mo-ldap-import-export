@@ -153,7 +153,7 @@ class SyncTool:
 
         def dn_extractor(self, *args, **kwargs):
             dn = args[0] if args else kwargs["dn"]
-            logger.info("[Wait-for-import-to-finish] Generating DN.", dn=dn)
+            logger.info("Generating DN")
             return dn
 
         return handle_exclusively_decorator(dn_extractor)(func)
@@ -817,13 +817,12 @@ class SyncTool:
         try:
             if not force:
                 self.dns_to_ignore.check(dn)
-        except IgnoreChanges as e:
-            logger.info("[Import-single-user]" + str(e), dn=dn)
+        except IgnoreChanges:
+            logger.info("IgnoreChanges Exception", exc_info=True)
             return
 
         logger.info(
-            "[Import-single-user] Importing user.",
-            dn=dn,
+            "Importing user",
             force=force,
             manual_import=manual_import,
         )
@@ -837,9 +836,8 @@ class SyncTool:
         employee_uuid = await self.dataloader.find_mo_employee_uuid(dn)
         if not employee_uuid:
             logger.info(
-                "[Import-single-user] Employee not found in MO.",
+                "Employee not found in MO",
                 task="generating employee uuid",
-                dn=dn,
             )
             employee_uuid = uuid4()
 
@@ -849,15 +847,11 @@ class SyncTool:
         # or updates a MO `ITUser` for "ADGUID", the relevant engagement UUID is used.
         engagement_uuid: UUID | None = await self.dataloader.find_mo_engagement_uuid(dn)
         if engagement_uuid is None:
-            logger.info(
-                "[Import-single-user] Engagement UUID not found in MO.",
-                dn=dn,
-            )
+            logger.info("Engagement UUID not found in MO")
         else:
             logger.info(
-                "[Import-single-user] Engagement UUID found in MO.",
+                "Engagement UUID found in MO",
                 engagement_uuid=engagement_uuid,
-                dn=dn,
             )
 
         # First import the Employee, then Engagement if present, then the rest.
@@ -888,14 +882,13 @@ class SyncTool:
     async def import_single_user_entity(
         self, json_key: str, dn: str, employee_uuid: UUID, engagement_uuid: UUID | None
     ) -> UUID | None:
-        logger.info("[Import-single-user] Loading object.", dn=dn, json_key=json_key)
+        logger.info("Loading object", json_key=json_key)
         loaded_object = self.dataloader.load_ldap_object(
             dn,
             self.converter.get_ldap_attributes(json_key),
         )
         logger.info(
-            "[Import-single-user] Loaded object.",
-            dn=dn,
+            "Loaded object",
             json_key=json_key,
             loaded_object=loaded_object,
         )
@@ -907,13 +900,12 @@ class SyncTool:
             engagement_uuid=engagement_uuid,
         )
         if not converted_objects:
-            logger.info("[Import-single-user] No converted objects", dn=dn)
+            logger.info("No converted objects")
             return engagement_uuid
 
         logger.info(
-            "[Import-single-user] Converted 'n' objects ",
+            "Converted 'n' objects",
             n=len(converted_objects),
-            dn=dn,
         )
 
         # In case the engagement does not exist yet
@@ -921,10 +913,9 @@ class SyncTool:
             # TODO: Why are we extracting the first object as opposed to the last?
             engagement_uuid = first(converted_objects).uuid
             logger.info(
-                "[Import-single-user] Saving engagement UUID for DN",
+                "Saving engagement UUID for DN",
                 engagement_uuid=engagement_uuid,
                 source_object=first(converted_objects),
-                dn=dn,
             )
 
         try:
@@ -943,17 +934,14 @@ class SyncTool:
             # exist. The non-existing employee is also not created because
             # converter._import_to_mo_('Employee') = False
             logger.info(
-                "[Import-single-user] Could not format converted objects.",
+                "Could not format converted objects",
                 task="Moving on",
-                dn=dn,
             )
             return engagement_uuid
 
         # TODO: Convert this to an assert? - The above try-catch ensures it is always set, no?
         if not converted_objects:  # pragma: no cover
-            logger.info(
-                "[Import-single-user] No converted objects after formatting", dn=dn
-            )
+            logger.info("No converted objects after formatting")
             return engagement_uuid
 
         # In case the engagement exists, but is outdated.
@@ -964,16 +952,14 @@ class SyncTool:
             engagement, _ = operation
             engagement_uuid = engagement.uuid
             logger.info(
-                "[Import-single-user] Updating engagement UUID",
+                "Updating engagement UUID",
                 engagement_uuid=engagement_uuid,
                 source_object=engagement,
-                dn=dn,
             )
 
         logger.info(
-            "[Import-single-user] Importing objects.",
+            "Importing objects",
             converted_objects=converted_objects,
-            dn=dn,
         )
 
         if json_key == "Custom":
@@ -995,11 +981,10 @@ class SyncTool:
                 # This can happen, for example if a phone number in LDAP is
                 # invalid
                 logger.warning(
-                    "[Import-single-user] Failed to upload objects",
+                    "Failed to upload objects",
                     error=e,
                     converted_objects=converted_objects,
                     request=e.request,
-                    dn=dn,
                 )
                 for mo_object, _ in converted_objects:
                     self.uuids_to_ignore.remove(mo_object.uuid)

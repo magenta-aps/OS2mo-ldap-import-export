@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
 from typing import Annotated
+from typing import AsyncIterable
 
+import structlog
 from fastapi import Depends
 from fastramqpi.main import FastRAMQPI
 from fastramqpi.ramqp import AMQPSystem
@@ -9,11 +11,13 @@ from fastramqpi.ramqp.amqp import Router
 from fastramqpi.ramqp.depends import get_payload_as_type
 from fastramqpi.ramqp.depends import rate_limit
 from fastramqpi.ramqp.utils import RejectMessage
+from structlog.contextvars import bound_contextvars
 
 from .config import LDAPAMQPConnectionSettings
 from .depends import SyncTool
 from .exceptions import NoObjectsReturnedException
-from .logging import logger
+
+logger = structlog.get_logger()
 
 
 ldap_amqp_router = Router()
@@ -25,13 +29,18 @@ RateLimit = Annotated[None, Depends(rate_limit(delay_on_error))]
 PayloadDN = Annotated[str, Depends(get_payload_as_type(str))]
 
 
-@ldap_amqp_router.register("dn")
+async def logger_bound_dn(dn: PayloadDN) -> AsyncIterable[None]:
+    with bound_contextvars(dn=dn):
+        yield
+
+
+@ldap_amqp_router.register("dn", dependencies=[Depends(logger_bound_dn)])
 async def process_dn(
     sync_tool: SyncTool,
     dn: PayloadDN,
     _: RateLimit,
 ) -> None:
-    logger.info("Received LDAP AMQP event", dn=dn)
+    logger.info("Received LDAP AMQP event")
     try:
         await sync_tool.import_single_user(dn)
     except NoObjectsReturnedException as exc:
