@@ -27,6 +27,8 @@ from pydantic import parse_obj_as
 from ramodels.mo import MOBase
 
 from .converters import LdapConverter
+from .customer_specific_checks import ExportChecks
+from .customer_specific_checks import ImportChecks
 from .dataloaders import DataLoader
 from .dataloaders import DNList
 from .dataloaders import Verb
@@ -115,8 +117,8 @@ class SyncTool:
         self.user_context = self.context["user_context"]
         self.dataloader: DataLoader = self.user_context["dataloader"]
         self.converter: LdapConverter = self.user_context["converter"]
-        self.export_checks = self.user_context["export_checks"]
-        self.import_checks = self.user_context["import_checks"]
+        self.export_checks: ExportChecks = self.user_context["export_checks"]
+        self.import_checks: ImportChecks = self.user_context["import_checks"]
         self.settings = self.user_context["settings"]
         self.amqpsystem = self.context["amqpsystem"]
 
@@ -176,13 +178,14 @@ class SyncTool:
             self.settings.it_user_to_check,
         )
 
-    async def perform_import_checks(self, dn: str, json_key: str):
+    async def perform_import_checks(self, dn: str, json_key: str) -> bool:
         if self.settings.check_holstebro_ou_issue_57426:
-            await self.import_checks.check_holstebro_ou_is_externals_issue_57426(
+            return await self.import_checks.check_holstebro_ou_is_externals_issue_57426(
                 self.settings.check_holstebro_ou_issue_57426,
                 dn,
                 json_key,
             )
+        return True
 
     def cleanup_needed(self, ldap_modify_responses: list[dict]):
         """
@@ -868,14 +871,13 @@ class SyncTool:
         json_keys = priority_keys + [
             k for k in detected_json_keys if k not in priority_keys
         ]
+        json_keys = [
+            json_key
+            for json_key in json_keys
+            if await self.perform_import_checks(dn, json_key)
+        ]
 
         for json_key in json_keys:
-            try:
-                await self.perform_import_checks(dn, json_key)
-            except IgnoreChanges as e:
-                logger.info(f"[Import-single-user] {e}", dn=dn)
-                continue
-
             if not self.converter._import_to_mo_(json_key, manual_import):
                 logger.info(
                     "[Import-single-user] _import_to_mo_ == False.",
