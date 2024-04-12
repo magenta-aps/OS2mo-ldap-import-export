@@ -874,16 +874,15 @@ class SyncTool:
             for json_key in json_keys
             if await self.perform_import_checks(dn, json_key)
         ]
+        json_keys = [
+            json_key
+            for json_key in json_keys
+            if self.converter._import_to_mo_(json_key, manual_import)
+        ]
 
+        # XXX: Loop iterations have side-effects on other iterations of the loop
+        #      engagement_uuid is changed throughout and modifys later iterations.
         for json_key in json_keys:
-            if not self.converter._import_to_mo_(json_key, manual_import):
-                logger.info(
-                    "[Import-single-user] _import_to_mo_ == False.",
-                    json_key=json_key,
-                    dn=dn,
-                )
-                continue
-
             logger.info(
                 "[Import-single-user] Loading object.", dn=dn, json_key=json_key
             )
