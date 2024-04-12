@@ -68,11 +68,11 @@ async def find_cpr_field(mapping):
 
         if value == search_result:
             cpr_field = ldap_field_name
-            logger.info(f"Found CPR field in LDAP: '{cpr_field}'")
+            await logger.ainfo(f"Found CPR field in LDAP: '{cpr_field}'")
             break
 
     if cpr_field is None:
-        logger.warning("CPR field not found")
+        await logger.awarning("CPR field not found")
 
     return cpr_field
 
@@ -106,13 +106,13 @@ async def find_ldap_it_system(
         if await template_contains_unique_field(user_key)
     }
     if len(found_itsystems) == 0:
-        logger.warning("LDAP IT-system not found")
+        await logger.awarning("LDAP IT-system not found")
         return None
     if len(found_itsystems) > 1:
-        logger.error("Multiple LDAP IT-system found!")
+        await logger.aerror("Multiple LDAP IT-system found!")
         return None
     found_itsystem = one(found_itsystems)
-    logger.info(f"Found LDAP IT-system: '{found_itsystem}'")
+    await logger.ainfo(f"Found LDAP IT-system: '{found_itsystem}'")
     return found_itsystem
 
 
@@ -158,7 +158,7 @@ class LdapConverter:
     async def load_info_dicts(self):
         # Note: If new address types or IT systems are added to MO, these dicts need
         # to be re-initialized
-        logger.info("[info dict loader] Loading info dicts")
+        await logger.ainfo("[info dict loader] Loading info dicts")
         self.employee_address_type_info = (
             await self.dataloader.load_mo_employee_address_types()
         )
@@ -189,7 +189,7 @@ class LdapConverter:
         }
 
         self.check_info_dicts()
-        logger.info("[info dict loader] Info dicts loaded successfully")
+        await logger.ainfo("[info dict loader] Info dicts loaded successfully")
 
     def _import_to_mo_(self, json_key: str, manual_import: bool):
         """
@@ -529,7 +529,7 @@ class LdapConverter:
             )
 
     async def check_mapping(self):
-        logger.info("[json check] Checking json file")
+        await logger.ainfo("[json check] Checking json file")
 
         # Check to make sure that all keys are valid
         self.check_key_validity()
@@ -556,7 +556,7 @@ class LdapConverter:
         # Check to see if there is an existing link between LDAP and MO
         await self.check_cpr_field_or_it_system()
 
-        logger.info("[json check] Attributes OK")
+        await logger.ainfo("[json check] Attributes OK")
 
     def check_info_dict_for_duplicates(self, info_dict, name_key="user_key"):
         """
@@ -709,7 +709,7 @@ class LdapConverter:
             if default is None:
                 raise UUIDNotFoundException("job_function is empty")
             else:
-                logger.info(
+                await logger.ainfo(
                     "job_function is empty, using provided default",
                     default=default,
                 )
@@ -782,7 +782,7 @@ class LdapConverter:
                 "attribute must be an uuid-string. For example 'job_function_uuid'"
             )
 
-        logger.info(
+        await logger.ainfo(
             f"Looking for '{attribute}' in existing engagement with "
             f"user_key = '{engagement_user_key}' "
             f"and employee_uuid = '{employee_uuid}'"
@@ -803,7 +803,7 @@ class LdapConverter:
             )
         else:
             engagement = engagement_dicts[0]
-            logger.info(f"Match found in engagement with uuid = {engagement['uuid']}")
+            await logger.ainfo(f"Match found in engagement with uuid = {engagement['uuid']}")
             return {"uuid": engagement[attribute]}
 
     async def get_current_org_unit_uuid_dict(
@@ -936,7 +936,7 @@ class LdapConverter:
             try:
                 await self.get_org_unit_uuid_from_path(partial_path_string)
             except UUIDNotFoundException:
-                logger.info(f"Importing {partial_path_string}")
+                await logger.ainfo(f"Importing {partial_path_string}")
 
                 if nesting_level == 0:
                     parent_uuid = str(await self.dataloader.load_mo_root_org_uuid())
@@ -1071,7 +1071,7 @@ class LdapConverter:
         return org_unit_path_string
 
     async def get_or_create_org_unit_uuid(self, org_unit_path_string: str):
-        logger.info(
+        await logger.ainfo(
             "[Get-or-create-org-unit-uuid] Finding org-unit uuid.",
             org_unit_path_string=org_unit_path_string,
         )
@@ -1085,7 +1085,7 @@ class LdapConverter:
         try:
             return await self.get_org_unit_uuid_from_path(org_unit_path_string)
         except UUIDNotFoundException:
-            logger.info(
+            await logger.ainfo(
                 f"Could not find '{org_unit_path_string}'. " "Creating organisation."
             )
             await self.create_org_unit(org_unit_path_string)
@@ -1265,7 +1265,7 @@ class LdapConverter:
                     if value.lower() == "none" or value == "[]":
                         value = ""
                 except UUIDNotFoundException as e:
-                    logger.warning(e)
+                    await logger.awarning(e)
                     return None
                 # TODO: Is it possible to render a dictionary directly?
                 #       Instead of converting from a string
@@ -1292,7 +1292,7 @@ class LdapConverter:
             # If any required attributes are missing
             missing_attributes = required_attributes - set(mo_dict.keys())
             if missing_attributes:
-                logger.info(
+                await logger.ainfo(
                     f"Could not convert {mo_dict} to {mo_class}. "
                     f"The following attributes are missing: {missing_attributes}"
                 )
@@ -1312,6 +1312,6 @@ class LdapConverter:
             try:
                 converted_objects.append(mo_class(**mo_dict))
             except pydantic.ValidationError as pve:
-                logger.info(pve)
+                await logger.ainfo(pve)
 
         return converted_objects

@@ -78,10 +78,10 @@ def init(log_level: str, production_mode: bool = True):
         # `logger_factory` is used to create wrapped loggers that are used for
         # OUTPUT. This one returns a `logging.Logger`. The final value (a JSON
         # string) from the final processor (`JSONRenderer`) will be passed to
-        # the method of the same name as that you've called on the bound logger.
+        # the method of the same name as that you've called on the bound await logger.a
         logger_factory=structlog.stdlib.LoggerFactory(),
         # Effectively freeze configuration after creating the first bound
-        # logger.
+        # await logger.a
         cache_logger_on_first_use=True,
     )
 

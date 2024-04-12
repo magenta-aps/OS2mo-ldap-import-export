@@ -273,7 +273,7 @@ class SyncTool:
             "delete": delete,
         }
 
-        logger.info(
+        await logger.ainfo(
             "[Listen-to-changes-in-employees] Registered change in an employee.",
             **logger_args,
         )
@@ -284,14 +284,14 @@ class SyncTool:
         try:
             self.uuids_to_ignore.check(object_uuid)
         except IgnoreChanges as e:
-            logger.info("[Listen-to-changes-in-employees] " + str(e))
+            await logger.ainfo("[Listen-to-changes-in-employees] " + str(e))
             return
         await self.perform_export_checks(uuid, object_uuid)
 
         try:
             dns: DNList = await self.dataloader.find_or_make_mo_employee_dn(uuid)
         except DNNotFound:
-            logger.info("[Listen-to-changes-in-employees] DN not found.", **logger_args)
+            await logger.ainfo("[Listen-to-changes-in-employees] DN not found.", **logger_args)
             return
 
         # Get MO employee
@@ -299,7 +299,7 @@ class SyncTool:
             uuid,
             current_objects_only=current_objects_only,
         )
-        logger.info(
+        await logger.ainfo(
             "[Listen-to-changes-in-employees] Found Employee in MO.",
             changed_employee=changed_employee,
             **logger_args,
@@ -336,7 +336,7 @@ class SyncTool:
                 address_type_uuid
             )
 
-            logger.info(
+            await logger.ainfo(
                 "[Listen-to-changes-in-employees] Obtained address.",
                 user_key=json_key,
                 **logger_args,
@@ -384,7 +384,7 @@ class SyncTool:
                 str(it_system_type_uuid)
             )
 
-            logger.info(
+            await logger.ainfo(
                 "[Listen-to-changes-in-employees] Obtained IT system.",
                 user_key=json_key,
                 **logger_args,
@@ -523,7 +523,7 @@ class SyncTool:
     async def refresh_org_unit_info_cache(self) -> None:
         # When an org-unit is changed we need to update the org unit info. So we
         # know the new name of the org unit in case it was changed
-        logger.info("[Listen-to-changes-in-orgs] Updating org unit info.")
+        await logger.ainfo("[Listen-to-changes-in-orgs] Updating org unit info.")
         self.converter.org_unit_info = await self.dataloader.load_mo_org_units()
         self.converter.check_org_unit_info_dict()
 
@@ -558,7 +558,7 @@ class SyncTool:
             "delete": delete,
         }
 
-        logger.info(
+        await logger.ainfo(
             "[Listen-to-changes-in-orgs] Registered change in an org_unit.",
             current_objects_only=current_objects_only,
             **logger_args,
@@ -576,7 +576,7 @@ class SyncTool:
             address_type_uuid
         )
 
-        logger.info(
+        await logger.ainfo(
             "[Listen-to-changes-in-orgs] Obtained address.",
             user_key=json_key,
             **logger_args,
@@ -594,7 +594,7 @@ class SyncTool:
         affected_employees = set(
             await self.dataloader.load_mo_employees_in_org_unit(uuid)
         )
-        logger.info(
+        await logger.ainfo(
             "[Listen-to-changes-in-orgs] Looping over 'n' employees.",
             n=len(affected_employees),
             **logger_args,
@@ -611,10 +611,10 @@ class SyncTool:
                     object_type,
                 )
             except DNNotFound as e:
-                logger.info("[Listen-to-changes-in-orgs] " + str(e), **logger_args)
+                await logger.ainfo("[Listen-to-changes-in-orgs] " + str(e), **logger_args)
                 continue
             except IgnoreChanges as e:
-                logger.info("[Listen-to-changes-in-orgs] " + str(e), **logger_args)
+                await logger.ainfo("[Listen-to-changes-in-orgs] " + str(e), **logger_args)
                 continue
 
     async def format_converted_objects(
@@ -658,7 +658,7 @@ class SyncTool:
                     address_type.uuid,
                 )
             else:
-                logger.info(
+                await logger.ainfo(
                     "[Format-converted-objects] Could not format converted "
                     "objects: An address needs to have either a person uuid "
                     "OR an org unit uuid"
@@ -696,12 +696,12 @@ class SyncTool:
 
                 if num_primaries == 1:
                     primary_engagement = objects_in_mo[primaries.index(True)]
-                    logger.info(
+                    await logger.ainfo(
                         "[Format-converted-objects] Found primary engagement.",
                         uuid=str(primary_engagement.uuid),
                         user_key=primary_engagement.user_key,
                     )
-                    logger.info(
+                    await logger.ainfo(
                         "[Format-converted-objects] Removing engagements "
                         "with identical user keys"
                     )
@@ -754,13 +754,13 @@ class SyncTool:
             if len(values) > 1:  # pragma: no cover
                 # Ambigious match means we do nothing
                 # TODO: Should this really throw a RequeueMessage?
-                logger.warning(
+                await logger.awarning(
                     f"Could not determine which '{json_key}' MO object "
                     f"{value_key}='{converted_object_value}' belongs to. Skipping"
                 )
                 continue
             # Exactly 1 match found
-            logger.info(
+            await logger.ainfo(
                 "[Format-converted-objects] Found matching key.",
                 json_key=json_key,
                 value=getattr(converted_object, value_key),
@@ -779,7 +779,7 @@ class SyncTool:
             mo_attributes = mo_attributes & converted_mo_object_dict.keys()
 
             for key in mo_attributes:
-                logger.info(
+                await logger.ainfo(
                     "[Format-converted-objects] Setting "
                     f"{key} = {converted_mo_object_dict[key]}"
                 )
@@ -792,7 +792,7 @@ class SyncTool:
             # # If an object is identical to the one already there, it does not need
             # # to be uploaded.
             # if converted_object_uuid_checked == matching_object:
-            #     logger.info(
+            #     await logger.ainfo(
             #         "[Format-converted-objects] Converted object is identical "
             #         "to existing object. Skipping."
             #     )
@@ -817,10 +817,10 @@ class SyncTool:
             if not force:
                 self.dns_to_ignore.check(dn)
         except IgnoreChanges as e:
-            logger.info("[Import-single-user]" + str(e), dn=dn)
+            await logger.ainfo("[Import-single-user]" + str(e), dn=dn)
             return
 
-        logger.info(
+        await logger.ainfo(
             "[Import-single-user] Importing user.",
             dn=dn,
             force=force,
@@ -836,7 +836,7 @@ class SyncTool:
         #   we are waiting for MO's response
         employee_uuid = await self.dataloader.find_mo_employee_uuid(dn)
         if not employee_uuid:
-            logger.info(
+            await logger.ainfo(
                 "[Import-single-user] Employee not found in MO.",
                 task="generating employee uuid",
                 dn=dn,
@@ -849,12 +849,12 @@ class SyncTool:
         # or updates a MO `ITUser` for "ADGUID", the relevant engagement UUID is used.
         engagement_uuid: UUID | None = await self.dataloader.find_mo_engagement_uuid(dn)
         if engagement_uuid is None:
-            logger.info(
+            await logger.ainfo(
                 "[Import-single-user] Engagement UUID not found in MO.",
                 dn=dn,
             )
         else:
-            logger.info(
+            await logger.ainfo(
                 "[Import-single-user] Engagement UUID found in MO.",
                 engagement_uuid=engagement_uuid,
                 dn=dn,
@@ -875,25 +875,25 @@ class SyncTool:
             try:
                 await self.perform_import_checks(dn, json_key)
             except IgnoreChanges as e:
-                logger.info(f"[Import-single-user] {e}", dn=dn)
+                await logger.ainfo(f"[Import-single-user] {e}", dn=dn)
                 continue
 
             if not self.converter._import_to_mo_(json_key, manual_import):
-                logger.info(
+                await logger.ainfo(
                     "[Import-single-user] _import_to_mo_ == False.",
                     json_key=json_key,
                     dn=dn,
                 )
                 continue
 
-            logger.info(
+            await logger.ainfo(
                 "[Import-single-user] Loading object.", dn=dn, json_key=json_key
             )
             loaded_object = self.dataloader.load_ldap_object(
                 dn,
                 self.converter.get_ldap_attributes(json_key),
             )
-            logger.info(
+            await logger.ainfo(
                 "[Import-single-user] Loaded object.",
                 dn=dn,
                 json_key=json_key,
@@ -910,7 +910,7 @@ class SyncTool:
             # In case the engagement does not exist yet:
             if json_key == "Engagement" and len(converted_objects):
                 engagement_uuid = first(converted_objects).uuid
-                logger.info(
+                await logger.ainfo(
                     "[Import-single-user] Saving engagement UUID for DN",
                     engagement_uuid=engagement_uuid,
                     source_object=first(converted_objects),
@@ -918,10 +918,10 @@ class SyncTool:
                 )
 
             if len(converted_objects) == 0:
-                logger.info("[Import-single-user] No converted objects", dn=dn)
+                await logger.ainfo("[Import-single-user] No converted objects", dn=dn)
                 continue
             else:
-                logger.info(
+                await logger.ainfo(
                     "[Import-single-user] Converted 'n' objects ",
                     n=len(converted_objects),
                     dn=dn,
@@ -937,7 +937,7 @@ class SyncTool:
                     operation = first(converted_objects)
                     engagement, _ = operation
                     engagement_uuid = engagement.uuid
-                    logger.info(
+                    await logger.ainfo(
                         "[Import-single-user] Updating engagement UUID",
                         engagement_uuid=engagement_uuid,
                         source_object=engagement,
@@ -954,7 +954,7 @@ class SyncTool:
                 # Because an address cannot be imported for an employee that does not
                 # exist. The non-existing employee is also not created because
                 # converter._import_to_mo_('Employee') = False
-                logger.info(
+                await logger.ainfo(
                     "[Import-single-user] Could not format converted objects.",
                     task="Moving on",
                     dn=dn,
@@ -964,7 +964,7 @@ class SyncTool:
             # TODO: Conver this to an assert? - The above try-catch ensures it is always set, no?
             if not converted_objects:  # pragma: no cover
                 continue
-            logger.info(
+            await logger.ainfo(
                 "[Import-single-user] Importing objects.",
                 converted_objects=converted_objects,
                 dn=dn,
@@ -985,7 +985,7 @@ class SyncTool:
                 except HTTPStatusError as e:
                     # This can happen, for example if a phone number in LDAP is
                     # invalid
-                    logger.warning(
+                    await logger.awarning(
                         "[Import-single-user] Failed to upload objects",
                         error=e,
                         converted_objects=converted_objects,
@@ -999,7 +999,7 @@ class SyncTool:
         routing_key = mo_object_dict["object_type"]
         payload = mo_object_dict["payload"]
 
-        logger.info(
+        await logger.ainfo(
             "[Refresh-object] Publishing.",
             routing_key=routing_key,
             payload=payload,
@@ -1086,7 +1086,7 @@ class SyncTool:
         Sends out AMQP-messages for all objects related to an employee
         """
         # NOTE: Should this not refresh the employee itself as well?
-        logger.info("[Refresh-employee] Refreshing employee.", uuid=str(employee_uuid))
+        await logger.ainfo("[Refresh-employee] Refreshing employee.", uuid=str(employee_uuid))
 
         # Load address types and it-user types
         address_type_uuids = parse_obj_as(

@@ -204,7 +204,7 @@ class DataLoader:
             page_counter = 0
 
             while cursor:
-                logger.info(f"[Paged-query] Loading {key} - page {page_counter}")
+                await logger.ainfo(f"[Paged-query] Loading {key} - page {page_counter}")
                 next_result = await self.query_mo(
                     query,
                     raise_if_empty=False,
@@ -659,7 +659,7 @@ class DataLoader:
         """
         converter = self.user_context["converter"]
         if not converter._export_to_ldap_(json_key):
-            logger.info(
+            await logger.ainfo(
                 "[Modify-ldap-object] _export_to_ldap_ == False.", json_key=json_key
             )
             return []
@@ -668,7 +668,7 @@ class DataLoader:
 
         parameters_to_modify = list(object_to_modify.dict().keys())
 
-        logger.info(f"[Modify-ldap-object] Uploading {object_to_modify}.")
+        await logger.ainfo(f"[Modify-ldap-object] Uploading {object_to_modify}.")
         parameters_to_modify = [p for p in parameters_to_modify if p != "dn"]
         dn = object_to_modify.dn
         results = []
@@ -698,7 +698,7 @@ class DataLoader:
             try:
                 response = self.modify_ldap(dn, changes)
             except LDAPInvalidValueError as e:
-                logger.warning("[Modify-ldap-object] " + str(e))
+                await logger.awarning("[Modify-ldap-object] " + str(e))
                 failed += 1
                 continue
 
@@ -710,7 +710,7 @@ class DataLoader:
             if response:
                 results.append(response)
 
-        logger.info(
+        await logger.ainfo(
             "[Modify-ldap-object] Succeeded/failed MODIFY_* operations:",
             success=success,
             failed=failed,
@@ -833,13 +833,13 @@ class DataLoader:
         cpr_results = await self.find_mo_employee_uuid_via_cpr_number(dn)
         if len(cpr_results) == 1:
             uuid = one(cpr_results)
-            logger.info(f"Found employee via CPR matching for dn={dn}: {uuid}")
+            await logger.ainfo(f"Found employee via CPR matching for dn={dn}: {uuid}")
             return uuid
 
         ituser_results = await self.find_mo_employee_uuid_via_ituser(dn)
         if len(ituser_results) == 1:
             uuid = one(ituser_results)
-            logger.info(f"Found employee via ITUser matching for dn={dn}: {uuid}")
+            await logger.ainfo(f"Found employee via ITUser matching for dn={dn}: {uuid}")
             return uuid
 
         # TODO: Return an ExceptionGroup with both
@@ -852,7 +852,7 @@ class DataLoader:
                 f"Multiple ITUser matches for dn={dn}"
             )
 
-        logger.info(f"No matching employee for dn={dn}")
+        await logger.ainfo(f"No matching employee for dn={dn}")
         return None
 
     async def find_mo_engagement_uuid(self, dn: str) -> None | UUID:
@@ -893,7 +893,7 @@ class DataLoader:
             if obj["itsystem"]["uuid"] == self.get_ldap_it_system_uuid():
                 if obj["engagement"] is not None and len(obj["engagement"]) > 0:
                     engagement_uuid = UUID(obj["engagement"][0]["uuid"])
-                    logger.info(
+                    await logger.ainfo(
                         "[Find-mo-engagement-uuid] Found engagement UUID for DN",
                         dn=dn,
                         unique_ldap_uuid=unique_uuid,
@@ -901,7 +901,7 @@ class DataLoader:
                     )
                     return engagement_uuid
 
-        logger.info(
+        await logger.ainfo(
             "[Find-mo-engagement-uuid] Could not find engagement UUID for DN",
             dn=dn,
             unique_ldap_uuid=unique_uuid,
@@ -983,7 +983,7 @@ class DataLoader:
         --------
         If a DN could not be found or generated, raises a DNNotFound exception
         """
-        logger.info(
+        await logger.ainfo(
             "[Find-or-make-employee-dn] Attempting to find DN.",
             employee_uuid=uuid,
         )
@@ -1002,7 +1002,7 @@ class DataLoader:
             dns = self.extract_unique_dns(it_users)
             if dns:
                 # If we have an it-user (with a valid dn), use that dn
-                logger.info(
+                await logger.ainfo(
                     "[Find-or-make-employee-dn] Found DN(s) using it-user lookup",
                     dns=dns,
                     employee_uuid=uuid,
@@ -1013,14 +1013,14 @@ class DataLoader:
         employee = await self.load_mo_employee(uuid)
         cpr_no = employee.cpr_no
         if cpr_no:
-            logger.info(
+            await logger.ainfo(
                 "[Find-or-make-employee-dn] Attempting cpr-lookup.",
                 cpr_no=cpr_no,
                 employee_uuid=uuid,
             )
             try:
                 dn = self.load_ldap_cpr_object(cpr_no, "Employee").dn
-                logger.info(
+                await logger.ainfo(
                     "[Find-or-make-employee-dn] Found DN using cpr-lookup.",
                     dn=dn,
                     employee_uuid=uuid,
@@ -1033,7 +1033,7 @@ class DataLoader:
                     # DN and return it. If there is one, we pretty much do the same,
                     # but also need to store the DN in an it-user object.
                     # This is done below.
-                    logger.info(
+                    await logger.ainfo(
                         "[Find-or-make-employee-dn] LDAP it-system not found.",
                         task="Generating DN",
                         employee_uuid=uuid,
@@ -1047,7 +1047,7 @@ class DataLoader:
 
         # If there are no LDAP-it-users with valid dns, we generate a dn and create one.
         if ldap_it_system_exists and len(dns) == 0:
-            logger.info(
+            await logger.ainfo(
                 "[Find-or-make-employee-dn] No it-user found.",
                 task="Generating DN and creating it-user",
                 employee_uuid=uuid,
@@ -1110,7 +1110,7 @@ class DataLoader:
             return dn
         elif len(matching_it_users) > 1:
             # Multiple matches
-            logger.info(
+            await logger.ainfo(
                 "[Multiple-matches]",
                 engagement_uuid=engagement_uuid,
                 matching_it_users=matching_it_users,
@@ -1120,7 +1120,7 @@ class DataLoader:
                 f"{employee_uuid=} and {engagement_uuid=}"
             )
         else:
-            logger.info(
+            await logger.ainfo(
                 "[No-matches]",
                 engagement_uuid=engagement_uuid,
                 it_users=it_users,
@@ -1410,7 +1410,7 @@ class DataLoader:
         ---------
         Only returns addresses which are valid today. Meaning the to/from date is valid.
         """
-        logger.info("[Load-mo-address] Loading address.", uuid=uuid)
+        await logger.ainfo("[Load-mo-address] Loading address.", uuid=uuid)
 
         start = end = UNSET if current_objects_only else None
         results = await self.graphql_client.read_addresses([uuid], start, end)
@@ -1494,7 +1494,7 @@ class DataLoader:
             """
         )
 
-        logger.info("[Load-mo-engagement] Loading engagement.", uuid=uuid)
+        await logger.ainfo("[Load-mo-engagement] Loading engagement.", uuid=uuid)
         result = await self.query_past_future_mo(query, current_objects_only)
 
         entry = self.extract_current_or_latest_object(
@@ -1846,7 +1846,7 @@ class DataLoader:
 
         if not result:
             for warning in warnings:
-                logger.warning("[Load-all-mo-objects]" + str(warning))
+                await logger.awarning("[Load-all-mo-objects]" + str(warning))
 
         output = []
 
@@ -2066,10 +2066,10 @@ class DataLoader:
             # If class already exists, noop
             with suppress(NoObjectsReturnedException):
                 uuid = await self.load_mo_class_uuid(user_key)
-                logger.info("[Create-mo-class] MO class exists.", user_key=user_key)
+                await logger.ainfo("[Create-mo-class] MO class exists.", user_key=user_key)
                 return uuid
 
-            logger.info("[Create-mo-class] Creating MO class.", user_key=user_key)
+            await logger.ainfo("[Create-mo-class] Creating MO class.", user_key=user_key)
             input = ClassCreateInput(
                 name=name,
                 user_key=user_key,
@@ -2100,7 +2100,7 @@ class DataLoader:
         Returns:
             The uuid of the updated class (equal to the class_uuid input).
         """
-        logger.info("[Update-mo-class] Modifying MO class.", user_key=user_key)
+        await logger.ainfo("[Update-mo-class] Modifying MO class.", user_key=user_key)
         input = ClassUpdateInput(
             uuid=class_uuid,
             name=name,
@@ -2121,7 +2121,7 @@ class DataLoader:
         uuid: UUID
             The uuid of the created class
         """
-        logger.info("[Create-mo-job-function] Creating MO job function.", name=name)
+        await logger.ainfo("[Create-mo-job-function] Creating MO job function.", name=name)
         facet_uuid = await self.load_mo_facet_uuid("engagement_job_function")
         user_key = name
         return await self.create_mo_class(name, user_key, facet_uuid)
@@ -2135,7 +2135,7 @@ class DataLoader:
         uuid: UUID
             The uuid of the created class
         """
-        logger.info(
+        await logger.ainfo(
             "[Create-mo-engagement-type] Creating MO engagement type", name=name
         )
         facet_uuid = await self.load_mo_facet_uuid("engagement_type")
@@ -2152,7 +2152,7 @@ class DataLoader:
         Returns:
             The uuid of the created it-system.
         """
-        logger.info("[Create-mo-it-system] Creating MO it-system", user_key=user_key)
+        await logger.ainfo("[Create-mo-it-system] Creating MO it-system", user_key=user_key)
         input = ITSystemCreateInput(
             name=name, user_key=user_key, validity=RAOpenValidityInput(from_=None)
         )

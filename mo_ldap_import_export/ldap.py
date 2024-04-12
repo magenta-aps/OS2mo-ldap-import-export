@@ -66,7 +66,7 @@ def construct_server(server_config: ServerConfig) -> Server:
     )
 
     host = server_config.host
-    logger.info(f"Setting up server to {host}")
+    logger.info(f"Setting up server", host=host)
     return Server(
         host=server_config.host,
         port=server_config.port,
@@ -535,7 +535,7 @@ async def cleanup(
     sync_tool = user_context["sync_tool"]
 
     if not converter._export_to_ldap_(json_key):
-        logger.info(f"_export_to_ldap_ == False for json_key = '{json_key}'")
+        await logger.ainfo(f"_export_to_ldap_ == False for json_key = '{json_key}'")
         return
 
     # Get matching LDAP object for this user (note that LDAP can contain
@@ -543,7 +543,7 @@ async def cleanup(
     attributes = converter.get_ldap_attributes(json_key)
     ldap_object = dataloader.load_ldap_object(dn, attributes)
 
-    logger.info(f"Found the following data in LDAP: {ldap_object}")
+    await logger.ainfo(f"Found the following data in LDAP: {ldap_object}")
 
     mo_objects = list(filter(mo_object_is_valid, mo_objects))
 
@@ -559,7 +559,7 @@ async def cleanup(
         )
         for mo_object in mo_objects
     ]
-    logger.info(f"Found the following data in MO: {converted_mo_objects}")
+    await logger.ainfo(f"Found the following data in MO: {converted_mo_objects}")
 
     # Loop over each attribute and determine if it needs to be cleaned
     uuids_to_publish: set[UUID] = set()
@@ -579,7 +579,7 @@ async def cleanup(
                 value_in_ldap not in values_in_mo
                 and str(value_in_ldap) not in values_in_mo
             ):
-                logger.info(f"{attribute} = '{value_in_ldap}' needs cleaning")
+                await logger.ainfo(f"{attribute} = '{value_in_ldap}' needs cleaning")
                 ldap_objects_to_clean.append(
                     LdapObject(**{"dn": dn, attribute: value_in_ldap})
                 )
@@ -589,12 +589,12 @@ async def cleanup(
         # exists in MO. In that case the other address should be written to LDAP,
         # after the first one is deleted from LDAP
         if not values_in_ldap and values_in_mo:
-            logger.info(f"attribute = '{attribute}' needs to be written to LDAP")
+            await logger.ainfo(f"attribute = '{attribute}' needs to be written to LDAP")
             uuids_to_publish.update(o.uuid for o in mo_objects)
 
     # Clean from LDAP
     if len(ldap_objects_to_clean) == 0:
-        logger.info("No cleanup required")
+        await logger.ainfo("No cleanup required")
     else:
         dataloader.cleanup_attributes_in_ldap(ldap_objects_to_clean)
 
@@ -677,7 +677,7 @@ async def _poll(
     ldap_amqpsystem: AMQPSystem = user_context["ldap_amqpsystem"]
     ldap_connection = user_context["ldap_connection"]
 
-    logger.debug(f"Searching for changes since {last_search_time}")
+    await logger.adebug(f"Searching for changes since {last_search_time}")
     timed_search_parameters = set_search_params_modify_timestamp(
         search_parameters, last_search_time
     )
@@ -706,7 +706,7 @@ async def _poll(
     dns = [event2dn(event) for event in responses]
     dns = [dn for dn in dns if dn is not None]
     if dns:
-        logger.info("Registered change for LDAP object(s)", dns=dns)
+        await logger.ainfo("Registered change for LDAP object(s)", dns=dns)
         await asyncio.gather(*[ldap_amqpsystem.publish_message("dn", dn) for dn in dns])
 
     return last_search_time
@@ -732,7 +732,7 @@ async def _poller(
         pool_time:
             The interval with which to poll.
     """
-    logger.info("Poller started", search_base=search_parameters["search_base"])
+    await logger.ainfo("Poller started", search_base=search_parameters["search_base"])
 
     seeded_poller = partial(
         _poll,

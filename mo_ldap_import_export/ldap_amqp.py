@@ -33,12 +33,12 @@ async def process_dn(
     dn: PayloadDN,
     _: RateLimit,
 ) -> None:
-    logger.info("Received LDAP AMQP event", dn=dn)
+    await logger.ainfo("Received LDAP AMQP event", dn=dn)
     try:
         await sync_tool.import_single_user(dn)
     except NoObjectsReturnedException as exc:
         # TODO: Stop rejecting these and actually handle it within the code
-        logger.exception("Throwing away message due to bad code")
+        await logger.aexception("Throwing away message due to bad code")
         raise RejectMessage(f"DN could not be found: {dn}") from exc
 
 

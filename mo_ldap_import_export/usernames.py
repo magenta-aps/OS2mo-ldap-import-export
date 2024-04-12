@@ -326,10 +326,10 @@ class UserNameGenerator(UserNameGeneratorBase):
         name = givenname.split(" ")[:4] + [surname]
 
         username = self._create_username(name, existing_usernames)
-        logger.info(f"Generated username for {givenname} {surname}: '{username}'")
+        await logger.ainfo(f"Generated username for {givenname} {surname}: '{username}'")
 
         common_name = self._create_common_name(name, existing_common_names)
-        logger.info(f"Generated CommonName for {givenname} {surname}: '{common_name}'")
+        await logger.ainfo(f"Generated CommonName for {givenname} {surname}: '{common_name}'")
 
         dn = self._make_dn(common_name)
         employee_attributes = await self._get_employee_ldap_attributes(employee, dn)
@@ -375,12 +375,12 @@ class AlleroedUserNameGenerator(UserNameGeneratorBase):
         name = givenname.split(" ")[:4] + [surname]
 
         common_name = self._create_common_name(name, existing_common_names)
-        logger.info(f"Generated CommonName for {givenname} {surname}: '{common_name}'")
+        await logger.ainfo(f"Generated CommonName for {givenname} {surname}: '{common_name}'")
 
         username = self.generate_username(
             name, existing_usernames + existing_usernames_in_mo
         )
-        logger.info(f"Generated username for {givenname} {surname}: '{username}'")
+        await logger.ainfo(f"Generated username for {givenname} {surname}: '{username}'")
 
         dn = self._make_dn(common_name)
         employee_attributes = await self._get_employee_ldap_attributes(employee, dn)

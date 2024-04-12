@@ -19,7 +19,7 @@ class InitEngine:
 
         # Loop over facet user_keys. For example "employee_address_type"
         for facet_user_key, class_mapping in facet_mapping.items():
-            logger.info(f"[init] Creating facets with user_key = {facet_user_key}")
+            await logger.ainfo(f"[init] Creating facets with user_key = {facet_user_key}")
 
             facet_info = await self.dataloader.load_mo_facet(facet_user_key)
             facet_uuid = await self.dataloader.load_mo_facet_uuid(facet_user_key)
@@ -35,7 +35,7 @@ class InitEngine:
                         class_details.title == current_title
                         and class_details.scope == current_scope
                     ):
-                        logger.info(f"[init] '{class_user_key}' class exists.")
+                        await logger.ainfo(f"[init] '{class_user_key}' class exists.")
                         continue
                     else:
                         await self.dataloader.update_mo_class(
@@ -55,7 +55,7 @@ class InitEngine:
                     )
 
     async def create_it_systems(self):
-        logger.info("[init] Creating it systems")
+        await logger.ainfo("[init] Creating it systems")
         it_system_mapping = self.init_mapping.it_systems
 
         it_system_info = await self.dataloader.load_mo_it_systems()
@@ -64,7 +64,7 @@ class InitEngine:
 
         for it_system_user_key, it_system_name in it_system_mapping.items():
             if it_system_user_key in existing_it_systems:
-                logger.info(
+                await logger.ainfo(
                     f"[init] '{it_system_user_key}' IT-system exists. Moving on."
                 )
                 continue

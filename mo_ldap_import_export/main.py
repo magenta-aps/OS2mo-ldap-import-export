@@ -78,7 +78,7 @@ def reject_on_failure(func):
             RejectMessage,  # In case we explicitly reject the message: Abort
             NotEnabledException,  # In case a feature is not enabled: Abort
         ) as e:
-            logger.info(e)
+            await logger.ainfo(e)
             raise RejectMessage()
         except RequeueMessage:
             await asyncio.sleep(delay_on_requeue)
@@ -110,7 +110,7 @@ async def unpack_payload(
     Takes the payload of an AMQP message, and returns a set of parameters to be used
     by export functions in `import_export.py`. Also return the mo object as a dict
     """
-    logger.info(
+    await logger.ainfo(
         "[Unpack-payload] Unpacking payload.",
         mo_routing_key=mo_routing_key,
         object_uuid=str(object_uuid),
@@ -213,7 +213,7 @@ async def process_org_unit(
     sync_tool: depends.SyncTool,
     _: RateLimit,
 ) -> None:
-    logger.info(
+    await logger.ainfo(
         "[Listen-to-changes-in-orgs] Registered change in an org_unit.",
         object_uuid=object_uuid,
     )
@@ -238,7 +238,7 @@ async def open_ldap_connection(ldap_connection: Connection) -> AsyncIterator[Non
 # https://fastapi.tiangolo.com/advanced/events/
 @asynccontextmanager
 async def initialize_sync_tool(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    logger.info("Initializing Sync tool")
+    await logger.ainfo("Initializing Sync tool")
     sync_tool = SyncTool(fastramqpi.get_context())
     fastramqpi.add_context(sync_tool=sync_tool)
     yield
@@ -246,7 +246,7 @@ async def initialize_sync_tool(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
 
 @asynccontextmanager
 async def initialize_checks(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    logger.info("Initializing Import/Export checks")
+    await logger.ainfo("Initializing Import/Export checks")
     export_checks = ExportChecks(fastramqpi.get_context())
     import_checks = ImportChecks(fastramqpi.get_context())
     fastramqpi.add_context(export_checks=export_checks, import_checks=import_checks)
@@ -255,7 +255,7 @@ async def initialize_checks(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
 
 @asynccontextmanager
 async def initialize_converters(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    logger.info("Initializing converters")
+    await logger.ainfo("Initializing converters")
     converter = LdapConverter(fastramqpi.get_context())
     await converter._init()
     fastramqpi.add_context(cpr_field=converter.cpr_field)
@@ -266,7 +266,7 @@ async def initialize_converters(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
 
 @asynccontextmanager
 async def initialize_init_engine(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    logger.info("Initializing os2mo-init engine")
+    await logger.ainfo("Initializing os2mo-init engine")
     init_engine = InitEngine(fastramqpi.get_context())
     await init_engine.create_facets()
     await init_engine.create_it_systems()
@@ -276,7 +276,7 @@ async def initialize_init_engine(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
 
 @asynccontextmanager
 async def initialize_ldap_listener(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    logger.info("Initializing LDAP listener")
+    await logger.ainfo("Initializing LDAP listener")
     pollers = setup_listener(fastramqpi.get_context())
     fastramqpi.add_context(pollers=pollers)
     fastramqpi.add_healthcheck(name="LDAPPoller", healthcheck=poller_healthcheck)
