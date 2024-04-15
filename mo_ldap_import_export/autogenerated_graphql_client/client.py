@@ -10,6 +10,8 @@ from ._testing_ituser_create import TestingItuserCreate
 from ._testing_ituser_create import TestingItuserCreateItuserCreate
 from ._testing_user_create import TestingUserCreate
 from ._testing_user_create import TestingUserCreateEmployeeCreate
+from .address_create import AddressCreate
+from .address_create import AddressCreateAddressCreate
 from .address_terminate import AddressTerminate
 from .address_terminate import AddressTerminateAddressTerminate
 from .async_base_client import AsyncBaseClient
@@ -25,6 +27,7 @@ from .employee_refresh import EmployeeRefresh
 from .employee_refresh import EmployeeRefreshEmployeeRefresh
 from .engagement_terminate import EngagementTerminate
 from .engagement_terminate import EngagementTerminateEngagementTerminate
+from .input_types import AddressCreateInput
 from .input_types import AddressFilter
 from .input_types import AddressTerminateInput
 from .input_types import ClassCreateInput
@@ -1170,3 +1173,20 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return EmployeeCreate.parse_obj(data).employee_create
+
+    async def address_create(
+        self, input: AddressCreateInput
+    ) -> AddressCreateAddressCreate:
+        query = gql(
+            """
+            mutation address_create($input: AddressCreateInput!) {
+              address_create(input: $input) {
+                uuid
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"input": input}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return AddressCreate.parse_obj(data).address_create
