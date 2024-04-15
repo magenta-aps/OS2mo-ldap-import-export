@@ -21,6 +21,8 @@ from .base_model import UNSET
 from .base_model import UnsetType
 from .class_create import ClassCreate
 from .class_create import ClassCreateClassCreate
+from .employee_create import EmployeeCreate
+from .employee_create import EmployeeCreateEmployeeCreate
 from .employee_refresh import EmployeeRefresh
 from .employee_refresh import EmployeeRefreshEmployeeRefresh
 from .engagement_terminate import EngagementTerminate
@@ -1148,3 +1150,20 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return ReadOrgUnitAncestorNames.parse_obj(data).org_units
+
+    async def employee_create(
+        self, input: EmployeeCreateInput
+    ) -> EmployeeCreateEmployeeCreate:
+        query = gql(
+            """
+            mutation employee_create($input: EmployeeCreateInput!) {
+              employee_create(input: $input) {
+                uuid
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"input": input}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return EmployeeCreate.parse_obj(data).employee_create
