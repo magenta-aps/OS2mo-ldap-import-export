@@ -11,6 +11,8 @@ from .class_create import ClassCreateClassCreate
 from .class_update import ClassUpdate
 from .class_update import ClassUpdateClassUpdate
 from .client import GraphQLClient
+from .employee_create import EmployeeCreate
+from .employee_create import EmployeeCreateEmployeeCreate
 from .employee_refresh import EmployeeRefresh
 from .employee_refresh import EmployeeRefreshEmployeeRefresh
 from .engagement_terminate import EngagementTerminate
@@ -373,6 +375,8 @@ __all__ = [
     "ClassUpdateClassUpdate",
     "ClassUpdateInput",
     "ConfigurationFilter",
+    "EmployeeCreate",
+    "EmployeeCreateEmployeeCreate",
     "EmployeeCreateInput",
     "EmployeeFilter",
     "EmployeeRefresh",

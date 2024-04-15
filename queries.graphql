@@ -529,3 +529,9 @@ query read_itsystem_uuid($user_key: String!) {
     }
   }
 }
+
+mutation employee_create($input: EmployeeCreateInput!) {
+  employee_create(input: $input) {
+    uuid
+  }
+}

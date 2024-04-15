@@ -19,6 +19,8 @@ from .class_create import ClassCreate
 from .class_create import ClassCreateClassCreate
 from .class_update import ClassUpdate
 from .class_update import ClassUpdateClassUpdate
+from .employee_create import EmployeeCreate
+from .employee_create import EmployeeCreateEmployeeCreate
 from .employee_refresh import EmployeeRefresh
 from .employee_refresh import EmployeeRefreshEmployeeRefresh
 from .engagement_terminate import EngagementTerminate
@@ -1151,3 +1153,20 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return ReadItsystemUuid.parse_obj(data).itsystems
+
+    async def employee_create(
+        self, input: EmployeeCreateInput
+    ) -> EmployeeCreateEmployeeCreate:
+        query = gql(
+            """
+            mutation employee_create($input: EmployeeCreateInput!) {
+              employee_create(input: $input) {
+                uuid
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"input": input}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return EmployeeCreate.parse_obj(data).employee_create
