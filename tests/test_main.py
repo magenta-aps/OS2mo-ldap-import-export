@@ -53,7 +53,7 @@ from mo_ldap_import_export.usernames import get_username_generator_class
 from mo_ldap_import_export.usernames import UserNameGeneratorBase
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def settings_overrides() -> Iterator[dict[str, str]]:
     """Fixture to construct dictionary of minimal overrides for valid settings.
 
@@ -98,7 +98,7 @@ def settings_overrides() -> Iterator[dict[str, str]]:
     yield overrides
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def load_settings_overrides(
     settings_overrides: dict[str, str],
 ) -> Iterator[dict[str, str]]:
@@ -122,16 +122,16 @@ def load_settings_overrides(
     yield settings_overrides
 
 
-@pytest.fixture(scope="module")
-def test_mo_address() -> Address:
+@pytest.fixture
+def mo_address() -> Address:
     test_mo_address = Address.from_simplified_fields(
         "foo@bar.dk", uuid4(), "2021-01-01"
     )
     return test_mo_address
 
 
-@pytest.fixture(scope="module")
-def test_mo_objects() -> list:
+@pytest.fixture
+def mo_objects() -> list:
     return [
         {
             "uuid": uuid4(),
@@ -180,7 +180,7 @@ def test_mo_objects() -> list:
     ]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def dataloader(
     sync_dataloader: MagicMock, test_mo_address: Address, test_mo_objects: list
 ) -> AsyncMock:
@@ -220,13 +220,13 @@ def dataloader(
     return dataloader
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def sync_dataloader() -> MagicMock:
     dataloader = MagicMock()
     return dataloader
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def converter() -> MagicMock:
     converter = MagicMock()
     converter.get_mo_to_ldap_json_keys.return_value = [
@@ -249,7 +249,7 @@ def converter() -> MagicMock:
     return converter
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def sync_tool() -> AsyncMock:
     return AsyncMock()
 
@@ -270,7 +270,7 @@ def context_dependency_injection(
     del app.dependency_overrides[get_context]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def patch_modules(
     load_settings_overrides: dict[str, str],
     dataloader: AsyncMock,
@@ -286,12 +286,12 @@ def patch_modules(
         yield
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def fastramqpi(patch_modules: None) -> FastRAMQPI:
     return create_fastramqpi()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def app(fastramqpi: FastRAMQPI) -> Iterator[FastAPI]:
     """Fixture to construct a FastAPI application.
 
@@ -302,7 +302,7 @@ def app(fastramqpi: FastRAMQPI) -> Iterator[FastAPI]:
         yield create_app()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def test_client(app: FastAPI) -> Iterator[TestClient]:
     """Fixture to construct a FastAPI test-client.
 
@@ -315,8 +315,8 @@ def test_client(app: FastAPI) -> Iterator[TestClient]:
     yield TestClient(app)
 
 
-# Note: The modules patched by this test are used by all other tests
-def test_create_fastramqpi(patch_modules: None) -> None:
+@pytest.fixture(autouse=True)
+def always_create_fastramqpi(patch_modules: None) -> None:
     """Test that we can construct our FastRAMQPI system."""
     fastramqpi = create_fastramqpi()
     assert isinstance(fastramqpi, FastRAMQPI)
@@ -328,8 +328,8 @@ def test_create_app() -> None:
     assert isinstance(app, FastAPI)
 
 
-# Note: The module which is initialized by this test is also used by all other tests
-async def test_initialize_sync_tool(
+@pytest.fixture(autouse=True)
+async def always_initialize_sync_tool(
     fastramqpi: FastRAMQPI, sync_tool: AsyncMock
 ) -> None:
     user_context = fastramqpi.get_context()["user_context"]
@@ -340,8 +340,8 @@ async def test_initialize_sync_tool(
             assert user_context.get("sync_tool") is not None
 
 
-# Note: The module which is initialized by this test is also used by all other tests
-async def test_initialize_ldap_listener(fastramqpi: FastRAMQPI) -> None:
+@pytest.fixture(autouse=True)
+async def always_initialize_ldap_listener(fastramqpi: FastRAMQPI) -> None:
     user_context = fastramqpi.get_context()["user_context"]
     assert user_context.get("pollers") is None
 
@@ -351,8 +351,8 @@ async def test_initialize_ldap_listener(fastramqpi: FastRAMQPI) -> None:
         assert user_context.get("pollers") is not None
 
 
-# Note: The module which is initialized by this test is also used by all other tests
-async def test_initialize_checks(fastramqpi: FastRAMQPI) -> None:
+@pytest.fixture(autouse=True)
+async def always_initialize_checks(fastramqpi: FastRAMQPI) -> None:
     user_context = fastramqpi.get_context()["user_context"]
     assert user_context.get("export_checks") is None
     assert user_context.get("import_checks") is None
@@ -364,10 +364,8 @@ async def test_initialize_checks(fastramqpi: FastRAMQPI) -> None:
                 assert user_context.get("import_checks") is not None
 
 
-# Note: The module which is initialized by this test is also used by all other tests
-async def test_initialize_converter(
-    fastramqpi: FastRAMQPI, converter: MagicMock
-) -> None:
+@pytest.fixture(autouse=True)
+async def always_initialize_converters(fastramqpi, converter: MagicMock) -> None:
     user_context = fastramqpi.get_context()["user_context"]
     assert user_context.get("converter") is None
     assert user_context.get("ldap_it_system_user_key") is None
@@ -380,7 +378,8 @@ async def test_initialize_converter(
             assert user_context.get("cpr_field") == "EmployeeID"
 
 
-async def test_initialize_init_engine(fastramqpi: FastRAMQPI) -> None:
+@pytest.fixture(autouse=True)
+async def always_initialize_init_engine(fastramqpi: FastRAMQPI) -> None:
     user_context = fastramqpi.get_context()["user_context"]
     assert user_context.get("init_engine") is None
 
