@@ -906,6 +906,17 @@ pytest = ">=4.6"
 testing = ["fields", "hunter", "process-tests", "pytest-xdist", "six", "virtualenv"]
 
 [[package]]
+name = "pytest-randomly"
+version = "3.15.0"
+description = "Pytest plugin to randomly order tests and control random.seed."
+category = "dev"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+pytest = "*"
+
+[[package]]
 name = "pytest-split"
 version = "0.8.2"
 description = "Pytest plugin which splits the test suite to equally sized sub suites based on test execution time."
@@ -1327,7 +1338,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.11"
-content-hash = "2f5e54964f5fb81bd47c601432765333a4cb6719bdf2035400aebd81a1c7900b"
+content-hash = "2e6ed8549347628ce6fdd7e0c65a3fe6cce888003270f2db5068ea16c020c0a2"
 
 [metadata.files]
 aio-pika = [
@@ -2190,6 +2201,10 @@ pytest-asyncio = [
 pytest-cov = [
     {file = "pytest-cov-4.1.0.tar.gz", hash = "sha256:3904b13dfbfec47f003b8e77fd5b589cd11904a21ddf1ab38a64f204d6a10ef6"},
     {file = "pytest_cov-4.1.0-py3-none-any.whl", hash = "sha256:6ba70b9e97e69fcc3fb45bfeab2d0a138fb65c4d0d6a41ef33983ad114be8c3a"},
+]
+pytest-randomly = [
+    {file = "pytest_randomly-3.15.0-py3-none-any.whl", hash = "sha256:0516f4344b29f4e9cdae8bce31c4aeebf59d0b9ef05927c33354ff3859eeeca6"},
+    {file = "pytest_randomly-3.15.0.tar.gz", hash = "sha256:b908529648667ba5e54723088edd6f82252f540cc340d748d1fa985539687047"},
 ]
 pytest-split = [
     {file = "pytest_split-0.8.2-py3-none-any.whl", hash = "sha256:b7fa704659cb224b9f7f5c24536bc04eff351f42d852bf0312e03774fd9c0972"},
