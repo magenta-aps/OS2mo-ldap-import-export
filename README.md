@@ -1,3 +1,20 @@
+### Developing
+
+First make sure that OS2mo is up and running.
+
+You can then boot the app with the default settings and an openldap server like this:
+
+```
+docker-compose up -d
+```
+
+
+To interact with the app, you can go to [the swagger documentation][swagger].
+You can also interact with the app using curl. For example:
+
+```
+curl -X 'GET' 'http://localhost:8000/LDAP/Employee?entries_to_return=20' | jq '.'
+```
 ### Running the tests
 
 You use `poetry` and `pytest` to run the tests:
@@ -18,41 +35,23 @@ You can get the coverage report like this:
 
 `poetry run pytest -s --cov --cov-report term-missing -vvx`
 
-### Deploying the app using salt
 
-You can deploy using a salt-call from a server:
-
-`salt-call state.apply os2mo.ldap_import_export.init`
-
-Or from the salt master:
-
-`salt 'server_name' state.apply os2mo.ldap_import_export.init`
-
-See [the labs handbook](https://labs.docs.magenta.dk/salt/deployment.html)
-for more details.
-
-
-### Using the app
-
-First make sure that OS2mo is up and running.
-
-Then, create a `docker-compose.override.yml` file based on the
-`docker-compose.override.template.yml` file
-
-You can then boot the app like this:
+### Manual Active Directory tests
+To run the integration targeting Active Directory you need to use another configuration.
+Put your AD username and password in a file called secrets.txt like this:
 
 ```
-poetry lock
-poetry install
-docker-compose up
+LDAP_USER: "username@ad.addev"
+LDAP_PASSWORD: "password"
 ```
 
-To interact with the app, you can go to [the swagger documentation][swagger].
-You can also interact with the app using curl. For example:
+It will be loaded as environment variables.
+Accessing data in the OU set in this configuration requires membership of the group "OS2MO ldap tests" (or "Domain Admins"). 
 
-```
-curl -X 'GET' 'http://localhost:8000/LDAP/Employee?entries_to_return=20' | jq '.'
-```
+Run using the AD configuration with:
+
+`docker compose  -f docker-compose.magenta.addev.yml up -d`
+
 
 #### Importing from LDAP to OS2mo
 Objects can be imported from LDAP to OS2mo in two ways:

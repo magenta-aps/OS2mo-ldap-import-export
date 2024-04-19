@@ -440,7 +440,7 @@ class Settings(BaseSettings):
     )
 
     ldap_username_field: str = Field(
-        "SamAcountName",
+        "sAMAccountName",
         description="Name of the attribute that holds the users username. `SamAcountName` on Active Directory and `uid` on most standard LDAP implementations",
     )
     ldap_upn_field: str = Field(

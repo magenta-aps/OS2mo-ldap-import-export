@@ -58,7 +58,7 @@ class UserNameGeneratorBase(ABC):
         search_result = paged_search(self.context, searchParameters, search_base)
         for attribute in attributes:
             output[attribute] = [
-                one(entry["attributes"][attribute]).lower()
+                entry["attributes"][attribute].lower()
                 for entry in search_result
                 if entry["attributes"][attribute]
             ]
