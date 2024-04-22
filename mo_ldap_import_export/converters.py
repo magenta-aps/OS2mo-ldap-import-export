@@ -323,7 +323,13 @@ async def find_ldap_it_system(
         # TODO: XXX: Could we simply check the template string??
         template = mapping["ldap_to_mo"][user_key]["user_key"]
         unique_id: str = await template.render_async(
-            {"ldap": {settings.ldap_unique_id_field: detection_key}}
+            {
+                "ldap": {
+                    "entryUUID"
+                    if settings.open_ldap_compatible
+                    else "objectGUID": detection_key
+                }
+            }
         )
         return unique_id == detection_key
 
@@ -400,7 +406,13 @@ class LdapConverter:
     def __init__(self, context: Context):
         self.context = context
         self.user_context = context["user_context"]
-        self.settings = self.user_context["settings"]
+        self.settings: Settings = self.user_context["settings"]
+        self.ldap_username_field = (
+            "uid" if self.settings.open_ldap_compatible else "sAMAccountName"
+        )
+        self.ldap_unique_id_field = (
+            "entryUUID" if self.settings.open_ldap_compatible else "ObjectGUID"
+        )
         self.raw_mapping = self.user_context["mapping"]
         self.dataloader: DataLoader = self.user_context["dataloader"]
         self.org_unit_path_string_separator: str = (
@@ -509,8 +521,8 @@ class LdapConverter:
                 attribute in accepted_attributes
                 or attribute.startswith("extensionAttribute")
                 or attribute.startswith("__")
-                or attribute == self.settings.ldap_username_field
-                or attribute == self.settings.ldap_unique_id_field
+                or attribute == self.ldap_username_field
+                or attribute == self.ldap_unique_id_field
             ):
                 raise IncorrectMapping(
                     f"Attribute '{attribute}' not allowed."

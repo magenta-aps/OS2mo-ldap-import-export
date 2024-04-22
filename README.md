@@ -46,7 +46,7 @@ LDAP_PASSWORD: "password"
 ```
 
 It will be loaded as environment variables.
-Accessing data in the OU set in this configuration requires membership of the group "OS2MO ldap tests" (or "Domain Admins"). 
+Accessing data in the OU set in this configuration requires membership of the group "OS2MO ldap tests" (or "Domain Admins").
 
 Run using the AD configuration with:
 

@@ -429,24 +429,17 @@ class Settings(BaseSettings):
     ldap_auth_method: AuthBackendEnum = Field(
         AuthBackendEnum.NTLM, description="The auth backend to use."
     )
-    ldap_unique_id_field: str = Field(
-        "objectGUID",
-        description="Name of the attribute that holds the server-assigned unique identifier. `objectGUID` on Active Directory and `entryUUID` on most standard LDAP implementations (per RFC4530).",
-    )
     # NOTE: It appears that this flag does not in fact work
     # See: https://github.com/cannatag/ldap3/issues/1008
     ldap_read_only: bool = Field(
         False, description="Whether to establish a read-only connection to the server."
     )
 
-    ldap_username_field: str = Field(
-        "sAMAccountName",
-        description="Name of the attribute that holds the users username. `SamAcountName` on Active Directory and `uid` on most standard LDAP implementations",
+    open_ldap_compatible: bool = Field(
+        False,
+        description="Configure the integration to be compatible to OpenLDAP in stead of Active Directory which is default.",
     )
-    ldap_upn_field: str = Field(
-        "UserPrincipalName",
-        description="Active Directory uses an attribute called `UserPrincipalName` which doesn't exist in most standard LDAP implementations. The attribute `mail` can be used in openldap.",
-    )
+
     mo_url: AnyHttpUrl = Field(
         parse_obj_as(AnyHttpUrl, "http://mo-service:5000"),
         description="Base URL for OS2mo.",

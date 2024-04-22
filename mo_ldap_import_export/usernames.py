@@ -12,6 +12,7 @@ from more_itertools import split_when
 from pydantic import parse_obj_as
 from ramodels.mo.employee import Employee
 
+from .config import Settings
 from .config import UsernameGeneratorConfig
 from .ldap import paged_search
 from .utils import combine_dn_strings
@@ -31,7 +32,13 @@ class UserNameGeneratorBase(ABC):
     def __init__(self, context: Context):
         self.context = context
         self.user_context = context["user_context"]
-        self.settings = self.user_context["settings"]
+        self.settings: Settings = self.user_context["settings"]
+        self.ldap_upn_field = (
+            "mail" if self.settings.open_ldap_compatible else "UserPrincipalName"
+        )
+        self.ldap_username_field = (
+            "uid" if self.settings.open_ldap_compatible else "sAMAccountName"
+        )
 
         self.mapping = self.user_context["mapping"]
 
@@ -58,7 +65,9 @@ class UserNameGeneratorBase(ABC):
         search_result = paged_search(self.context, searchParameters, search_base)
         for attribute in attributes:
             output[attribute] = [
-                entry["attributes"][attribute].lower()
+                one(entry["attributes"][attribute]).lower()
+                if self.settings.open_ldap_compatible
+                else entry["attributes"][attribute].lower()
                 for entry in search_result
                 if entry["attributes"][attribute]
             ]
@@ -295,15 +304,15 @@ class UserNameGeneratorBase(ABC):
     def _get_existing_names(self):
         # TODO: Consider if it is better to fetch all names or candidate names
         existing_values = self.get_existing_values(
-            ["cn", self.settings.ldap_username_field, self.settings.ldap_upn_field]
+            ["cn", self.ldap_username_field, self.ldap_upn_field]
         )
 
         user_principal_names = [
-            s.split("@")[0] for s in existing_values[self.settings.ldap_upn_field]
+            s.split("@")[0] for s in existing_values[self.ldap_upn_field]
         ]
 
-        existing_usernames = (
-            existing_values[self.settings.ldap_username_field] + user_principal_names
+        existing_usernames = set(
+            existing_values[self.ldap_username_field] + user_principal_names
         )
         existing_common_names = existing_values["cn"]
 
@@ -346,7 +355,7 @@ class UserNameGenerator(UserNameGeneratorBase):
 
         dn = self._make_dn(common_name)
         employee_attributes = await self._get_employee_ldap_attributes(employee, dn)
-        other_attributes = {self.settings.ldap_username_field: username}
+        other_attributes = {self.ldap_username_field: username}
         self.dataloader.add_ldap_object(dn, employee_attributes | other_attributes)
         return dn
 
@@ -403,8 +412,8 @@ class AlleroedUserNameGenerator(UserNameGeneratorBase):
         dn = self._make_dn(common_name)
         employee_attributes = await self._get_employee_ldap_attributes(employee, dn)
         other_attributes = {
-            self.settings.ldap_username_field: username,
-            self.settings.ldap_upn_field: f"{username}@alleroed.dk",
+            self.ldap_username_field: username,
+            self.ldap_upn_field: f"{username}@alleroed.dk",
         }
 
         self.dataloader.add_ldap_object(
