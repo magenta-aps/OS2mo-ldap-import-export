@@ -222,12 +222,12 @@ async def get_current_primary_uuid_dict(
 
 
 async def get_primary_engagement_dict(
-    dataloader: DataLoader, employee_uuid: UUID
+    dataloader: DataLoader, employee_uuid: str
 ) -> dict:
     engagements = await dataloader.load_mo_employee_engagement_dicts(employee_uuid)
     # TODO: Make is_primary a GraphQL filter in MO and clean this up
     is_primary_engagement = await dataloader.is_primaries(
-        [engagement["uuid"] for engagement in engagements]
+        [UUID(engagement["uuid"]) for engagement in engagements]
     )
     primary_engagement = one(compress(engagements, is_primary_engagement))
     return primary_engagement
@@ -323,10 +323,10 @@ async def find_ldap_it_system(
         # TODO: XXX: Could we simply check the template string??
         template = mapping["ldap_to_mo"][user_key]["user_key"]
         unique_id: str = await template.render_async(
-            {"ldap": {settings.ldap_unique_id_field}}
+            {"ldap": {settings.ldap_unique_id_field: detection_key}}
         )
         return unique_id == detection_key
-
+    
     found_itsystems = {
         user_key
         for user_key in relevant_keys

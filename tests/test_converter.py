@@ -659,7 +659,8 @@ def test_get_mo_attributes(converter: LdapConverter) -> None:
 
 
 def test_check_converter_attributes_ad(context: Context):
-    context["user_context"]["settings"].open_ldap_compatible = False
+    context["user_context"]["settings"].ldap_username_field = "sAMAccountName"
+
     converter = LdapConverter(context)
 
     detected_attributes = ["foo", "bar"]
@@ -673,7 +674,7 @@ def test_check_converter_attributes_ad(context: Context):
 
 
 def test_check_converter_attributes_openldap(context: Context):
-    context["user_context"]["settings"].open_ldap_compatible = True
+    context["user_context"]["settings"].ldap_username_field = "uid"
     converter = LdapConverter(context)
 
     detected_attributes = ["bar", "sn", "uid"]
@@ -1653,8 +1654,7 @@ def test_check_import_and_export_flags(
 
 async def test_find_ldap_it_system():
     settings = MagicMock()
-    settings.open_ldap_compatible = False
-
+    settings.ldap_unique_id_field = "objectGUID"
     template_str = "{{ ldap.objectGUID }}"
     template = environment.from_string(template_str)
 
