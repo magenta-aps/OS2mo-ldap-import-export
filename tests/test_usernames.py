@@ -192,6 +192,7 @@ def test_get_existing_usernames(
     existing_usernames: list,
     existing_common_names: list,
 ):
+    username_generator.settings.open_ldap_compatible = False  # type: ignore
     result = username_generator.get_existing_values(["sAMAccountName", "cn"])
     assert result["sAMAccountName"] == existing_usernames
     assert result["cn"] == [cn.lower() for cn in existing_common_names]
@@ -304,6 +305,7 @@ def test_create_common_name(username_generator: UserNameGenerator):
 
 async def test_generate_dn(username_generator: UserNameGenerator):
     employee = Employee(givenname="Patrick", surname="Bateman")
+    username_generator.settings.open_ldap_compatible = False  # type: ignore
     dn = await username_generator.generate_dn(employee)
     assert dn == "CN=Patrick Bateman,DC=bar"
 
@@ -404,6 +406,7 @@ def test_alleroed_username_generator(
 async def test_alleroed_dn_generator(
     alleroed_username_generator: AlleroedUserNameGenerator,
 ):
+    alleroed_username_generator.settings.open_ldap_compatible = False  # type: ignore
     employee = Employee(givenname="Patrick", surname="Bateman")
     dn = await alleroed_username_generator.generate_dn(employee)
     assert dn == "CN=Patrick Bateman,DC=bar"

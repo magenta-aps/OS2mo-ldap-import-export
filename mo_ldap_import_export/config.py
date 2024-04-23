@@ -439,6 +439,24 @@ class Settings(BaseSettings):
         False,
         description="Configure the integration to be compatible to OpenLDAP in stead of Active Directory which is default.",
     )
+    ldap_username_field: str
+    ldap_unique_id_field: str
+    ldap_upn_field: str
+
+    @root_validator(pre=True)
+    def set_ldap_compatible_fields(cls, values):
+        """Set field names specific for Active Directory or OpenLDAP based on the 'open_ldap_compatible' setting"""
+        open_ldap_compatible = values.get("open_ldap_compatible", False)
+        values["ldap_username_field"] = (
+            "uid" if open_ldap_compatible else "sAMAccountName"
+        )
+        values["ldap_unique_id_field"] = (
+            "entryUUID" if open_ldap_compatible else "objectGUID"
+        )
+        values["ldap_upn_field"] = (
+            "mail" if open_ldap_compatible else "UserPrincipalName"
+        )
+        return values
 
     mo_url: AnyHttpUrl = Field(
         parse_obj_as(AnyHttpUrl, "http://mo-service:5000"),

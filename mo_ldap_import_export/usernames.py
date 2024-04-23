@@ -33,13 +33,6 @@ class UserNameGeneratorBase(ABC):
         self.context = context
         self.user_context = context["user_context"]
         self.settings: Settings = self.user_context["settings"]
-        self.ldap_upn_field = (
-            "mail" if self.settings.open_ldap_compatible else "UserPrincipalName"
-        )
-        self.ldap_username_field = (
-            "uid" if self.settings.open_ldap_compatible else "sAMAccountName"
-        )
-
         self.mapping = self.user_context["mapping"]
 
         self.username_generator = parse_obj_as(
@@ -304,15 +297,15 @@ class UserNameGeneratorBase(ABC):
     def _get_existing_names(self):
         # TODO: Consider if it is better to fetch all names or candidate names
         existing_values = self.get_existing_values(
-            ["cn", self.ldap_username_field, self.ldap_upn_field]
+            ["cn", self.settings.ldap_username_field, self.settings.ldap_upn_field]
         )
 
         user_principal_names = [
-            s.split("@")[0] for s in existing_values[self.ldap_upn_field]
+            s.split("@")[0] for s in existing_values[self.settings.ldap_upn_field]
         ]
 
         existing_usernames = set(
-            existing_values[self.ldap_username_field] + user_principal_names
+            existing_values[self.settings.ldap_username_field] + user_principal_names
         )
         existing_common_names = existing_values["cn"]
 
@@ -355,7 +348,7 @@ class UserNameGenerator(UserNameGeneratorBase):
 
         dn = self._make_dn(common_name)
         employee_attributes = await self._get_employee_ldap_attributes(employee, dn)
-        other_attributes = {self.ldap_username_field: username}
+        other_attributes = {self.settings.ldap_username_field: username}
         self.dataloader.add_ldap_object(dn, employee_attributes | other_attributes)
         return dn
 
@@ -390,7 +383,7 @@ class AlleroedUserNameGenerator(UserNameGeneratorBase):
         # That MO generates a user, which is deleted from AD some years later. In that
         # Case we should never generate the username of the deleted user.
         # Ref: https://redmine.magenta-aps.dk/issues/57043
-        existing_usernames_in_mo = [s["user_key"] for s in sAMAccountName_it_users]
+        existing_usernames_in_mo = set(s["user_key"] for s in sAMAccountName_it_users)
 
         givenname = employee.givenname.strip()
         surname = employee.surname
@@ -400,7 +393,7 @@ class AlleroedUserNameGenerator(UserNameGeneratorBase):
         logger.info("Generated CommonName for {givenname} {surname}: '{common_name}'")
 
         username = self.generate_username(
-            name, existing_usernames + existing_usernames_in_mo
+            name, existing_usernames.union(existing_usernames_in_mo)
         )
         logger.info(
             "Generated username based on name",
@@ -412,8 +405,8 @@ class AlleroedUserNameGenerator(UserNameGeneratorBase):
         dn = self._make_dn(common_name)
         employee_attributes = await self._get_employee_ldap_attributes(employee, dn)
         other_attributes = {
-            self.ldap_username_field: username,
-            self.ldap_upn_field: f"{username}@alleroed.dk",
+            self.settings.ldap_username_field: username,
+            self.settings.ldap_upn_field: f"{username}@alleroed.dk",
         }
 
         self.dataloader.add_ldap_object(

@@ -107,9 +107,6 @@ class DataLoader:
         self.context = context
         self.user_context = context["user_context"]
         self.settings: Settings = self.user_context["settings"]
-        self.ldap_unique_id_field = (
-            "entryUUID" if self.settings.open_ldap_compatible else "objectGUID"
-        )
         self.ldap_connection = self.user_context["ldap_connection"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
@@ -599,7 +596,7 @@ class DataLoader:
         --------
         Only deletes OUs which are empty
         """
-        if not self.ou_in_ous_to_write_to(ou, "[Delete-OU]"):
+        if not self.ou_in_ous_to_write_to(ou):
             return
 
         for ou_to_delete in self.decompose_ou_string(ou):
@@ -609,8 +606,8 @@ class DataLoader:
                 ou_dict.get(ou_to_delete, {}).get("empty", False)
                 and ou_to_delete != self.settings.ldap_ou_for_new_users
             ):
-                logger.info("[Delete-OU] Deleting OU.", ou_to_delete=ou_to_delete)
-                dn = combine_dn_strings([ou_to_delete, settings.ldap_search_base])
+                logger.info("Deleting OU", ou_to_delete=ou_to_delete)
+                dn = combine_dn_strings([ou_to_delete, self.settings.ldap_search_base])
                 self.ldap_connection.delete(dn)
                 self.log_ldap_response(dn=dn)
 
@@ -623,7 +620,7 @@ class DataLoader:
         if not self.ou_in_ous_to_write_to(new_dn):
             return False
         if not settings.add_objects_to_ldap:
-            logger.info("[Move-LDAP-object] add_objects_to_ldap = False. Aborting.")
+            logger.info("add_objects_to_ldap = False, aborting.")
             raise NotEnabledException("Moving LDAP objects is disabled")
 
         logger.info("Moving entry", old_dn=old_dn, new_dn=new_dn)
@@ -855,9 +852,9 @@ class DataLoader:
         # Get Unique LDAP UUID from DN, then get engagement by looking for IT user with that
         # Unique LDAP UUID in MO.
 
-        ldap_object = self.load_ldap_object(dn, [self.ldap_unique_id_field])
+        ldap_object = self.load_ldap_object(dn, [self.settings.ldap_unique_id_field])
         unique_uuid = filter_remove_curly_brackets(
-            getattr(ldap_object, self.ldap_unique_id_field)
+            getattr(ldap_object, self.settings.ldap_unique_id_field)
         )
 
         itsystem_uuid = self.get_ldap_it_system_uuid()
@@ -933,7 +930,7 @@ class DataLoader:
         if not uuid:
             # Some computer-account objects has no samaccountname
             raise NoObjectsReturnedException(
-                "Object has no {settings.ldap_unique_id_field}"
+                "Object has no {self.settings.ldap_unique_id_field}"
             )
         return UUID(uuid)
 

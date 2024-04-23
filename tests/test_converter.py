@@ -143,6 +143,7 @@ def context(address_type_uuid: str) -> Context:
     settings_mock.default_org_unit_type = "Afdeling"
     settings_mock.default_org_unit_level = "N1"
     settings_mock.org_unit_path_string_separator = "\\"
+    settings_mock.open_ldap_compatible = False
 
     dataloader = AsyncMock()
     uuid1 = address_type_uuid
@@ -657,14 +658,25 @@ def test_get_mo_attributes(converter: LdapConverter) -> None:
     assert attributes == {"uuid", "cpr_no", "surname", "givenname"}
 
 
-def test_check_converter_attributes(converter: LdapConverter):
+def test_check_converter_attributes_ad(context: Context):
+    context["user_context"]["settings"].open_ldap_compatible = False
+    converter = LdapConverter(context)
+
     detected_attributes = ["foo", "bar"]
     accepted_attributes = ["bar"]
 
     with pytest.raises(IncorrectMapping):
         converter.check_attributes(detected_attributes, accepted_attributes)
-    converter.settings.ldap_username_field = "sAMAccountName"
     detected_attributes = ["bar", "extensionAttribute14", "sAMAccountName"]
+    accepted_attributes = ["bar"]
+    converter.check_attributes(detected_attributes, accepted_attributes)
+
+
+def test_check_converter_attributes_openldap(context: Context):
+    context["user_context"]["settings"].open_ldap_compatible = True
+    converter = LdapConverter(context)
+
+    detected_attributes = ["bar", "sn", "uid"]
     accepted_attributes = ["bar"]
     converter.check_attributes(detected_attributes, accepted_attributes)
 
@@ -1641,7 +1653,7 @@ def test_check_import_and_export_flags(
 
 async def test_find_ldap_it_system():
     settings = MagicMock()
-    settings.ldap_unique_id_field = "objectGUID"
+    settings.open_ldap_compatible = False
 
     template_str = "{{ ldap.objectGUID }}"
     template = environment.from_string(template_str)

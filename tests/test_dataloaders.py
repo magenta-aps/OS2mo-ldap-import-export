@@ -1955,13 +1955,14 @@ async def test_create_mo_it_system(dataloader: DataLoader):
     assert isinstance(await dataloader.create_mo_it_system("foo", "bar"), UUID)
 
 
-def test_add_ldap_object(dataloader: DataLoader):
+def test_add_ldap_object(context: Context):
+    dataloader = DataLoader(context=context)
     dataloader.add_ldap_object("CN=foo", attributes={"foo": 2})
     dataloader.ldap_connection.add.assert_called_once()
 
-    dataloader.user_context["settings"] = MagicMock()  # type: ignore
-    dataloader.user_context["settings"].add_objects_to_ldap = False
-
+    context["user_context"]["settings"] = MagicMock()  # type: ignore
+    context["user_context"]["settings"].add_objects_to_ldap = False
+    dataloader = DataLoader(context=context)
     with pytest.raises(NotEnabledException):
         dataloader.add_ldap_object("CN=foo")
 
@@ -2018,10 +2019,11 @@ async def test_load_mo_employee_engagement_dicts(
     assert route.called
 
 
-def test_ou_in_ous_to_write_to(dataloader: DataLoader):
+def test_ou_in_ous_to_write_to(context: Context):
     settings_mock = MagicMock()
     settings_mock.ldap_ous_to_write_to = ["OU=foo", "OU=mucki,OU=bar"]
-    dataloader.user_context["settings"] = settings_mock
+    context["user_context"]["settings"] = settings_mock
+    dataloader = DataLoader(context)
 
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=foo,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=bar,DC=k") is False
@@ -2029,8 +2031,8 @@ def test_ou_in_ous_to_write_to(dataloader: DataLoader):
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,DC=k") is False
 
     settings_mock.ldap_ous_to_write_to = [""]
-    dataloader.user_context["settings"] = settings_mock
-
+    context["user_context"]["settings"] = settings_mock
+    dataloader = DataLoader(context)
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=foo,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=bar,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=mucki,OU=bar,DC=k") is True
@@ -2399,15 +2401,19 @@ def test_decompose_ou_string(dataloader: DataLoader):
     assert output[2] == "OU=bar"
 
 
-def test_create_ou(dataloader: DataLoader):
+def test_create_ou(context: Context):
+    dataloader = DataLoader(context)
     dataloader.load_ldap_OUs = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
 
     settings_mock = MagicMock()
     settings_mock.ldap_search_base = "DC=Magenta"
-    dataloader.user_context["settings"] = settings_mock  # type: ignore
-
+    context["user_context"]["settings"] = settings_mock  # type: ignore
+    dataloader = DataLoader(context)
+    dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
+    dataloader.ou_in_ous_to_write_to.return_value = True
+    dataloader.load_ldap_OUs = MagicMock()  # type: ignore
     dataloader.load_ldap_OUs.return_value = {
         "OU=mucki,OU=bar": {"empty": False},
         "OU=bar": {"empty": False},
@@ -2419,27 +2425,30 @@ def test_create_ou(dataloader: DataLoader):
         "OU=foo,OU=mucki,OU=bar,DC=Magenta", "OrganizationalUnit"
     )
 
-    dataloader.user_context["settings"].add_objects_to_ldap = False
-
+    context["user_context"]["settings"].add_objects_to_ldap = False
+    dataloader = DataLoader(context)
     with pytest.raises(NotEnabledException):
         dataloader.create_ou(ou)
 
+    context["user_context"]["settings"].add_objects_to_ldap = True
+    dataloader = DataLoader(context)
     dataloader.ldap_connection.reset_mock()
-    dataloader.user_context["settings"].add_objects_to_ldap = True
+
+    dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = False
 
     dataloader.create_ou(ou)
     dataloader.ldap_connection.add.assert_not_called()
 
 
-def test_delete_ou(dataloader: DataLoader):
+def test_delete_ou(context: Context):
+    settings_mock = MagicMock()
+    settings_mock.ldap_search_base = "DC=Magenta"
+    context["user_context"]["settings"] = settings_mock
+    dataloader = DataLoader(context)
     dataloader.load_ldap_OUs = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to = MagicMock()  # type: ignore
     dataloader.ou_in_ous_to_write_to.return_value = True
-
-    settings_mock = MagicMock()
-    settings_mock.ldap_search_base = "DC=Magenta"
-    dataloader.user_context["settings"] = settings_mock  # type: ignore
 
     dataloader.load_ldap_OUs.return_value = {
         "OU=foo,OU=mucki,OU=bar": {"empty": True},
@@ -2512,6 +2521,7 @@ async def test_find_dn_by_engagement_uuid_uses_single_dn() -> None:
                 "ldap_connection": MagicMock(),
                 "legacy_graphql_session": AsyncMock(),
                 "converter": AsyncMock(),
+                "settings": MagicMock(),
             },
         }
     )
@@ -2542,6 +2552,7 @@ async def test_find_dn_by_engagement_uuid_finds_single_dn() -> None:
                 "ldap_connection": MagicMock(),
                 "legacy_graphql_session": AsyncMock(),
                 "converter": AsyncMock(),
+                "settings": MagicMock(),
             },
         }
     )
@@ -2587,6 +2598,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_on_multiple_hits() ->
                 "ldap_connection": MagicMock(),
                 "legacy_graphql_session": AsyncMock(),
                 "converter": AsyncMock(),
+                "settings": MagicMock(),
             },
         }
     )
@@ -2631,6 +2643,7 @@ async def test_find_dn_by_engagement_uuid_raises_exception_if_no_hits() -> None:
                 "ldap_connection": MagicMock(),
                 "legacy_graphql_session": AsyncMock(),
                 "converter": AsyncMock(),
+                "settings": MagicMock(),
             },
         }
     )

@@ -10,6 +10,7 @@ from pydantic import parse_obj_as
 from pydantic import ValidationError
 
 from mo_ldap_import_export.config import ConversionMapping
+from mo_ldap_import_export.config import Settings
 
 
 overlay = partial(merge, strategy=Strategy.TYPESAFE_ADDITIVE)
@@ -235,3 +236,15 @@ def test_can_terminate_address(address_mapping: dict) -> None:
         },
     )
     parse_obj_as(ConversionMapping, new_mapping)
+
+
+def test_openldap_fields(load_settings_overrides, minimal_mapping):
+    settings = Settings(conversion_mapping=minimal_mapping, open_ldap_compatible=False)
+    assert settings.ldap_username_field == "sAMAccountName"
+    assert settings.ldap_unique_id_field == "objectGUID"
+    assert settings.ldap_upn_field == "UserPrincipalName"
+
+    settings = Settings(conversion_mapping=minimal_mapping, open_ldap_compatible=True)
+    assert settings.ldap_username_field == "uid"
+    assert settings.ldap_unique_id_field == "entryUUID"
+    assert settings.ldap_upn_field == "mail"
