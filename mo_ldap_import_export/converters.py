@@ -146,7 +146,7 @@ def make_dn_from_org_unit_path(
 
 async def get_current_engagement_attribute_uuid_dict(
     dataloader: DataLoader,
-    employee_uuid: UUID,
+    employee_uuid: str,
     engagement_user_key: str,
     attribute: str,
 ) -> dict[str, str]:
@@ -207,7 +207,7 @@ get_current_engagement_type_uuid_dict = partial(
 
 
 async def get_current_primary_uuid_dict(
-    dataloader: DataLoader, employee_uuid: UUID, engagement_user_key: str
+    dataloader: DataLoader, employee_uuid: str, engagement_user_key: str
 ) -> dict | None:
     """
     Returns an existing 'primary' object formatted as a dict
@@ -326,7 +326,7 @@ async def find_ldap_it_system(
             {"ldap": {settings.ldap_unique_id_field: detection_key}}
         )
         return unique_id == detection_key
-    
+
     found_itsystems = {
         user_key
         for user_key in relevant_keys

@@ -1755,7 +1755,7 @@ async def test_get_current_engagement_attribute(converter: LdapConverter):
     for attribute in test_attributes:
         assert (
             await get_current_engagement_attribute_uuid_dict(
-                dataloader, uuid4(), "foo", attribute
+                dataloader, str(uuid4()), "foo", attribute
             )
         )["uuid"] == engagement1[attribute]
 
@@ -1763,7 +1763,7 @@ async def test_get_current_engagement_attribute(converter: LdapConverter):
     with pytest.raises(UUIDNotFoundException):
         dataloader.load_mo_employee_engagement_dicts.return_value = []
         await get_current_engagement_attribute_uuid_dict(
-            dataloader, uuid4(), "mucki", attribute
+            dataloader, str(uuid4()), "mucki", attribute
         )
 
     # Try to find a duplicate engagement
@@ -1773,13 +1773,13 @@ async def test_get_current_engagement_attribute(converter: LdapConverter):
             engagement3,
         ]
         await get_current_engagement_attribute_uuid_dict(
-            dataloader, uuid4(), "duplicate_user_key", attribute
+            dataloader, str(uuid4()), "duplicate_user_key", attribute
         )
 
     # Try with faulty input
     with pytest.raises(ValueError, match="attribute must be an uuid-string"):
         await get_current_engagement_attribute_uuid_dict(
-            dataloader, uuid4(), "mucki", "user_key"
+            dataloader, str(uuid4()), "mucki", "user_key"
         )
 
 
@@ -1814,7 +1814,7 @@ async def test_get_current_primary_uuid(dataloader: AsyncMock) -> None:
         {"uuid": uuid4(), "primary_uuid": uuid}
     ]
 
-    assert (await get_current_primary_uuid_dict(dataloader, uuid4(), "foo"))[
+    assert (await get_current_primary_uuid_dict(dataloader, str(uuid4()), "foo"))[
         "uuid"
     ] == uuid  # type: ignore
 
@@ -1822,7 +1822,7 @@ async def test_get_current_primary_uuid(dataloader: AsyncMock) -> None:
         {"uuid": uuid4(), "primary_uuid": None}
     ]
 
-    assert await get_current_primary_uuid_dict(dataloader, uuid4(), "foo") is None
+    assert await get_current_primary_uuid_dict(dataloader, str(uuid4()), "foo") is None
 
 
 def test_clean_calls_to_get_current_method_from_template_string(
@@ -1999,7 +1999,7 @@ async def test_get_primary_engagement_dict(dataloader: AsyncMock) -> None:
         "primary_uuid": None,
     }
 
-    employee_uuid = uuid4()
+    employee_uuid = str(uuid4())
 
     # 3 engagements
     # -------------

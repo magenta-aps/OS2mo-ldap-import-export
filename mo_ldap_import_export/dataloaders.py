@@ -1573,7 +1573,7 @@ class DataLoader:
 
     async def load_mo_employee_engagement_dicts(
         self,
-        employee_uuid: UUID,
+        employee_uuid: str,
         user_key: str | None = None,
     ) -> list[dict]:
         filter = EngagementFilter(employee=EmployeeFilter(uuids=[employee_uuid]))

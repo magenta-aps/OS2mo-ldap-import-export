@@ -2004,7 +2004,7 @@ async def test_load_mo_employee_engagement_dicts(
         "engagements": {"objects": [{"current": engagement1}, {"current": engagement2}]}
     }
 
-    result = await dataloader.load_mo_employee_engagement_dicts(uuid4(), "foo")
+    result = await dataloader.load_mo_employee_engagement_dicts(str(uuid4()), "foo")
 
     assert engagement1 in result
     assert engagement2 in result
@@ -2012,7 +2012,7 @@ async def test_load_mo_employee_engagement_dicts(
 
     route.reset()
     route.result = {"engagements": {"objects": []}}
-    result = await dataloader.load_mo_employee_engagement_dicts(uuid4(), "foo")
+    result = await dataloader.load_mo_employee_engagement_dicts(str(uuid4()), "foo")
 
     assert isinstance(result, list)
     assert len(result) == 0
