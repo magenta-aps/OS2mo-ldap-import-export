@@ -59,7 +59,7 @@ class UserNameGeneratorBase(ABC):
         for attribute in attributes:
             output[attribute] = [
                 one(entry["attributes"][attribute]).lower()
-                if self.settings.open_ldap_compatible
+                if self.settings.openldap_compatible
                 else entry["attributes"][attribute].lower()
                 for entry in search_result
                 if entry["attributes"][attribute]

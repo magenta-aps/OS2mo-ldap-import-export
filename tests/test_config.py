@@ -239,12 +239,12 @@ def test_can_terminate_address(address_mapping: dict) -> None:
 
 
 def test_openldap_fields(load_settings_overrides, minimal_mapping):
-    settings = Settings(conversion_mapping=minimal_mapping, open_ldap_compatible=False)
+    settings = Settings(conversion_mapping=minimal_mapping, openldap_compatible=False)
     assert settings.ldap_username_field == "sAMAccountName"
     assert settings.ldap_unique_id_field == "objectGUID"
     assert settings.ldap_upn_field == "UserPrincipalName"
 
-    settings = Settings(conversion_mapping=minimal_mapping, open_ldap_compatible=True)
+    settings = Settings(conversion_mapping=minimal_mapping, openldap_compatible=True)
     assert settings.ldap_username_field == "uid"
     assert settings.ldap_unique_id_field == "entryUUID"
     assert settings.ldap_upn_field == "mail"

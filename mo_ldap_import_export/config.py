@@ -435,7 +435,7 @@ class Settings(BaseSettings):
         False, description="Whether to establish a read-only connection to the server."
     )
 
-    open_ldap_compatible: bool = Field(
+    openldap_compatible: bool = Field(
         False,
         description="Configure the integration to be compatible to OpenLDAP in stead of Active Directory which is default.",
     )
@@ -445,16 +445,16 @@ class Settings(BaseSettings):
 
     @root_validator(pre=True)
     def set_ldap_compatible_fields(cls, values):
-        """Set field names specific for Active Directory or OpenLDAP based on the 'open_ldap_compatible' setting"""
-        open_ldap_compatible = values.get("open_ldap_compatible", False)
-        values["ldap_username_field"] = (
-            "uid" if open_ldap_compatible else "sAMAccountName"
+        """Set field names specific for Active Directory or OpenLDAP based on the 'openldap_compatible' setting"""
+        openldap_compatible = values.get("openldap_compatible", False)
+        values["ldap_username_field"] = values.get("ldap_username_field") or (
+            "uid" if openldap_compatible else "sAMAccountName"
         )
-        values["ldap_unique_id_field"] = (
-            "entryUUID" if open_ldap_compatible else "objectGUID"
+        values["ldap_unique_id_field"] = values.get("ldap_unique_id_field") or (
+            "entryUUID" if openldap_compatible else "objectGUID"
         )
-        values["ldap_upn_field"] = (
-            "mail" if open_ldap_compatible else "UserPrincipalName"
+        values["ldap_upn_field"] = values.get("ldap_upn_field") or (
+            "mail" if openldap_compatible else "UserPrincipalName"
         )
         return values
 
