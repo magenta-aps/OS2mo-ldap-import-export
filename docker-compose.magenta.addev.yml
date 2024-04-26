@@ -8,9 +8,10 @@ services:
     command: ["uvicorn", "--factory", "app.main:create_app", "--host", "0.0.0.0", "--reload"]
     environment:
       FASTRAMQPI__DAP: "true"
+      TZ: "Europe/Copenhagen"
     volumes:
       - ./mo_ldap_import_export:/opt/app/
-      - ./dev-environment/magenta-addev.env:/var/run/.env
+      - ./dev-environment/magenta_addev_mapping.txt:/var/run/.env
     networks:
       - os2mo_default
     ports:
@@ -18,6 +19,7 @@ services:
       - "127.0.0.1:5678:5678"
     env_file:
       - secrets.txt
+      - ./dev-environment/magenta-addev.env
 
 networks:
   os2mo_default:
