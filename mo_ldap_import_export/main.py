@@ -333,7 +333,7 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     amqpsystem = fastramqpi.get_amqpsystem()
     amqpsystem.dependencies = [
         Depends(rate_limit(delay_on_error)),
-        Depends(depends.logger_bound_message_id),
+        # Depends(depends.logger_bound_message_id),
     ]
     if settings.listen_to_changes_in_mo:
         amqpsystem.router.registry.update(amqp_router.registry)
