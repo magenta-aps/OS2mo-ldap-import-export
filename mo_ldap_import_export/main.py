@@ -139,7 +139,8 @@ async def process_address(
     if service_type == "employee":
         await sync_tool.listen_to_changes_in_employees(**args)
     elif service_type == "org_unit":
-        await sync_tool.listen_to_changes_in_org_units(**args)
+        uuid: OrgUnitUUID = args["uuid"]
+        await sync_tool.refresh_people_by_org_unit(uuid)
 
 
 @amqp_router.register("engagement")

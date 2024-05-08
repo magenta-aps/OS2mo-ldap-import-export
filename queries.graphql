@@ -576,3 +576,26 @@ mutation engagement_org_unit_address_refresh(
     objects
   }
 }
+
+query read_filtered_addresses($filter: AddressFilter!) {
+  addresses(filter: $filter) {
+    objects {
+      validities {
+        address_type {
+          user_key
+        }
+        uuid
+        validity {
+          from
+          to
+        }
+      }
+    }
+  }
+}
+
+mutation org_unit_engagement_people_refresh($exchange: String!, $org_unit_uuid: UUID!) {
+  employee_refresh(exchange: $exchange, filter: {org_unit: {uuids: [$org_unit_uuid]}}) {
+    objects
+  }
+}
