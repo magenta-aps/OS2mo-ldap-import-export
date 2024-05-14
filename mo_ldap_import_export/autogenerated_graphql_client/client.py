@@ -108,6 +108,8 @@ from .read_facet_classes import ReadFacetClasses
 from .read_facet_classes import ReadFacetClassesClasses
 from .read_facet_uuid import ReadFacetUuid
 from .read_facet_uuid import ReadFacetUuidFacets
+from .read_filtered_itusers import ReadFilteredItusers
+from .read_filtered_itusers import ReadFilteredItusersItusers
 from .read_is_primary_engagements import ReadIsPrimaryEngagements
 from .read_is_primary_engagements import ReadIsPrimaryEngagementsEngagements
 from .read_itsystems import ReadItsystems
@@ -1221,3 +1223,31 @@ class GraphQLClient(AsyncBaseClient):
         response = await self.execute(query=query, variables=variables)
         data = self.get_data(response)
         return EngagementOrgUnitAddressRefresh.parse_obj(data).address_refresh
+
+    async def read_filtered_itusers(
+        self, filter: ITUserFilter
+    ) -> ReadFilteredItusersItusers:
+        query = gql(
+            """
+            query read_filtered_itusers($filter: ITUserFilter!) {
+              itusers(filter: $filter) {
+                objects {
+                  validities {
+                    itsystem {
+                      user_key
+                    }
+                    uuid
+                    validity {
+                      from
+                      to
+                    }
+                  }
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"filter": filter}
+        response = await self.execute(query=query, variables=variables)
+        data = self.get_data(response)
+        return ReadFilteredItusers.parse_obj(data).itusers
