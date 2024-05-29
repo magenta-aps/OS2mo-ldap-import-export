@@ -153,6 +153,10 @@ from .person_engagement_refresh import PersonEngagementRefresh
 from .person_engagement_refresh import PersonEngagementRefreshEngagementRefresh
 from .person_ituser_refresh import PersonItuserRefresh
 from .person_ituser_refresh import PersonItuserRefreshItuserRefresh
+from .read_address_relation_uuids import ReadAddressRelationUuids
+from .read_address_relation_uuids import ReadAddressRelationUuidsAddresses
+from .read_address_relation_uuids import ReadAddressRelationUuidsAddressesObjects
+from .read_address_relation_uuids import ReadAddressRelationUuidsAddressesObjectsCurrent
 from .read_addresses import ReadAddresses
 from .read_addresses import ReadAddressesAddresses
 from .read_addresses import ReadAddressesAddressesObjects
@@ -512,6 +516,10 @@ __all__ = [
     "PersonItuserRefreshItuserRefresh",
     "RAOpenValidityInput",
     "RAValidityInput",
+    "ReadAddressRelationUuids",
+    "ReadAddressRelationUuidsAddresses",
+    "ReadAddressRelationUuidsAddressesObjects",
+    "ReadAddressRelationUuidsAddressesObjectsCurrent",
     "ReadAddresses",
     "ReadAddressesAddresses",
     "ReadAddressesAddressesObjects",
