@@ -666,8 +666,6 @@ async def test_listen_to_address_person(graphql_mock: GraphQLMocker) -> None:
     amqpsystem = create_autospec(AMQPSystem)
     amqpsystem.exchange_name = "wow"
 
-    sync_tool = AsyncMock()
-
     graphql_client = GraphQLClient("http://example.com/graphql")
 
     address_uuid = uuid4()
@@ -685,7 +683,7 @@ async def test_listen_to_address_person(graphql_mock: GraphQLMocker) -> None:
     employee_refresh_route = graphql_mock.query("employee_refresh")
     employee_refresh_route.result = {"employee_refresh": {"objects": [employee_uuid]}}
 
-    await process_address(address_uuid, graphql_client, amqpsystem, sync_tool)
+    await process_address(address_uuid, graphql_client, amqpsystem)
     assert employee_refresh_route.called
 
 
@@ -693,15 +691,14 @@ async def test_listen_to_address_org_unit(graphql_mock: GraphQLMocker) -> None:
     amqpsystem = create_autospec(AMQPSystem)
     amqpsystem.exchange_name = "wow"
 
-    sync_tool = AsyncMock()
-
     graphql_client = GraphQLClient("http://example.com/graphql")
 
     org_unit_uuid = uuid4()
+    employee_uuid = uuid4()
     address_uuid = uuid4()
 
-    employee_route = graphql_mock.query("read_address_relation_uuids")
-    employee_route.result = {
+    address_route = graphql_mock.query("read_address_relation_uuids")
+    address_route.result = {
         "addresses": {
             "objects": [
                 {"current": {"employee_uuid": None, "org_unit_uuid": org_unit_uuid}}
@@ -709,8 +706,16 @@ async def test_listen_to_address_org_unit(graphql_mock: GraphQLMocker) -> None:
         }
     }
 
-    await process_address(address_uuid, graphql_client, amqpsystem, sync_tool)
-    sync_tool.listen_to_changes_in_org_units.assert_awaited_once_with(org_unit_uuid)
+    employee_route = graphql_mock.query("read_employees_with_engagement_to_org_unit")
+    employee_route.result = {
+        "engagements": {"objects": [{"current": {"employee_uuid": employee_uuid}}]}
+    }
+
+    employee_refresh_route = graphql_mock.query("employee_refresh")
+    employee_refresh_route.result = {"employee_refresh": {"objects": [employee_uuid]}}
+
+    await process_address(address_uuid, graphql_client, amqpsystem)
+    assert employee_refresh_route.called
 
 
 @pytest.mark.parametrize(
@@ -731,8 +736,6 @@ async def test_listen_to_address_failure(
     amqpsystem = create_autospec(AMQPSystem)
     amqpsystem.exchange_name = "wow"
 
-    sync_tool = AsyncMock()
-
     graphql_client = GraphQLClient("http://example.com/graphql")
 
     employee_route = graphql_mock.query("read_address_relation_uuids")
@@ -740,7 +743,7 @@ async def test_listen_to_address_failure(
 
     address_uuid = uuid4()
     with pytest.raises(RejectMessage) as exc_info:
-        await process_address(address_uuid, graphql_client, amqpsystem, sync_tool)
+        await process_address(address_uuid, graphql_client, amqpsystem)
     assert error in str(exc_info.value)
 
 
