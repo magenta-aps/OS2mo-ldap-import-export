@@ -10,7 +10,6 @@ import time
 from collections.abc import Collection
 from collections.abc import Iterator
 from functools import partial
-from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -21,7 +20,6 @@ import pytest
 from fastapi.encoders import jsonable_encoder
 from fastramqpi.context import Context
 from gql import gql
-from httpx import Response
 from ldap3.core.exceptions import LDAPInvalidValueError
 from more_itertools import one
 from pydantic import parse_obj_as
@@ -2228,168 +2226,6 @@ def test_ou_in_ous_to_write_to(dataloader: DataLoader):
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=bar,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,OU=mucki,OU=bar,DC=k") is True
     assert dataloader.ou_in_ous_to_write_to("CN=Tobias,DC=k") is True
-
-
-async def test_load_all_current_it_users_no_paged(
-    dataloader: DataLoader,
-    graphql_mock: GraphQLMocker,
-) -> None:
-    itsystem1_uuid = uuid4()
-
-    route = graphql_mock.query("read_all_itusers")
-    route.result = {
-        "itusers": {
-            "objects": [
-                {
-                    "validities": [
-                        {
-                            "itsystem_uuid": str(itsystem1_uuid),
-                            "employee_uuid": str(uuid4()),
-                            "user_key": "foo",
-                        }
-                    ]
-                }
-            ],
-            "page_info": {"next_cursor": None},
-        }
-    }
-    results = await dataloader.load_all_current_it_users(itsystem1_uuid)
-    result = one(results)
-    assert result["itsystem_uuid"] == str(itsystem1_uuid)
-    assert result["user_key"] == "foo"
-
-
-async def test_load_all_current_it_users_paged(
-    dataloader: DataLoader,
-    graphql_mock: GraphQLMocker,
-) -> None:
-    itsystem1_uuid = uuid4()
-
-    query_results = [
-        {
-            "itusers": {
-                "objects": [
-                    {
-                        "validities": [
-                            {
-                                "itsystem_uuid": str(itsystem1_uuid),
-                                "employee_uuid": str(uuid4()),
-                                "user_key": "foo",
-                            }
-                        ]
-                    }
-                ],
-                "page_info": {
-                    "next_cursor": "VGhlIGNha2UgaXMgYSBsaWUK"  # Fake cursor
-                },
-            }
-        },
-        {
-            "itusers": {
-                "objects": [
-                    {
-                        "validities": [
-                            {
-                                "itsystem_uuid": str(itsystem1_uuid),
-                                "employee_uuid": str(uuid4()),
-                                "user_key": "bar",
-                            }
-                        ]
-                    }
-                ],
-                "page_info": {"next_cursor": None},
-            }
-        },
-    ]
-
-    def pager(_: Any, route: Any) -> Response:
-        # Gets called once per GraphQL httpx request
-        # Each call increments route.call_count by one
-        result = query_results[route.call_count]
-        return Response(200, json={"data": jsonable_encoder(result)})
-
-    route = graphql_mock.query("read_all_itusers")
-    route.mock(side_effect=pager)
-    results = await dataloader.load_all_current_it_users(itsystem1_uuid)
-    assert len(results) == 2
-
-    first, second = results
-    assert first["itsystem_uuid"] == str(itsystem1_uuid)
-    assert first["user_key"] == "foo"
-
-    assert second["itsystem_uuid"] == str(itsystem1_uuid)
-    assert second["user_key"] == "bar"
-
-
-async def test_load_all_it_users(
-    dataloader: DataLoader,
-    graphql_mock: GraphQLMocker,
-) -> None:
-    itsystem1_uuid = uuid4()
-
-    query_results = [
-        {
-            "itusers": {
-                "objects": [
-                    {
-                        "validities": [
-                            {
-                                "itsystem_uuid": str(itsystem1_uuid),
-                                "employee_uuid": str(uuid4()),
-                                "user_key": "mucki",
-                            },
-                            {
-                                "itsystem_uuid": str(itsystem1_uuid),
-                                "employee_uuid": str(uuid4()),
-                                "user_key": "bar",
-                            },
-                        ]
-                    }
-                ],
-                "page_info": {
-                    "next_cursor": "V2FyLi4uIHdhciBuZXZlciBjaGFuZ2VzCg=="  # Fake cursor
-                },
-            }
-        },
-        {
-            "itusers": {
-                "objects": [
-                    {
-                        "validities": [
-                            {
-                                "itsystem_uuid": str(itsystem1_uuid),
-                                "employee_uuid": str(uuid4()),
-                                "user_key": "foo",
-                            }
-                        ]
-                    },
-                ],
-                "page_info": {"next_cursor": None},
-            }
-        },
-    ]
-
-    def pager(_: Any, route: Any) -> Response:
-        # Gets called once per GraphQL httpx request
-        # Each call increments route.call_count by one
-        result = query_results[route.call_count]
-        return Response(200, json={"data": jsonable_encoder(result)})
-
-    route = graphql_mock.query("read_all_itusers")
-    route.mock(side_effect=pager)
-    results = await dataloader.load_all_it_users(itsystem1_uuid)
-
-    assert len(results) == 3
-    first, second, third = results
-
-    assert first["itsystem_uuid"] == str(itsystem1_uuid)
-    assert first["user_key"] == "mucki"
-
-    assert second["itsystem_uuid"] == str(itsystem1_uuid)
-    assert second["user_key"] == "bar"
-
-    assert third["itsystem_uuid"] == str(itsystem1_uuid)
-    assert third["user_key"] == "foo"
 
 
 async def test_query_mo_paged(dataloader: DataLoader):
