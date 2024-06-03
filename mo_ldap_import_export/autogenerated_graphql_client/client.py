@@ -987,7 +987,7 @@ class GraphQLClient(AsyncBaseClient):
         query = gql(
             """
             query read_ituser_employee_uuid($ituser_uuid: UUID!) {
-              itusers(filter: {uuid: $ituser_uuid}) {
+              itusers(filter: {uuids: [$ituser_uuid]}) {
                 objects {
                   current {
                     employee_uuid
@@ -1008,7 +1008,7 @@ class GraphQLClient(AsyncBaseClient):
         query = gql(
             """
             query read_engagement_employee_uuid($engagement_uuid: UUID!) {
-              engagements(filter: {uuid: $engagement_uuid}) {
+              engagements(filter: {uuids: [$engagement_uuid]}) {
                 objects {
                   current {
                     employee_uuid
@@ -1029,7 +1029,7 @@ class GraphQLClient(AsyncBaseClient):
         query = gql(
             """
             query read_address_relation_uuids($address_uuid: UUID!) {
-              addresses(filter: {uuid: $address_uuid}) {
+              addresses(filter: {uuids: [$address_uuid]}) {
                 objects {
                   current {
                     employee_uuid

@@ -90,7 +90,7 @@ async def process_address(
     object_uuid: PayloadUUID,
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
-) -> None:
+):
     result = await graphql_client.read_address_relation_uuids(object_uuid)
 
     if len(result.objects) != 1:
@@ -131,7 +131,7 @@ async def process_engagement(
     object_uuid: PayloadUUID,
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
-) -> None:
+):
     result = await graphql_client.read_engagement_employee_uuid(object_uuid)
 
     if len(result.objects) != 1:
@@ -154,7 +154,7 @@ async def process_ituser(
     object_uuid: PayloadUUID,
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
-) -> None:
+):
     result = await graphql_client.read_ituser_employee_uuid(object_uuid)
 
     if len(result.objects) != 1:
@@ -180,7 +180,7 @@ async def process_ituser(
 async def process_person(
     object_uuid: PayloadUUID,
     sync_tool: depends.SyncTool,
-) -> None:
+):
     await sync_tool.listen_to_changes_in_employees(object_uuid)
 
 
@@ -189,7 +189,7 @@ async def process_person(
 async def process_org_unit(
     object_uuid: PayloadUUID,
     sync_tool: depends.SyncTool,
-) -> None:
+):
     logger.info(
         "Registered change in an org_unit",
         object_uuid=object_uuid,
@@ -263,7 +263,7 @@ async def initialize_ldap_listener(fastramqpi: FastRAMQPI) -> AsyncIterator[None
 # TODO: Eliminate this function and make reloading dicts eventdriven
 @asynccontextmanager
 async def initialize_info_dict_refresher(fastramqpi: FastRAMQPI) -> AsyncIterator[None]:
-    async def refresher() -> None:
+    async def refresher():
         user_context = fastramqpi._context["user_context"]
         converter = user_context["converter"]
         while True:

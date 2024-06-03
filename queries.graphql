@@ -447,7 +447,7 @@ query read_engagements_is_primary($filter: EngagementFilter!) {
 
 query read_ituser_employee_uuid($ituser_uuid: UUID!) {
   itusers(
-    filter: {uuid: $ituser_uuid}
+    filter: {uuids: [$ituser_uuid]}
   ) {
     objects {
       current {
@@ -459,7 +459,7 @@ query read_ituser_employee_uuid($ituser_uuid: UUID!) {
 
 query read_engagement_employee_uuid($engagement_uuid: UUID!) {
   engagements(
-    filter: {uuid: $engagement_uuid}
+    filter: {uuids: [$engagement_uuid]}
   ) {
     objects {
       current {
@@ -471,7 +471,7 @@ query read_engagement_employee_uuid($engagement_uuid: UUID!) {
 
 query read_address_relation_uuids($address_uuid: UUID!) {
   addresses(
-    filter: {uuid: $address_uuid}
+    filter: {uuids: [$address_uuid]}
   ) {
     objects {
       current {
