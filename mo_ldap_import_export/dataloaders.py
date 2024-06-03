@@ -1520,6 +1520,10 @@ class DataLoader:
 
     # TODO: Offer this via a dataloader, and change calls to use that
     async def is_primaries(self, engagements: list[UUID]) -> list[bool]:
+        # We need this early return, as we otherwise filter on nothing, thereby
+        # returning all engagements in OS2mo, putting a lot of pressure on OS2mo.
+        if not engagements:
+            return []
         engagements_set = set(engagements)
         result = await self.graphql_client.read_is_primary_engagements(
             list(engagements_set)
