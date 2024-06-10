@@ -179,6 +179,12 @@ async def ldap_healthcheck(context: dict | Context) -> bool:
     return cast(bool, ldap_connection.bound)
 
 
+def ldap_search(ldap_connection: Connection, **kwargs: Any) -> tuple[Any, Any]:
+    ldap_connection.search(**kwargs)
+    # TODO: Should we check result["description"] for operations error here?
+    return ldap_connection.response, ldap_connection.result
+
+
 async def poller_healthcheck(context: dict | Context) -> bool:
     pollers = context["user_context"]["pollers"]
     return all(not poller.done() for poller in pollers)
@@ -413,27 +419,23 @@ def _paged_search(
     for page in range(0, 10_000):
         if not mute:
             logger.info("Searching page", page=page)
-        ldap_connection.search(**searchParameters)
+        response, result = ldap_search(ldap_connection, **searchParameters)
 
-        if ldap_connection.result["description"] == "operationsError":
+        if result["description"] == "operationsError":
             # TODO: Should this be an exception?
             #       Currently we just return half the result?
-            logger.warn(
-                "Search failed",
-                search_filter=search_filter,
-                result=ldap_connection.result,
-            )
+            logger.warn("Search failed", search_filter=search_filter, result=result)
             break
 
         # TODO: Handle this error more gracefully
-        assert ldap_connection.response is not None
-        entries = ldapresponse2entries(ldap_connection.response)
+        assert response is not None
+        entries = ldapresponse2entries(response)
         responses.extend(entries)
 
         try:
             # TODO: Skal "1.2.840.113556.1.4.319" være Configurerbar?
             extension = "1.2.840.113556.1.4.319"
-            cookie = ldap_connection.result["controls"][extension]["value"]["cookie"]
+            cookie = result["controls"][extension]["value"]["cookie"]
         except KeyError:
             break
 
@@ -522,10 +524,9 @@ def object_search(
 
     responses = []
     for search_base in search_bases:
-        ldap_connection.search(
-            **ChainMap(searchParameters, {"search_base": search_base})
+        response, _ = ldap_search(
+            ldap_connection, **ChainMap(searchParameters, {"search_base": search_base})
         )
-        response = ldap_connection.response
         if response:
             responses.extend(response)
     search_entries = ldapresponse2entries(responses)
@@ -768,11 +769,10 @@ async def _poll(
     )
     last_search_time = datetime.utcnow()
 
-    # TODO: Eliminate this thread and use asyncio code instead
-    ldap_connection.search(**timed_search_parameters)
+    response, _ = ldap_search(ldap_connection, **timed_search_parameters)
 
     # Filter to only keep search results
-    responses = ldapresponse2entries(ldap_connection.response)
+    responses = ldapresponse2entries(response)
 
     # NOTE: We can add message deduplication here if needed for performance later
     #       For now we do not care about duplicates, we prefer simplicity
