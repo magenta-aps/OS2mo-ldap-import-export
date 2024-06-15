@@ -75,7 +75,6 @@ from mo_ldap_import_export.dataloaders import DN
 from mo_ldap_import_export.dataloaders import LdapObject
 from mo_ldap_import_export.dataloaders import Verb
 from mo_ldap_import_export.exceptions import AttributeNotFound
-from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.exceptions import NotEnabledException
@@ -1621,79 +1620,6 @@ async def test_get_ldap_it_system_uuid(dataloader: DataLoader, converter: MagicM
 
     converter.get_it_system_uuid.side_effect = UUIDNotFoundException("UUID Not found")
     assert dataloader.get_ldap_it_system_uuid() is None
-
-
-async def test_find_or_make_mo_employee_dn(
-    dataloader: DataLoader, username_generator: MagicMock
-):
-    uuid_1 = uuid4()
-    uuid_2 = uuid4()
-
-    it_system_uuid = uuid4()
-    dataloader.get_ldap_it_system_uuid = MagicMock()  # type: ignore
-    dataloader.load_mo_employee_it_users = AsyncMock()  # type: ignore
-    dataloader.load_mo_employee = AsyncMock()  # type: ignore
-    dataloader.load_ldap_cpr_object = AsyncMock()  # type: ignore
-    dataloader.create = AsyncMock()  # type: ignore
-    dataloader.extract_unique_dns = AsyncMock()  # type: ignore
-    dataloader.get_ldap_unique_ldap_uuid = AsyncMock()  # type: ignore
-
-    # Case where there is an IT-system that contains the DN
-    dataloader.load_mo_employee.return_value = Employee(cpr_no=None)
-    dataloader.load_mo_employee_it_users.return_value = []
-    dataloader.get_ldap_it_system_uuid.return_value = str(it_system_uuid)
-    dataloader.extract_unique_dns.return_value = {
-        "CN=foo,DC=bar",
-    }
-    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
-    assert one(dns) == "CN=foo,DC=bar"
-
-    # Same as above, but the it-system contains an invalid value
-    dataloader.extract_unique_dns.return_value = set()
-    username_generator.generate_dn.return_value = "CN=generated_dn_1,DC=DN"
-    dataloader.get_ldap_unique_ldap_uuid.return_value = uuid_1
-    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
-    uploaded_uuid = dataloader.create.await_args_list[0].args[0][0].user_key
-    assert one(dns) == "CN=generated_dn_1,DC=DN"
-    assert uploaded_uuid == str(uuid_1)
-    dataloader.create.reset_mock()
-
-    # Same as above, but there are multiple IT-users
-    dataloader.extract_unique_dns.return_value = {"CN=foo,DC=bar", "CN=foo2,DC=bar"}
-    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
-    assert dns == {"CN=foo,DC=bar", "CN=foo2,DC=bar"}
-
-    # Case where there is no IT-system that contains the DN, but the cpr lookup succeeds
-    dataloader.load_mo_employee.return_value = Employee(cpr_no="0101911234")
-    dataloader.extract_unique_dns.return_value = set()
-    dataloader.load_ldap_cpr_object.return_value = [
-        LdapObject(dn="CN=dn_already_in_ldap,DC=foo")
-    ]
-    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
-    assert one(dns) == "CN=dn_already_in_ldap,DC=foo"
-
-    # Same as above, but the cpr-lookup does not succeed
-    dataloader.load_ldap_cpr_object.return_value = []
-    username_generator.generate_dn.return_value = "CN=generated_dn_2,DC=DN"
-    dataloader.get_ldap_unique_ldap_uuid.return_value = uuid_2
-    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
-    uploaded_uuid = dataloader.create.await_args_list[0].args[0][0].user_key
-    assert one(dns) == "CN=generated_dn_2,DC=DN"
-    assert uploaded_uuid == str(uuid_2)
-    dataloader.create.reset_mock()
-
-    # Same as above, but an it-system does not exist
-    dataloader.get_ldap_it_system_uuid.return_value = None
-    username_generator.generate_dn.return_value = "CN=generated_dn_3,DC=DN"
-    dns = await dataloader.find_or_make_mo_employee_dn(uuid4())
-    assert one(dns) == "CN=generated_dn_3,DC=DN"
-    dataloader.create.assert_not_awaited()
-    dataloader.create.reset_mock()
-
-    # Same as above, but the user also has no cpr number
-    dataloader.load_mo_employee.return_value = Employee(cpr_no=None)
-    with pytest.raises(DNNotFound):
-        await dataloader.find_or_make_mo_employee_dn(uuid4())
 
 
 def test_extract_unique_objectGUIDs(dataloader: DataLoader):
