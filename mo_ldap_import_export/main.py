@@ -8,6 +8,7 @@ from functools import wraps
 from typing import Any
 
 import structlog
+from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import FastAPI
 from fastramqpi.main import FastRAMQPI
@@ -45,11 +46,15 @@ from .os2mo_init import InitEngine
 from .routes import construct_router
 from .types import OrgUnitUUID
 from .usernames import get_username_generator_class
+from typing import Annotated
+from fastapi import Header
+from fastapi import Body
+from uuid import UUID
+from fastapi import HTTPException
 
 logger = structlog.stdlib.get_logger()
 
-amqp_router = MORouter()
-
+ldap2mo_router = APIRouter()
 
 def reject_on_failure(func):
     """
@@ -62,12 +67,16 @@ def reject_on_failure(func):
             await func(*args, **kwargs)
         except RejectMessage as e:  # In case we explicitly reject the message: Abort
             logger.info(e)
-            raise
+            raise HTTPException(
+                status_code=451, detail=str(e)
+            ) from e
         except (
             RequeueMessage
         ) as e:  # In case we explicitly requeued the message: Requeue
             logger.warning(e)
-            raise
+            raise HTTPException(
+                status_code=409, detail=str(e)
+            ) from e
         except (
             # Misconfiguration
             NotSupportedException,  # For features that are not supported: Abort
@@ -77,22 +86,26 @@ def reject_on_failure(func):
             NoObjectsReturnedException,  # In case an object is deleted halfway: Abort
         ) as e:
             logger.warning(e)
-            raise RequeueMessage() from e
+            raise HTTPException(
+                status_code=500, detail=str(e)
+            ) from e
         except (
             IgnoreChanges,  # In case changes should be ignored: Abort
             ReadOnlyException,  # In case a feature is not enabled: Abort
         ) as e:
             logger.info(e)
-            raise RejectMessage() from e
+            raise HTTPException(
+                status_code=451, detail=str(e)
+            ) from e
 
     modified_func.__wrapped__ = func  # type: ignore
     return modified_func
 
 
-@amqp_router.register("address")
+@ldap2mo_router.post("/mo2ldap/address/")
 @reject_on_failure
 async def process_address(
-    object_uuid: PayloadUUID,
+    object_uuid: Annotated[UUID, Body()],
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
 ) -> None:
@@ -127,10 +140,10 @@ async def process_address(
         )
 
 
-@amqp_router.register("engagement")
+@ldap2mo_router.post("/mo2ldap/engagement/")
 @reject_on_failure
 async def process_engagement(
-    object_uuid: PayloadUUID,
+    object_uuid: Annotated[UUID, Body()],
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
 ) -> None:
@@ -150,10 +163,10 @@ async def process_engagement(
     await graphql_client.employee_refresh(amqpsystem.exchange_name, [person_uuid])
 
 
-@amqp_router.register("ituser")
+@ldap2mo_router.post("/mo2ldap/ituser/")
 @reject_on_failure
 async def process_ituser(
-    object_uuid: PayloadUUID,
+    object_uuid: Annotated[UUID, Body()],
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
 ) -> None:
@@ -177,20 +190,20 @@ async def process_ituser(
     await graphql_client.employee_refresh(amqpsystem.exchange_name, [person_uuid])
 
 
-@amqp_router.register("person")
+@ldap2mo_router.post("/mo2ldap/person/")
 @reject_on_failure
 @handle_exclusively_decorator(key=lambda object_uuid, *_, **__: object_uuid)
 async def process_person(
-    object_uuid: PayloadUUID,
+    object_uuid: Annotated[UUID, Body()],
     sync_tool: depends.SyncTool,
 ) -> None:
     await sync_tool.listen_to_changes_in_employees(object_uuid)
 
 
-@amqp_router.register("org_unit")
+@ldap2mo_router.post("/mo2ldap/org_unit/")
 @reject_on_failure
 async def process_org_unit(
-    object_uuid: PayloadUUID,
+    object_uuid: Annotated[UUID, Body()],
     sync_tool: depends.SyncTool,
 ) -> None:
     logger.info(
@@ -317,23 +330,10 @@ def create_fastramqpi(**kwargs: Any) -> FastRAMQPI:
     )
     fastramqpi.add_context(settings=settings)
 
-    logger.info("AMQP router setup")
+    logger.info("AMQP disabled")
     amqpsystem = fastramqpi.get_amqpsystem()
-    # Retry messages after a short period of time
-    rate_limit_delay = 10
-    amqpsystem.dependencies = [
-        Depends(rate_limit(rate_limit_delay)),
-        Depends(depends.logger_bound_message_id),
-        Depends(depends.request_id),
-    ]
-    if settings.listen_to_changes_in_mo:
-        amqpsystem.router.registry.update(amqp_router.registry)
-
-    # We delay AMQPSystem start, to detect it from client startup
-    # TODO: This separation should probably be in FastRAMQPI
     priority_set = fastramqpi._context["lifespan_managers"][1000]
     priority_set.remove(amqpsystem)
-    fastramqpi.add_lifespan_manager(amqpsystem, 2000)
 
     logger.info("Configuring LDAP connection")
     ldap_connection = configure_ldap_connection(settings)
@@ -389,5 +389,6 @@ def create_app(fastramqpi: FastRAMQPI | None = None, **kwargs: Any) -> FastAPI:
     app = fastramqpi.get_app()
     user_context = fastramqpi._context["user_context"]
     app.include_router(construct_router(user_context))
+    app.include_router(ldap2mo_router)
 
     return app
