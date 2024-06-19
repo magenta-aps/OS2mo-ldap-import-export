@@ -262,6 +262,12 @@ def construct_router(user_context: UserContext) -> APIRouter:
     async def ldap_uuid2dn(dataloader: depends.DataLoader, uuid: UUID) -> str:
         return await dataloader.get_ldap_dn(uuid)
 
+    @router.get("/Inspect/mo2ldap/{uuid}", status_code=200, tags=["LDAP"])
+    async def mo2ldap_templating(sync_tool: depends.SyncTool, uuid: UUID) -> Any:
+        return encode_result(
+            await sync_tool.listen_to_changes_in_employees(uuid, dry_run=True)
+        )
+
     # Get all objects from LDAP - Converted to MO
     @router.get("/LDAP/{json_key}/converted", status_code=202, tags=["LDAP"])
     async def convert_all_objects_from_ldap(
