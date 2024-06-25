@@ -189,8 +189,8 @@ async def process_person(
     try:
         await sync_tool.listen_to_changes_in_employees(object_uuid)
     except RequeueMessage:
+        await asyncio.sleep(30)
         await graphql_client.employee_refresh(amqpsystem.exchange_name, [object_uuid])
-        return
 
 
 @amqp_router.register("org_unit")
