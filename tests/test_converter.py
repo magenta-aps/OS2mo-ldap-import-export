@@ -1699,20 +1699,6 @@ async def test_find_ldap_it_system(graphql_mock: GraphQLMocker) -> None:
     assert await find_ldap_it_system(graphql_client, settings, mapping) is None
 
 
-async def test_check_cpr_field_or_it_system(converter: LdapConverter):
-    converter.cpr_field = None
-
-    with patch(
-        "mo_ldap_import_export.converters.find_ldap_it_system",
-        return_value=None,
-    ):
-        with pytest.raises(
-            IncorrectMapping,
-            match="Neither a cpr-field or an ldap it-system could be found",
-        ):
-            await converter.check_cpr_field_or_it_system()
-
-
 def test_check_info_dicts(converter: LdapConverter):
     uuid = str(uuid4())
     converter.all_info_dicts = {

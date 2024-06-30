@@ -447,10 +447,16 @@ class LdapConverter:
         self.mapping = self._populate_mapping_with_templates(mapping, environment)
 
         self.cpr_field = await find_cpr_field(mapping)
-
         self.ldap_it_system = await find_ldap_it_system(
             self.dataloader.graphql_client, self.settings, self.mapping
         )
+        # Check to see if there is an existing link between LDAP and MO
+        # The link can either be a cpr-field OR an it-system which maps to an LDAP DN
+        if not self.cpr_field and not self.ldap_it_system:
+            raise IncorrectMapping(
+                "Neither a cpr-field or an ldap it-system could be found"
+            )
+
         await self.check_mapping(mapping)
 
     async def load_info_dicts(self):
@@ -729,15 +735,6 @@ class LdapConverter:
                         ldap_attribute = re.split(invalid_chars_regex, ldap_ref)[0]
                         self.check_attributes([ldap_attribute], accepted_attributes)
 
-    def check_cpr_field_or_it_system(self):
-        """
-        Check that we have either a cpr-field OR an it-system which maps to an LDAP DN
-        """
-        if not self.cpr_field and not self.ldap_it_system:
-            raise IncorrectMapping(
-                "Neither a cpr-field or an ldap it-system could be found"
-            )
-
     async def check_mapping(self, mapping: dict[str, Any]) -> None:
         """Check if the configured mapping is valid.
 
@@ -760,9 +757,6 @@ class LdapConverter:
 
         # Check that fields referred to in ldap_to_mo actually exist in LDAP
         self.check_ldap_to_mo_references(overview)
-
-        # Check to see if there is an existing link between LDAP and MO
-        self.check_cpr_field_or_it_system()
 
         logger.info("Attributes OK")
 
