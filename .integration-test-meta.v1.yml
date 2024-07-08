@@ -147,7 +147,7 @@ include:
           # before_script. See https://docs.gitlab.com/ee/ci/services/ for more info.
           touch /builds/.mo-backing-services-ready
 
-    - name: magentaaps/os2mo:latest
+    - name: magentaaps/os2mo:36.11.0
       alias: mo
       variables:
         PYTHONASYNCIODEBUG: "1"
