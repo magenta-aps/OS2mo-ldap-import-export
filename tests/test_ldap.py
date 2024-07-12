@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
-import asyncio
 import datetime
 import os
 import time
@@ -14,7 +13,6 @@ from uuid import uuid4
 import ldap3.core.exceptions
 import pytest
 from fastramqpi.context import Context
-from fastramqpi.depends import UserContext
 from ldap3 import Connection
 from ldap3 import MOCK_SYNC
 from ldap3 import Server
@@ -30,7 +28,6 @@ from mo_ldap_import_export.config import Settings
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.exceptions import TimeOutException
-from mo_ldap_import_export.ldap import _poll
 from mo_ldap_import_export.ldap import check_ou_in_list_of_ous
 from mo_ldap_import_export.ldap import configure_ldap_connection
 from mo_ldap_import_export.ldap import construct_server
@@ -44,7 +41,6 @@ from mo_ldap_import_export.ldap import make_ldap_object
 from mo_ldap_import_export.ldap import paged_search
 from mo_ldap_import_export.ldap import poller_healthcheck
 from mo_ldap_import_export.ldap import set_search_params_modify_timestamp
-from mo_ldap_import_export.ldap import setup_poller
 from mo_ldap_import_export.ldap import single_object_search
 from mo_ldap_import_export.ldap_classes import LdapObject
 
@@ -267,7 +263,7 @@ def test_configure_ldap_connection_unknown(
 
 def test_get_client_strategy() -> None:
     strategy = get_client_strategy()
-    assert strategy == "ASYNC"
+    assert strategy == "ASYNC_STREAM"
 
 
 @pytest.mark.parametrize("bound", [True, False])
@@ -606,137 +602,6 @@ async def test_set_search_params_modify_timestamp():
 
         assert modified_search_params["search_base"] == search_params["search_base"]
         assert modified_search_params["attributes"] == search_params["attributes"]
-
-
-async def test_setup_poller() -> None:
-    async def _poller(*args: Any) -> None:
-        raise ValueError("BOOM")
-
-    with patch("mo_ldap_import_export.ldap._poller", _poller):
-        context: UserContext = {}
-        search_parameters: dict = {}
-        init_search_time = datetime.datetime.utcnow()
-
-        handle = setup_poller(context, search_parameters, init_search_time, 5)
-
-        assert handle.done() is False
-
-        # Give it a chance to run and explode
-        await asyncio.sleep(0)
-        assert handle.done() is True
-
-        # Check that it exploded
-        with pytest.raises(ValueError) as exc_info:
-            handle.result()
-        assert "BOOM" in str(exc_info.value)
-
-
-async def test_poller(
-    load_settings_overrides: dict[str, str], ldap_connection: MagicMock
-) -> None:
-    dn = "CN=Valeera Singuinar,OU=Bodyguards,DC=Stormwind"
-    uuid = uuid4()
-    event = {
-        "type": "searchResEntry",
-        "attributes": {"distinguishedName": dn},
-    }
-    ldap_connection.get_response.return_value = [event], {"type": "test"}
-
-    ldap_amqpsystem = AsyncMock()
-    dataloader = AsyncMock()
-
-    dataloader.get_ldap_unique_ldap_uuid.return_value = uuid
-
-    last_search_time = datetime.datetime.utcnow()
-    search_time = await _poll(
-        user_context={
-            "ldap_amqpsystem": ldap_amqpsystem,
-            "ldap_connection": ldap_connection,
-            "dataloader": dataloader,
-            "settings": settings,
-        },
-        search_parameters={
-            "search_base": "dc=ad",
-            "search_filter": "cn=*",
-            "attributes": ["cpr_no"],
-        },
-        last_search_time=last_search_time,
-    )
-    assert search_time > last_search_time
-
-    dataloader.get_ldap_unique_ldap_uuid.assert_called_once_with(dn)
-    ldap_amqpsystem.publish_message.assert_called_once_with("uuid", uuid)
-
-
-async def test_poller_no_dn(
-    load_settings_overrides: dict[str, str], ldap_connection: MagicMock
-) -> None:
-    event = {
-        "type": "searchResEntry",
-        "attributes": {},
-    }
-    ldap_connection.get_response.return_value = [event], {"type": "test"}
-
-    ldap_amqpsystem = AsyncMock()
-    dataloader = AsyncMock()
-
-    last_search_time = datetime.datetime.utcnow()
-    with capture_logs() as cap_logs:
-        search_time = await _poll(
-            user_context={
-                "ldap_amqpsystem": ldap_amqpsystem,
-                "ldap_connection": ldap_connection,
-                "dataloader": dataloader,
-                "settings": settings,
-            },
-            search_parameters={
-                "search_base": "dc=ad",
-                "search_filter": "cn=*",
-                "attributes": ["cpr_no"],
-            },
-            last_search_time=last_search_time,
-        )
-        assert search_time > last_search_time
-
-        ldap_amqpsystem.publish_message.assert_not_called()
-    assert {
-        "event": "Got event without dn",
-        "log_level": "warning",
-    } in cap_logs
-
-
-@pytest.mark.parametrize(
-    "response",
-    [
-        [],
-        [{"type": "NOT_searchResEntry"}],
-    ],
-)
-async def test_poller_bad_result(
-    load_settings_overrides: dict[str, str], ldap_connection: MagicMock, response: Any
-) -> None:
-    ldap_connection.get_response.return_value = response, {"type": "test"}
-
-    ldap_amqpsystem = AsyncMock()
-    dataloader = AsyncMock()
-
-    last_search_time = datetime.datetime.utcnow()
-    search_time = await _poll(
-        user_context={
-            "ldap_amqpsystem": ldap_amqpsystem,
-            "ldap_connection": ldap_connection,
-            "dataloader": dataloader,
-            "settings": settings,
-        },
-        search_parameters={
-            "search_base": "dc=ad",
-            "search_filter": "cn=*",
-            "attributes": ["cpr_no"],
-        },
-        last_search_time=last_search_time,
-    )
-    assert search_time > last_search_time
-    assert ldap_amqpsystem.call_count == 0
 
 
 def test_is_uuid():

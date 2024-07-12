@@ -21,7 +21,7 @@ from fastramqpi.depends import UserContext
 from fastramqpi.ramqp import AMQPSystem
 from fastramqpi.ramqp.utils import RequeueMessage
 from jinja2 import Template
-from ldap3 import ASYNC
+from ldap3 import ASYNC_STREAM
 from ldap3 import BASE
 from ldap3 import Connection
 from ldap3 import NO_ATTRIBUTES
@@ -85,7 +85,7 @@ def construct_server(server_config: ServerConfig) -> Server:
 def get_client_strategy():
     # NOTE: We probably want to use REUABLE, but it introduces issues with regards to
     #       presumed lazily fetching of the schema. See the comment in get_ldap_schema.
-    return ASYNC
+    return ASYNC_STREAM
 
 
 def construct_server_pool(settings: Settings) -> ServerPool:
@@ -780,7 +780,7 @@ def setup_listener(context: Context) -> list[Thread]:
     # We need the dn attribute to trigger sync_tool.import_single_user()
     # We need the modifyTimeStamp attribute to check for duplicate events in _poller()
     settings = user_context["settings"]
-    pollers = []
+    searches = []
     for ldap_ou_to_scan_for_changes in settings.ldap_ous_to_search_in:
         search_base = combine_dn_strings(
             [ldap_ou_to_scan_for_changes, settings.ldap_search_base]
@@ -794,79 +794,46 @@ def setup_listener(context: Context) -> list[Thread]:
         }
 
         # Polling search
-        pollers.append(
-            setup_poller(
+        searches.append(
+            setup_persistent_search(
                 user_context,
                 search_parameters,
-                datetime.utcnow(),
-                settings.poll_time,
             )
         )
-    return pollers
+    return searches
 
 
-def setup_poller(
+def setup_persistent_search(
     user_context: UserContext,
     search_parameters: dict,
-    init_search_time: datetime,
-    poll_time: float,
 ) -> Any:
     def done_callback(future):
         # This ensures exceptions go to the terminal
         future.result()
 
-    handle = asyncio.create_task(
-        _poller(user_context, search_parameters, init_search_time, poll_time)
+    ldap_amqpsystem: AMQPSystem = user_context["ldap_amqpsystem"]
+    ldap_connection: Connection = user_context["ldap_connection"]
+    dataloader = user_context["dataloader"]
+    settings: Settings = user_context["settings"]
+    connector = (
+        ldap_connection.extend.standard
+        if settings.ldap_dialect == "Standard"
+        else ldap_connection.extend.microsoft
     )
-    handle.add_done_callback(done_callback)
+
+    logger.info(f"initializing persistent search with {search_parameters=}")
+    handle = connector.persistent_search(
+        **search_parameters,
+        callback=partial(
+            publish_event, dataloader=dataloader, ldap_amqpsystem=ldap_amqpsystem
+        ),
+    )
+
     return handle
 
 
-async def _poll(
-    user_context: UserContext,
-    search_parameters: dict,
-    last_search_time: datetime,
-) -> datetime:
-    """Pool the LDAP server for changes once.
-
-    Args:
-        context:
-            The entire settings context.
-        search_params:
-            LDAP search parameters.
-        callback:
-            Function to call with all changes since `last_search_time`.
-        last_search_time:
-            Find events that occured since this time.
-
-    Returns:
-        A two-tuple containing a list of events to ignore and the time at
-        which the last search was done.
-
-        Should be provided as `last_search_time` in the next iteration.
-    """
-    from .dataloaders import DataLoader
-
-    ldap_amqpsystem: AMQPSystem = user_context["ldap_amqpsystem"]
-    ldap_connection: Connection = user_context["ldap_connection"]
-    dataloader: DataLoader = user_context["dataloader"]
-
-    logger.debug(
-        "Searching for changes since last search", last_search_time=last_search_time
-    )
-    timed_search_parameters = set_search_params_modify_timestamp(
-        search_parameters, last_search_time
-    )
-    last_search_time = datetime.utcnow()
-
-    response, _ = await ldap_search(ldap_connection, **timed_search_parameters)
-
-    # Filter to only keep search results
-    responses = ldapresponse2entries(response)
-
-    # NOTE: We can add message deduplication here if needed for performance later
-    #       For now we do not care about duplicates, we prefer simplicity
-    #       See: !499 for details
+async def publish_event(dataloader, ldap_amqpsystem, responses):
+    logger.info("Event recieved", responses=responses)
 
     def event2dn(event: dict[str, Any]) -> str | None:
         dn = event.get("attributes", {}).get("distinguishedName", None)
@@ -890,42 +857,6 @@ async def _poll(
 
     if uuids:
         await publish_uuids(ldap_amqpsystem, uuids)
-
-    return last_search_time
-
-
-async def _poller(
-    user_context: UserContext,
-    search_parameters: dict,
-    init_search_time: datetime,
-    poll_time: float,
-) -> None:
-    """Poll the LDAP server continuously every `poll_time` seconds.
-
-    Args:
-        context:
-            The entire settings context.
-        search_params:
-            LDAP search parameters.
-        callback:
-            Function to call with all changes since `last_search_time`.
-        init_search_time:
-            Find events that occured since this time.
-        pool_time:
-            The interval with which to poll.
-    """
-    logger.info("Poller started", search_base=search_parameters["search_base"])
-
-    seeded_poller = partial(
-        _poll,
-        user_context=user_context,
-        search_parameters=search_parameters,
-    )
-
-    last_search_time = init_search_time
-    while True:
-        last_search_time = await seeded_poller(last_search_time=last_search_time)
-        await asyncio.sleep(poll_time)
 
 
 def set_search_params_modify_timestamp(
