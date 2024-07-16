@@ -919,8 +919,8 @@ async def test_load_mo_employee_not_found(
 
     uuid = uuid4()
 
-    with pytest.raises(NoObjectsReturnedException):
-        await dataloader.load_mo_employee(uuid)
+    result = await dataloader.load_mo_employee(uuid)
+    assert result is None
 
 
 async def test_load_mo_it_systems(

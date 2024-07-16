@@ -1015,7 +1015,7 @@ class DataLoader:
         # If the employee has a cpr-no, try using that to find matchind DNs
         employee = await self.load_mo_employee(uuid)
         if employee is None:
-            raise NoObjectsReturnedException("Could not fetch employee")
+            raise NoObjectsReturnedException(f"Unable to lookup employee: {uuid}")
         cpr_no = CPRNumber(employee.cpr_no) if employee.cpr_no else None
         # No CPR, no problem
         if not cpr_no:
@@ -1078,7 +1078,7 @@ class DataLoader:
         raw_it_system_uuid = await self.get_ldap_it_system_uuid()
         employee = await self.load_mo_employee(uuid)
         if employee is None:
-            raise NoObjectsReturnedException("Could not fetch employee")
+            raise NoObjectsReturnedException(f"Unable to lookup employee: {uuid}")
         cpr_no = CPRNumber(employee.cpr_no) if employee.cpr_no else None
 
         # Check if we even dare create a DN
@@ -1183,7 +1183,18 @@ class DataLoader:
             *[self.load_mo_employee(employee_uuid) for employee_uuid in employee_uuids]
         )
         if None in employees:
-            raise NoObjectsReturnedException("Could not fetch employee")
+            unable_to_lookup_uuids = [
+                uuid
+                for employee, uuid in zip(employees, employee_uuids)
+                if employee is None
+            ]
+            raise ExceptionGroup(
+                "Unable to lookup org-unit employees",
+                [
+                    NoObjectsReturnedException(f"Unable to lookup employee: {uuid}")
+                    for uuid in unable_to_lookup_uuids
+                ],
+            )
         return cast(list[Employee], employees)
 
     async def load_mo_class_uuid(self, user_key: str) -> UUID:
