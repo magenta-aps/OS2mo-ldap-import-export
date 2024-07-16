@@ -28,6 +28,7 @@ from mo_ldap_import_export.customer_specific import JobTitleFromADToMO
 from mo_ldap_import_export.dataloaders import DataLoader
 from mo_ldap_import_export.dataloaders import Verb
 from mo_ldap_import_export.depends import GraphQLClient
+from mo_ldap_import_export.depends import LdapConverter
 from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.import_export import get_primary_engagement
@@ -82,14 +83,25 @@ def fake_find_mo_employee_dn(sync_tool: SyncTool, fake_dn: DN) -> None:
     sync_tool.dataloader.find_mo_employee_dn.return_value = {fake_dn}  # type: ignore
 
 
-async def test_listen_to_changes_in_org_units(
-    converter: MagicMock, dataloader: AsyncMock, sync_tool: SyncTool
-):
+async def test_listen_to_changes_in_org_units(dataloader: AsyncMock) -> None:
+    settings = MagicMock()
+    settings.org_unit_path_string_separator = "/"
+
+    converter = LdapConverter(
+        {
+            "user_context": {
+                "settings": settings,
+                "mapping": MagicMock(),
+                "dataloader": dataloader,
+            }
+        }
+    )
+
     org_unit_info = {uuid4(): {"name": "Magenta Aps"}}
 
     dataloader.load_mo_org_units.return_value = org_unit_info
 
-    await sync_tool.refresh_org_unit_info_cache()
+    await converter.refresh_org_unit_info()
     assert converter.org_unit_info == org_unit_info
 
 

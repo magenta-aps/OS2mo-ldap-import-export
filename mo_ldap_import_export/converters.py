@@ -489,12 +489,16 @@ class LdapConverter:
         )
         await self.check_mapping(mapping)
 
+    async def refresh_org_unit_info(self) -> None:
+        logger.info("Updating org unit info")
+        self.org_unit_info = await self.dataloader.load_mo_org_units()
+        self.check_org_unit_info_dict()
+
     async def load_info_dicts(self):
         # Note: If new address types or IT systems are added to MO, these dicts need
         # to be re-initialized
         logger.info("Loading info dicts")
-
-        self.org_unit_info = await self.dataloader.load_mo_org_units()
+        await self.refresh_org_unit_info()
 
         self.all_info_dicts = {
             f: getattr(self, f)
@@ -851,8 +855,6 @@ class LdapConverter:
                     raise IncorrectMapping(f"{uuid} is not a string")
                 if not is_uuid(uuid):
                     raise IncorrectMapping(f"{uuid} is not an uuid")
-
-        self.check_org_unit_info_dict()
 
     async def create_org_unit(self, org_unit_path_string: str):
         """
