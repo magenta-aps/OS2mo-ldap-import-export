@@ -1368,11 +1368,21 @@ class DataLoader:
         result = await self.graphql_client.read_ituser_by_employee_and_itsystem_uuid(
             employee_uuid, it_system_uuid
         )
+        ituser_uuids = [ituser.uuid for ituser in result.objects]
         output = await asyncio.gather(
-            *[self.load_mo_it_user(ituser.uuid) for ituser in result.objects]
+            *[self.load_mo_it_user(uuid) for uuid in ituser_uuids]
         )
         if None in output:
-            raise NoObjectsReturnedException("Could not fetch ituser")
+            unable_to_lookup_uuids = [
+                uuid for ituser, uuid in zip(output, ituser_uuids) if ituser is None
+            ]
+            raise ExceptionGroup(
+                "Unable to lookup employee it-users",
+                [
+                    NoObjectsReturnedException(f"Unable to lookup ituser: {uuid}")
+                    for uuid in unable_to_lookup_uuids
+                ],
+            )
         return cast(list[ITUser], output)
 
     async def load_mo_employee_engagement_dicts(
