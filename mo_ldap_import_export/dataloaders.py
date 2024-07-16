@@ -111,22 +111,22 @@ class ValidityModel(Protocol):
 T = TypeVar("T", bound=ValidityModel)
 
 
-def extract_current_or_latest_object(objects: list[T]) -> T | None:
+def extract_current_or_latest_validity(validities: list[T]) -> T | None:
     """
-    Check the validity in a list of object dictionaries and return the one which
-    is either valid today, or has the latest end-date
+    Check each validity in a list of validities and return the one which is either
+    valid today, or has the latest end-date
     """
-    if len(objects) == 0:
+    if len(validities) == 0:
         # TODO: Simply return None instead?
-        raise NoObjectsReturnedException("Objects is empty")
-    if len(objects) == 1:
-        return one(objects)
+        raise NoObjectsReturnedException("validities is empty")
+    if len(validities) == 1:
+        return one(validities)
 
-    def is_current(obj: T) -> bool:
+    def is_current(val: T) -> bool:
         # Cannot use datetime.utcnow as it is not timezone aware
         now_utc = datetime.now(timezone.utc)
 
-        match (obj.validity.from_, obj.validity.to):
+        match (val.validity.from_, val.validity.to):
             case (None, None):
                 return True
             case (start, None):
@@ -142,17 +142,19 @@ def extract_current_or_latest_object(objects: list[T]) -> T | None:
             case _:  # pragma: no cover
                 assert False
 
-    # If any of the objects is valid today, return it
-    current_object = only(filter(is_current, objects))
-    if current_object:
-        return current_object
+    # If any of the validities is valid today, return it
+    current_validity = only(filter(is_current, validities))
+    if current_validity:
+        return current_validity
     # Otherwise return the latest
     # TODO: Does this actually make sense? - Should we not return the one which is the
     #       closest to now, rather than the one that is the furthest into the future?
     # Cannot use datetime.max directly as it is not timezone aware
     datetime_max_utc = datetime.max.replace(tzinfo=timezone.utc)
-    latest_object = max(objects, key=lambda obj: obj.validity.to or datetime_max_utc)
-    return latest_object
+    latest_validity = max(
+        validities, key=lambda val: val.validity.to or datetime_max_utc
+    )
+    return latest_validity
 
 
 class DataLoader:
@@ -1160,7 +1162,7 @@ class DataLoader:
         if result is None:
             return None
         try:
-            result_entry = extract_current_or_latest_object(result.validities)
+            result_entry = extract_current_or_latest_validity(result.validities)
         except NoObjectsReturnedException:
             return None
         entry = jsonable_encoder(result_entry)
@@ -1240,7 +1242,7 @@ class DataLoader:
 
         return {
             str(org_unit.uuid): jsonable_encoder(
-                extract_current_or_latest_object(org_unit.validities)
+                extract_current_or_latest_validity(org_unit.validities)
             )
             for org_unit in result.objects
         }
@@ -1252,7 +1254,7 @@ class DataLoader:
         if result is None:
             raise NoObjectsReturnedException("Could not fetch ituser")
 
-        result_entry = extract_current_or_latest_object(result.validities)
+        result_entry = extract_current_or_latest_validity(result.validities)
         entry = jsonable_encoder(result_entry)
         return ITUser.from_simplified_fields(
             user_key=entry["user_key"],
@@ -1282,7 +1284,7 @@ class DataLoader:
         if result is None:
             raise NoObjectsReturnedException("Could not fetch address")
 
-        result_entry = extract_current_or_latest_object(result.validities)
+        result_entry = extract_current_or_latest_validity(result.validities)
         entry = jsonable_encoder(result_entry)
         address = Address.from_simplified_fields(
             value=entry["value"],
@@ -1330,7 +1332,7 @@ class DataLoader:
         if result is None:
             raise NoObjectsReturnedException("Could not fetch engagement")
 
-        entry_result = extract_current_or_latest_object(result.validities)
+        entry_result = extract_current_or_latest_validity(result.validities)
         entry = jsonable_encoder(entry_result)
         engagement = Engagement.from_simplified_fields(
             org_unit_uuid=entry["org_unit_uuid"],
