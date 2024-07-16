@@ -138,18 +138,21 @@ async def test_create_it_systems(dataloader: AsyncMock, init_engine: InitEngine)
 
 
 async def test_create_it_systems_system_exists(
-    dataloader: AsyncMock, init_engine: InitEngine
-):
+    dataloader: AsyncMock, init_engine: InitEngine, graphql_mock: GraphQLMocker
+) -> None:
     """
     Try to create an existing it-system. It should be skipped
     """
     uuid = str(uuid4())
-    dataloader.load_mo_it_systems.return_value = {
-        uuid: {
-            "user_key": "ADGUID",
-            "uuid": uuid,
-        }
+
+    graphql_client = GraphQLClient("http://example.com/graphql")
+    dataloader.graphql_client = graphql_client
+
+    route = graphql_mock.query("read_itsystems")
+    route.result = {
+        "itsystems": {"objects": [{"current": {"user_key": "ADGUID", "uuid": uuid}}]}
     }
+
     await init_engine.create_it_systems()
 
     dataloader.create_mo_it_system.assert_not_called()

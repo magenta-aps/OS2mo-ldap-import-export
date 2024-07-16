@@ -81,6 +81,7 @@ from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.exceptions import ReadOnlyException
+from mo_ldap_import_export.os2mo_init import load_mo_it_systems
 from mo_ldap_import_export.routes import load_all_current_it_users
 from mo_ldap_import_export.routes import load_ldap_attribute_values
 from mo_ldap_import_export.routes import load_ldap_objects
@@ -938,7 +939,7 @@ async def test_load_mo_it_systems(
         }
     }
 
-    output = await dataloader.load_mo_it_systems()
+    output = await load_mo_it_systems(dataloader.graphql_client)
     assert output[str(uuid1)]["user_key"] == "AD"
     assert output[str(uuid2)]["user_key"] == "Office365"
 
@@ -1005,7 +1006,7 @@ async def test_load_mo_it_systems_not_found(
     return_value: dict = {"itsystems": {"objects": []}}
     legacy_graphql_session.execute.return_value = return_value
 
-    output = await dataloader.load_mo_it_systems()
+    output = await load_mo_it_systems(dataloader.graphql_client)
     assert output == {}
 
 

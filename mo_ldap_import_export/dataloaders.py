@@ -1213,15 +1213,6 @@ class DataLoader:
             return None
         return facet.uuid
 
-    async def load_mo_it_systems(self) -> dict[str, Any]:
-        result = await self.graphql_client.read_itsystems()
-        # TODO: Actually return UUID types here
-        return {
-            str(itsystem.current.uuid): jsonable_encoder(itsystem.current)
-            for itsystem in result.objects
-            if itsystem.current is not None
-        }
-
     async def load_mo_root_org_uuid(self) -> UUID:
         """Get the UUID of the root organisational unit in MO.
 
