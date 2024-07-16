@@ -83,9 +83,13 @@ def fake_find_mo_employee_dn(sync_tool: SyncTool, fake_dn: DN) -> None:
     sync_tool.dataloader.find_mo_employee_dn.return_value = {fake_dn}  # type: ignore
 
 
-async def test_listen_to_changes_in_org_units(dataloader: AsyncMock) -> None:
+async def test_listen_to_changes_in_org_units(
+    dataloader: AsyncMock, graphql_mock: GraphQLMocker
+) -> None:
     settings = MagicMock()
     settings.org_unit_path_string_separator = "/"
+
+    dataloader.graphql_client = GraphQLClient("http://example.com/graphql")
 
     converter = LdapConverter(
         {
@@ -97,9 +101,26 @@ async def test_listen_to_changes_in_org_units(dataloader: AsyncMock) -> None:
         }
     )
 
-    org_unit_info = {uuid4(): {"name": "Magenta Aps"}}
+    org_unit_uuid = uuid4()
+    org_unit_info = {
+        str(org_unit_uuid): {
+            "uuid": str(org_unit_uuid),
+            "name": "Magenta Aps",
+            "parent_uuid": None,
+            "user_key": str(uuid4()),
+            "validity": {"from": "1900-01-01T00:00:00", "to": None},
+        }
+    }
 
-    dataloader.load_mo_org_units.return_value = org_unit_info
+    route = graphql_mock.query("read_org_units")
+    route.result = {
+        "org_units": {
+            "objects": [
+                {"uuid": uuid, "validities": [validity]}
+                for uuid, validity in org_unit_info.items()
+            ]
+        }
+    }
 
     await converter.refresh_org_unit_info()
     assert converter.org_unit_info == org_unit_info

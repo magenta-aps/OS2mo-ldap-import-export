@@ -1213,16 +1213,6 @@ class DataLoader:
             return None
         return facet.uuid
 
-    async def load_mo_org_units(self) -> dict:
-        result = await self.graphql_client.read_org_units()
-
-        return {
-            str(org_unit.uuid): jsonable_encoder(
-                extract_current_or_latest_validity(org_unit.validities)
-            )
-            for org_unit in result.objects
-        }
-
     async def load_mo_it_user(self, uuid: UUID, current_objects_only=True) -> ITUser:
         start = end = UNSET if current_objects_only else None
         results = await self.graphql_client.read_itusers([uuid], start, end)
