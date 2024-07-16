@@ -1167,36 +1167,6 @@ class DataLoader:
         entry.pop("validity")
         return Employee(**entry)
 
-    async def load_mo_employees_in_org_unit(self, uuid: OrgUnitUUID) -> list[Employee]:
-        """
-        Load all current employees engaged to an org unit
-        """
-        result = await self.graphql_client.read_employees_with_engagement_to_org_unit(
-            uuid
-        )
-
-        employee_uuids = {
-            x.current.employee_uuid for x in result.objects if x.current is not None
-        }
-        # TODO: dataloader?
-        employees = await asyncio.gather(
-            *[self.load_mo_employee(employee_uuid) for employee_uuid in employee_uuids]
-        )
-        if None in employees:
-            unable_to_lookup_uuids = [
-                uuid
-                for employee, uuid in zip(employees, employee_uuids)
-                if employee is None
-            ]
-            raise ExceptionGroup(
-                "Unable to lookup org-unit employees",
-                [
-                    NoObjectsReturnedException(f"Unable to lookup employee: {uuid}")
-                    for uuid in unable_to_lookup_uuids
-                ],
-            )
-        return cast(list[Employee], employees)
-
     async def load_mo_class_uuid(self, user_key: str) -> UUID:
         """Find the UUID of a class by user-key.
 
