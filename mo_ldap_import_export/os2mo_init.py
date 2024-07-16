@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
 from typing import Any
+from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 
 import structlog
 from fastapi.encoders import jsonable_encoder
@@ -30,6 +31,8 @@ class InitEngine:
         self.dataloader: DataLoader = user_context["dataloader"]
 
     async def create_facets(self):
+        # TODO: This function does not actually seem to create facets at all
+        #       It only seems to create classes within facets
         facet_mapping = self.init_mapping.facets
 
         # Loop over facet user_keys. For example "employee_address_type"
@@ -40,6 +43,10 @@ class InitEngine:
                 self.dataloader.graphql_client, facet_user_key
             )
             facet_uuid = await self.dataloader.load_mo_facet_uuid(facet_user_key)
+            if facet_uuid is None:
+                raise NoObjectsReturnedException(
+                    f"Could not find facet with user_key = '{facet_user_key}"
+                )
             existing_classes = {f["user_key"]: f for f in facet_info.values()}
 
             # Loop over class user_keys. For example "EmailEmployee"
