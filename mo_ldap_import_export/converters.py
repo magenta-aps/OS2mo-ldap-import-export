@@ -451,6 +451,16 @@ async def check_key_validity(
     logger.info("Keys OK")
 
 
+async def load_mo_root_org_uuid(graphql_client: GraphQLClient) -> UUID:
+    """Get the UUID of the root organisational unit in MO.
+
+    Returns:
+        The UUID of the root organisational unit.
+    """
+    result = await graphql_client.read_root_org_uuid()
+    return result.uuid
+
+
 class LdapConverter:
     def __init__(self, context: Context):
         self.context = context
@@ -863,7 +873,9 @@ class LdapConverter:
                 logger.info("Importing", path=partial_path_string)
 
                 if nesting_level == 0:
-                    parent_uuid = str(await self.dataloader.load_mo_root_org_uuid())
+                    parent_uuid = str(
+                        await load_mo_root_org_uuid(self.dataloader.graphql_client)
+                    )
                 else:
                     parent_path = org_unit_path[:nesting_level]
                     parent_path_string = self.org_unit_path_string_separator.join(
@@ -919,7 +931,7 @@ class LdapConverter:
         )
 
     async def get_org_unit_path_string(self, uuid: str):
-        root_org_uuid = str(await self.dataloader.load_mo_root_org_uuid())
+        root_org_uuid = str(await load_mo_root_org_uuid(self.dataloader.graphql_client))
         org_unit_info = self.org_unit_info[str(uuid)]
         object_name = org_unit_info["name"].strip()
         parent_uuid: str = org_unit_info["parent_uuid"]
@@ -972,7 +984,7 @@ class LdapConverter:
             If the layer provided is beyond the depth available None is returned.
         """
         # TODO: Implement this using MOs ancestor filter instead of org_unit_info
-        root_org_uuid = str(await self.dataloader.load_mo_root_org_uuid())
+        root_org_uuid = str(await load_mo_root_org_uuid(self.dataloader.graphql_client))
         org_unit_info = self.org_unit_info[str(uuid)]
 
         parent_uuid: str = org_unit_info["parent_uuid"]

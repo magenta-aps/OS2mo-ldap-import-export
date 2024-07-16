@@ -1213,15 +1213,6 @@ class DataLoader:
             return None
         return facet.uuid
 
-    async def load_mo_root_org_uuid(self) -> UUID:
-        """Get the UUID of the root organisational unit in MO.
-
-        Returns:
-            The UUID of the root organisational unit.
-        """
-        result = await self.graphql_client.read_root_org_uuid()
-        return result.uuid
-
     async def load_mo_org_units(self) -> dict:
         result = await self.graphql_client.read_org_units()
 

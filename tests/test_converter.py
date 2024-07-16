@@ -1425,7 +1425,11 @@ async def test_check_ldap_to_mo_references(converter: LdapConverter):
         assert "Attribute 'nonExistingAttribute' not allowed." in str(inner_exception)
 
 
-async def test_create_org_unit(converter: LdapConverter):
+async def test_create_org_unit(
+    converter: LdapConverter, graphql_mock: GraphQLMocker
+) -> None:
+    converter.dataloader.graphql_client = GraphQLClient("http://example.com/graphql")  # type: ignore
+
     uuids = [str(uuid4()), str(uuid4()), str(uuid4())]
     org_units = ["Magenta Aps", "Magenta Aarhus", "GrønlandsTeam"]
     org_unit_infos = [
@@ -1434,7 +1438,12 @@ async def test_create_org_unit(converter: LdapConverter):
 
     uuid_root_org_uuid = uuid4()
     root_org_uuid = str(uuid_root_org_uuid)
-    converter.dataloader.load_mo_root_org_uuid.return_value = uuid_root_org_uuid  # type: ignore
+
+    route1 = graphql_mock.query("read_root_org_uuid")
+    route1.result = {"org": {"uuid": uuid_root_org_uuid}}
+
+    route2 = graphql_mock.query("read_class_uuid_by_facet_and_class_user_key")
+    route2.result = {"classes": {"objects": [{"uuid": uuid4()}]}}
 
     converter.org_unit_info = {
         uuids[0]: {**org_unit_infos[0], "parent_uuid": root_org_uuid},
@@ -1460,10 +1469,19 @@ async def test_create_org_unit(converter: LdapConverter):
     assert "Ørsted" in org_units
 
 
-async def test_get_or_create_org_unit_uuid(converter: LdapConverter):
+async def test_get_or_create_org_unit_uuid(
+    converter: LdapConverter, graphql_mock: GraphQLMocker
+) -> None:
+    converter.dataloader.graphql_client = GraphQLClient("http://example.com/graphql")  # type: ignore
+
     uuid_root_org_uuid = uuid4()
     root_org_uuid = str(uuid_root_org_uuid)
-    converter.dataloader.load_mo_root_org_uuid.return_value = root_org_uuid  # type: ignore
+
+    route1 = graphql_mock.query("read_root_org_uuid")
+    route1.result = {"org": {"uuid": uuid_root_org_uuid}}
+
+    route2 = graphql_mock.query("read_class_uuid_by_facet_and_class_user_key")
+    route2.result = {"classes": {"objects": [{"uuid": uuid4()}]}}
 
     uuid = str(uuid4())
     converter.org_unit_info = {
@@ -1901,14 +1919,23 @@ def test_clean_calls_to_get_current_method_from_template_string(
     assert "ldap.foo" in cleaned_template
 
 
-async def test_get_org_unit_uuid_from_path(converter: LdapConverter):
+async def test_get_org_unit_uuid_from_path(
+    converter: LdapConverter, graphql_mock: GraphQLMocker
+) -> None:
+    converter.dataloader.graphql_client = GraphQLClient("http://example.com/graphql")  # type: ignore
+
     uuid_org1 = str(uuid4())
     uuid_org2 = str(uuid4())
     uuid_org3 = str(uuid4())
 
     uuid_root_org_uuid = uuid4()
     root_org_uuid = str(uuid_root_org_uuid)
-    converter.dataloader.load_mo_root_org_uuid.return_value = uuid_root_org_uuid  # type: ignore
+
+    route1 = graphql_mock.query("read_root_org_uuid")
+    route1.result = {"org": {"uuid": uuid_root_org_uuid}}
+
+    route2 = graphql_mock.query("read_class_uuid_by_facet_and_class_user_key")
+    route2.result = {"classes": {"objects": [{"uuid": uuid4()}]}}
 
     converter.org_unit_info = {
         uuid_org1: {"name": "org1", "uuid": uuid_org1, "parent_uuid": root_org_uuid},
