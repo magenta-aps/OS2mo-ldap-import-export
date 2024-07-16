@@ -1014,6 +1014,8 @@ class DataLoader:
         """
         # If the employee has a cpr-no, try using that to find matchind DNs
         employee = await self.load_mo_employee(uuid)
+        if employee is None:
+            raise NoObjectsReturnedException("Could not fetch employee")
         cpr_no = CPRNumber(employee.cpr_no) if employee.cpr_no else None
         # No CPR, no problem
         if not cpr_no:
@@ -1075,6 +1077,8 @@ class DataLoader:
     async def make_mo_employee_dn(self, uuid: UUID) -> DN:
         raw_it_system_uuid = await self.get_ldap_it_system_uuid()
         employee = await self.load_mo_employee(uuid)
+        if employee is None:
+            raise NoObjectsReturnedException("Could not fetch employee")
         cpr_no = CPRNumber(employee.cpr_no) if employee.cpr_no else None
 
         # Check if we even dare create a DN
@@ -1147,14 +1151,18 @@ class DataLoader:
         )
         return dn
 
-    async def load_mo_employee(self, uuid: UUID, current_objects_only=True) -> Employee:
+    async def load_mo_employee(
+        self, uuid: UUID, current_objects_only=True
+    ) -> Employee | None:
         start = end = UNSET if current_objects_only else None
         results = await self.graphql_client.read_employees([uuid], start, end)
         result = only(results.objects)
         if result is None:
-            raise NoObjectsReturnedException("Could not fetch employee")
-
-        result_entry = extract_current_or_latest_object(result.validities)
+            return None
+        try:
+            result_entry = extract_current_or_latest_object(result.validities)
+        except NoObjectsReturnedException:
+            return None
         entry = jsonable_encoder(result_entry)
         entry.pop("validity")
         return Employee(**entry)
@@ -1174,7 +1182,9 @@ class DataLoader:
         employees = await asyncio.gather(
             *[self.load_mo_employee(employee_uuid) for employee_uuid in employee_uuids]
         )
-        return employees
+        if None in employees:
+            raise NoObjectsReturnedException("Could not fetch employee")
+        return cast(list[Employee], employees)
 
     async def load_mo_class_uuid(self, user_key: str) -> UUID:
         """Find the UUID of a class by user-key.
