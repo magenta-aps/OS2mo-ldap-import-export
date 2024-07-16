@@ -1035,6 +1035,7 @@ async def test_load_mo_it_user(
     }
 
     output = await dataloader.load_mo_it_user(uuid4())
+    assert output is not None
     assert output.user_key == "foo"
     assert output.itsystem.uuid == uuid2
     assert output.person.uuid == uuid1  # type: ignore
@@ -1107,8 +1108,8 @@ async def test_load_mo_it_user_not_found(
 
     legacy_graphql_session.execute.return_value = return_value
 
-    with pytest.raises(NoObjectsReturnedException):
-        await dataloader.load_mo_it_user(uuid4())
+    result = await dataloader.load_mo_it_user(uuid4())
+    assert result is None
 
 
 async def test_load_mo_employee_it_users(
