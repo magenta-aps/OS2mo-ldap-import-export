@@ -193,6 +193,7 @@ from .read_class_uuid_by_facet_and_class_user_key import (
 from .read_employee_addresses import ReadEmployeeAddresses
 from .read_employee_addresses import ReadEmployeeAddressesAddresses
 from .read_employee_addresses import ReadEmployeeAddressesAddressesObjects
+from .read_employee_addresses import ReadEmployeeAddressesAddressesObjectsValidities
 from .read_employee_uuid_by_cpr_number import ReadEmployeeUuidByCprNumber
 from .read_employee_uuid_by_cpr_number import ReadEmployeeUuidByCprNumberEmployees
 from .read_employee_uuid_by_cpr_number import (
@@ -508,6 +509,7 @@ __all__ = [
     "ReadEmployeeAddresses",
     "ReadEmployeeAddressesAddresses",
     "ReadEmployeeAddressesAddressesObjects",
+    "ReadEmployeeAddressesAddressesObjectsValidities",
     "ReadEmployeeUuidByCprNumber",
     "ReadEmployeeUuidByCprNumberEmployees",
     "ReadEmployeeUuidByCprNumberEmployeesObjects",
