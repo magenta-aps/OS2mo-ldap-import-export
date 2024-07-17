@@ -18,8 +18,6 @@ from uuid import UUID
 
 import structlog
 from fastapi.encoders import jsonable_encoder
-from gql.client import AsyncClientSession
-from graphql import DocumentNode
 from ldap3 import BASE
 from ldap3.core.exceptions import LDAPInvalidValueError
 from ldap3.protocol import oid
@@ -179,15 +177,6 @@ class DataLoader:
 
         self.supported_object_types = list(self.object_type_dict_inv.keys())
 
-    def _check_if_empty(self, result: dict):
-        for key, value in result.items():
-            if "objects" in value and len(value["objects"]) == 0:
-                raise NoObjectsReturnedException(
-                    f"query_result['{key}'] is empty. "
-                    f"Does the '{key}' object still exist as a current object? "
-                    f"Does the '{key}' object exist in MO?"
-                )
-
     @property
     def graphql_client(self) -> GraphQLClient:
         return cast(GraphQLClient, self.context["graphql_client"])
@@ -259,41 +248,6 @@ class DataLoader:
             raise AttributeNotFound(
                 f"'{attribute}' not found in 'mo_to_ldap' attributes"
             )
-
-    async def query_mo(
-        self, query: DocumentNode, raise_if_empty: bool = True, variable_values={}
-    ):
-        graphql_session: AsyncClientSession = self.context["legacy_graphql_session"]
-        result = await graphql_session.execute(
-            query, variable_values=jsonable_encoder(variable_values)
-        )
-        if raise_if_empty:
-            self._check_if_empty(result)
-        return result
-
-    async def query_mo_paged(self, query):
-        result = await self.query_mo(query, raise_if_empty=False)
-
-        for key in result.keys():
-            cursor = result[key]["page_info"]["next_cursor"]
-            page_counter = 0
-
-            while cursor:
-                logger.info("Loading next page", key=key, page=page_counter)
-                next_result = await self.query_mo(
-                    query,
-                    raise_if_empty=False,
-                    variable_values={"cursor": cursor},
-                )
-
-                # Append next page to result
-                result[key]["objects"] += next_result[key]["objects"]
-
-                # Update cursor and page counter
-                page_counter += 1
-                cursor = next_result[key]["page_info"]["next_cursor"]
-
-        return result
 
     async def load_ldap_object(
         self,

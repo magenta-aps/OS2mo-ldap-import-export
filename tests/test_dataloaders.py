@@ -21,7 +21,6 @@ import pytest
 from fastapi.encoders import jsonable_encoder
 from fastramqpi.context import Context
 from freezegun import freeze_time
-from gql import gql
 from httpx import Response
 from ldap3.core.exceptions import LDAPInvalidValueError
 from more_itertools import flatten
@@ -1460,27 +1459,6 @@ async def test_is_primaries(
     assert is_primary_engagements_route.called
 
 
-async def test_query_mo(dataloader: DataLoader, legacy_graphql_session: AsyncMock):
-    expected_output: dict = {"objects": {"objects": []}}
-    legacy_graphql_session.execute.return_value = expected_output
-
-    query = gql(
-        """
-        query TestQuery {
-          employees {
-            uuid
-          }
-        }
-        """
-    )
-
-    output = await dataloader.query_mo(query, raise_if_empty=False)
-    assert output == expected_output
-
-    with pytest.raises(NoObjectsReturnedException):
-        await dataloader.query_mo(query, raise_if_empty=True)
-
-
 async def test_shared_attribute(dataloader: DataLoader):
     converter = MagicMock()
     converter.mapping = {
@@ -1826,8 +1804,6 @@ async def test_create_mo_class(dataloader: DataLoader):
     uuid = uuid4()
     existing_class_uuid = uuid4()
 
-    dataloader.query_mo = AsyncMock()  # type: ignore
-
     async def class_create(_) -> ClassCreateClassCreate:
         # Simulate creation time delay
         await asyncio.sleep(0.1)
@@ -2119,48 +2095,6 @@ async def test_load_all_current_it_users_paged(
 
     assert second["itsystem_uuid"] == str(itsystem1_uuid)
     assert second["user_key"] == "bar"
-
-
-async def test_query_mo_paged(dataloader: DataLoader):
-    employee1 = {"uuid": uuid4()}
-    employee2 = {"uuid": uuid4()}
-    employee3 = {"uuid": uuid4()}
-
-    results = [
-        {
-            "employees": {
-                "objects": [employee1, employee2],
-                "page_info": {"next_cursor": "MWq"},
-            }
-        },
-        {"employees": {"objects": [employee3], "page_info": {"next_cursor": None}}},
-    ]
-
-    dataloader.query_mo = AsyncMock()  # type: ignore
-    dataloader.query_mo.side_effect = results
-
-    query = gql(
-        """
-        query AllEmployees($cursor: Cursor) {
-          itusers (limit: 2, cursor: $cursor) {
-            objects {
-                uuid
-            }
-            page_info {
-              next_cursor
-            }
-          }
-        }
-        """
-    )
-
-    output = await dataloader.query_mo_paged(query)
-
-    uuids = [res["uuid"] for res in output["employees"]["objects"]]
-
-    assert employee1["uuid"] in uuids
-    assert employee2["uuid"] in uuids
-    assert employee3["uuid"] in uuids
 
 
 uuid_obj1 = uuid4()
