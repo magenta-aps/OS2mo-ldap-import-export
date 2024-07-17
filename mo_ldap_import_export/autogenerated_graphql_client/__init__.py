@@ -334,6 +334,7 @@ from .read_itusers import ReadItusersItusersObjectsValiditiesValidity
 from .read_org_unit_addresses import ReadOrgUnitAddresses
 from .read_org_unit_addresses import ReadOrgUnitAddressesAddresses
 from .read_org_unit_addresses import ReadOrgUnitAddressesAddressesObjects
+from .read_org_unit_addresses import ReadOrgUnitAddressesAddressesObjectsValidities
 from .read_org_unit_name import ReadOrgUnitName
 from .read_org_unit_name import ReadOrgUnitNameOrgUnits
 from .read_org_unit_name import ReadOrgUnitNameOrgUnitsObjects
@@ -598,6 +599,7 @@ __all__ = [
     "ReadOrgUnitAddresses",
     "ReadOrgUnitAddressesAddresses",
     "ReadOrgUnitAddressesAddressesObjects",
+    "ReadOrgUnitAddressesAddressesObjectsValidities",
     "ReadOrgUnitName",
     "ReadOrgUnitNameOrgUnits",
     "ReadOrgUnitNameOrgUnitsObjects",

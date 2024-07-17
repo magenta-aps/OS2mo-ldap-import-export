@@ -1322,15 +1322,14 @@ class DataLoader:
         result = await self.graphql_client.read_org_unit_addresses(
             org_unit_uuid, address_type_uuid
         )
-        # TODO: Bulk this
-        address_uuids = [address.uuid for address in result.objects]
-        output = await asyncio.gather(
-            *[self.load_mo_address(uuid) for uuid in address_uuids]
-        )
-        if None in output:
-            unable_to_lookup_uuids = [
-                uuid for address, uuid in zip(output, address_uuids) if address is None
-            ]
+        output = {
+            obj.uuid: graphql_address_to_ramodels_address(obj.validities)
+            for obj in result.objects
+        }
+        unable_to_lookup_uuids = [
+            uuid for uuid, address in output.items() if address is None
+        ]
+        if unable_to_lookup_uuids:
             raise ExceptionGroup(
                 "Unable to lookup org-unit addresses",
                 [
@@ -1338,7 +1337,7 @@ class DataLoader:
                     for uuid in unable_to_lookup_uuids
                 ],
             )
-        return cast(list[Address], output)
+        return cast(list[Address], list(output.values()))
 
     async def load_mo_employee_it_users(
         self,
