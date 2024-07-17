@@ -111,16 +111,13 @@ class ValidityModel(Protocol):
 T = TypeVar("T", bound=ValidityModel)
 
 
-def extract_current_or_latest_validity(validities: list[T]) -> T:
+def extract_current_or_latest_validity(validities: list[T]) -> T | None:
     """
     Check each validity in a list of validities and return the one which is either
     valid today, or has the latest end-date
     """
-    if len(validities) == 0:
-        # TODO: Simply return None instead?
-        raise NoObjectsReturnedException("validities is empty")
-    if len(validities) == 1:
-        return one(validities)
+    if len(validities) < 2:
+        return only(validities)
 
     def is_current(val: T) -> bool:
         # Cannot use datetime.utcnow as it is not timezone aware
@@ -1161,9 +1158,8 @@ class DataLoader:
         result = only(results.objects)
         if result is None:
             return None
-        try:
-            result_entry = extract_current_or_latest_validity(result.validities)
-        except NoObjectsReturnedException:
+        result_entry = extract_current_or_latest_validity(result.validities)
+        if result_entry is None:
             return None
         entry = jsonable_encoder(result_entry)
         entry.pop("validity")
@@ -1221,9 +1217,8 @@ class DataLoader:
         result = only(results.objects)
         if result is None:
             return None
-        try:
-            result_entry = extract_current_or_latest_validity(result.validities)
-        except NoObjectsReturnedException:
+        result_entry = extract_current_or_latest_validity(result.validities)
+        if result_entry is None:
             return None
         entry = jsonable_encoder(result_entry)
         return ITUser.from_simplified_fields(
@@ -1253,9 +1248,8 @@ class DataLoader:
         result = only(results.objects)
         if result is None:
             return None
-        try:
-            result_entry = extract_current_or_latest_validity(result.validities)
-        except NoObjectsReturnedException:
+        result_entry = extract_current_or_latest_validity(result.validities)
+        if result_entry is None:
             return None
         entry = jsonable_encoder(result_entry)
         address = Address.from_simplified_fields(
@@ -1303,11 +1297,10 @@ class DataLoader:
         result = only(results.objects)
         if result is None:
             return None
-        try:
-            entry_result = extract_current_or_latest_validity(result.validities)
-        except NoObjectsReturnedException:
+        result_entry = extract_current_or_latest_validity(result.validities)
+        if result_entry is None:
             return None
-        entry = jsonable_encoder(entry_result)
+        entry = jsonable_encoder(result_entry)
         engagement = Engagement.from_simplified_fields(
             org_unit_uuid=entry["org_unit_uuid"],
             person_uuid=entry["employee_uuid"],

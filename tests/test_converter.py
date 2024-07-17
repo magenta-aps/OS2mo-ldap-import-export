@@ -1531,7 +1531,7 @@ def test_check_info_dict_for_duplicates(converter: LdapConverter):
 def test_check_org_unit_info_dict(converter: LdapConverter):
     # This name is invalid because it contains backslashes;
     # Because the org unit path separator is also a backslash.
-    converter.org_unit_info = {uuid4(): {"name": "invalid\\name"}}
+    converter.org_unit_info = {str(uuid4()): {"name": "invalid\\name"}}
     with pytest.raises(InvalidNameException):
         converter.check_org_unit_info_dict()
 

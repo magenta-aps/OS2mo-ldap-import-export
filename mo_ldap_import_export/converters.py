@@ -463,15 +463,17 @@ async def load_mo_root_org_uuid(graphql_client: GraphQLClient) -> UUID:
     return result.uuid
 
 
-async def load_mo_org_units(graphql_client: GraphQLClient) -> dict:
+async def load_mo_org_units(graphql_client: GraphQLClient) -> dict[str, dict]:
     result = await graphql_client.read_org_units()
-
-    return {
+    output: dict[str, dict | None] = {
         str(org_unit.uuid): jsonable_encoder(
             extract_current_or_latest_validity(org_unit.validities)
         )
         for org_unit in result.objects
     }
+    if None in output.values():
+        raise NoObjectsReturnedException("validities is empty")
+    return cast(dict[str, dict], output)
 
 
 class LdapConverter:
