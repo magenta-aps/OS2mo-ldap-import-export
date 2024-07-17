@@ -1339,11 +1339,21 @@ class DataLoader:
             employee_uuid, address_type_uuid
         )
         # TODO: Bulk this
+        address_uuids = [address.uuid for address in result.objects]
         output = await asyncio.gather(
-            *[self.load_mo_address(address.uuid) for address in result.objects]
+            *[self.load_mo_address(uuid) for uuid in address_uuids]
         )
         if None in output:
-            raise NoObjectsReturnedException("Could not fetch address")
+            unable_to_lookup_uuids = [
+                uuid for address, uuid in zip(output, address_uuids) if address is None
+            ]
+            raise ExceptionGroup(
+                "Unable to lookup employee addresses",
+                [
+                    NoObjectsReturnedException(f"Unable to lookup address: {uuid}")
+                    for uuid in unable_to_lookup_uuids
+                ],
+            )
         return cast(list[Address], output)
 
     async def load_mo_org_unit_addresses(
@@ -1356,11 +1366,21 @@ class DataLoader:
             org_unit_uuid, address_type_uuid
         )
         # TODO: Bulk this
+        address_uuids = [address.uuid for address in result.objects]
         output = await asyncio.gather(
-            *[self.load_mo_address(address.uuid) for address in result.objects]
+            *[self.load_mo_address(uuid) for uuid in address_uuids]
         )
         if None in output:
-            raise NoObjectsReturnedException("Could not fetch address")
+            unable_to_lookup_uuids = [
+                uuid for address, uuid in zip(output, address_uuids) if address is None
+            ]
+            raise ExceptionGroup(
+                "Unable to lookup org-unit addresses",
+                [
+                    NoObjectsReturnedException(f"Unable to lookup address: {uuid}")
+                    for uuid in unable_to_lookup_uuids
+                ],
+            )
         return cast(list[Address], output)
 
     async def load_mo_employee_it_users(
