@@ -1448,7 +1448,16 @@ class DataLoader:
         ]
         output = await asyncio.gather(*map(self.load_mo_engagement, engagement_uuids))
         if None in output:
-            raise NoObjectsReturnedException("Could not fetch engagement")
+            unable_to_lookup_uuids = [
+                uuid for ituser, uuid in zip(output, engagement_uuids) if ituser is None
+            ]
+            raise ExceptionGroup(
+                "Unable to lookup employee engagements",
+                [
+                    NoObjectsReturnedException(f"Unable to lookup engagement: {uuid}")
+                    for uuid in unable_to_lookup_uuids
+                ],
+            )
         return cast(list[Engagement], output)
 
     async def create_or_edit_mo_objects(self, objects: list[tuple[MOBase, Verb]]):
