@@ -1297,14 +1297,16 @@ class DataLoader:
         self,
         uuid: UUID,
         current_objects_only: bool = True,
-    ) -> Engagement:
+    ) -> Engagement | None:
         start = end = UNSET if current_objects_only else None
         results = await self.graphql_client.read_engagements([uuid], start, end)
         result = only(results.objects)
         if result is None:
-            raise NoObjectsReturnedException("Could not fetch engagement")
-
-        entry_result = extract_current_or_latest_validity(result.validities)
+            return None
+        try:
+            entry_result = extract_current_or_latest_validity(result.validities)
+        except NoObjectsReturnedException:
+            return None
         entry = jsonable_encoder(entry_result)
         engagement = Engagement.from_simplified_fields(
             org_unit_uuid=entry["org_unit_uuid"],
@@ -1444,7 +1446,10 @@ class DataLoader:
             for engagement in result.objects
             if engagement.current is not None
         ]
-        return await asyncio.gather(*map(self.load_mo_engagement, engagement_uuids))
+        output = await asyncio.gather(*map(self.load_mo_engagement, engagement_uuids))
+        if None in output:
+            raise NoObjectsReturnedException("Could not fetch engagement")
+        return cast(list[Engagement], output)
 
     async def create_or_edit_mo_objects(self, objects: list[tuple[MOBase, Verb]]):
         def star(func):
