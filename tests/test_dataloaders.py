@@ -695,8 +695,8 @@ async def test_load_mo_address_no_valid_addresses(dataloader: DataLoader) -> Non
         ReadAddressesAddresses, {"objects": []}
     )
 
-    with pytest.raises(NoObjectsReturnedException):
-        await dataloader.load_mo_address(uuid)
+    result = await dataloader.load_mo_address(uuid)
+    assert result is None
 
 
 async def test_load_mo_address(dataloader: DataLoader) -> None:

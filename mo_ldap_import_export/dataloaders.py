@@ -1238,7 +1238,7 @@ class DataLoader:
 
     async def load_mo_address(
         self, uuid: UUID, current_objects_only: bool = True
-    ) -> Address:
+    ) -> Address | None:
         """
         Loads a mo address
 
@@ -1252,9 +1252,11 @@ class DataLoader:
         results = await self.graphql_client.read_addresses([uuid], start, end)
         result = only(results.objects)
         if result is None:
-            raise NoObjectsReturnedException("Could not fetch address")
-
-        result_entry = extract_current_or_latest_validity(result.validities)
+            return None
+        try:
+            result_entry = extract_current_or_latest_validity(result.validities)
+        except NoObjectsReturnedException:
+            return None
         entry = jsonable_encoder(result_entry)
         address = Address.from_simplified_fields(
             value=entry["value"],
@@ -1340,7 +1342,9 @@ class DataLoader:
         output = await asyncio.gather(
             *[self.load_mo_address(address.uuid) for address in result.objects]
         )
-        return output
+        if None in output:
+            raise NoObjectsReturnedException("Could not fetch address")
+        return cast(list[Address], output)
 
     async def load_mo_org_unit_addresses(
         self, org_unit_uuid: OrgUnitUUID, address_type_uuid: UUID
@@ -1355,7 +1359,9 @@ class DataLoader:
         output = await asyncio.gather(
             *[self.load_mo_address(address.uuid) for address in result.objects]
         )
-        return output
+        if None in output:
+            raise NoObjectsReturnedException("Could not fetch address")
+        return cast(list[Address], output)
 
     async def load_mo_employee_it_users(
         self,
