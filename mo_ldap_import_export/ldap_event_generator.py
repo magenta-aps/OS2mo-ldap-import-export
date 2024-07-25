@@ -6,6 +6,8 @@ from contextlib import suppress
 from datetime import datetime
 from functools import partial
 from typing import Any
+from typing import AsyncContextManager
+from typing import Self
 from typing import cast
 from uuid import UUID
 
@@ -25,36 +27,57 @@ from .utils import combine_dn_strings
 logger = structlog.stdlib.get_logger()
 
 
-def setup_listener(context: Context) -> set[asyncio.Task]:
-    user_context = context["user_context"]
+class LDAPEventGenerator(AsyncContextManager):
+    def __init__(self, context: Context) -> None:
+        """Periodically poll LDAP for changes."""
+        self._context = context
+        self._pollers: set[asyncio.Task] = set()
 
-    # Note:
-    # We need the dn attribute to trigger sync_tool.import_single_user()
-    # We need the modifyTimeStamp attribute to check for duplicate events in _poller()
-    settings = user_context["settings"]
-    pollers = set()
-    for ldap_ou_to_scan_for_changes in settings.ldap_ous_to_search_in:
-        search_base = combine_dn_strings(
-            [ldap_ou_to_scan_for_changes, settings.ldap_search_base]
-        )
+    async def __aenter__(self) -> Self:
+        """Start event generator."""
+        user_context = self._context["user_context"]
+        # Note:
+        # We need the dn attribute to trigger sync_tool.import_single_user()
+        # We need the modifyTimeStamp attribute to check for duplicate events in _poller()
+        settings = user_context["settings"]
 
-        search_parameters = {
-            "search_base": search_base,
-            "search_filter": "(cn=*)",
-            # TODO: Is this actually necessary compared to just getting DN by default?
-            "attributes": ["distinguishedName"],
-        }
-
-        # Polling search
-        pollers.add(
-            setup_poller(
-                user_context,
-                search_parameters,
-                datetime.utcnow(),
-                settings.poll_time,
+        for ldap_ou_to_scan_for_changes in settings.ldap_ous_to_search_in:
+            search_base = combine_dn_strings(
+                [ldap_ou_to_scan_for_changes, settings.ldap_search_base]
             )
-        )
-    return pollers
+
+            search_parameters = {
+                "search_base": search_base,
+                "search_filter": "(cn=*)",
+                # TODO: Is this actually necessary compared to just getting DN by default?
+                "attributes": ["distinguishedName"],
+            }
+
+            # Polling search
+            self._pollers.add(
+                setup_poller(
+                    user_context,
+                    search_parameters,
+                    datetime.utcnow(),
+                    settings.poll_time,
+                )
+            )
+        return self
+
+    async def __aexit__(
+        self, __exc_tpe: object, __exc_value: object, __traceback: object
+    ) -> None:
+        """Stop event generator."""
+        # Signal all pollers to shutdown
+        for poller in self._pollers:
+            poller.cancel()
+        # Wait for all pollers to be shutdown
+        for poller in self._pollers:
+            with suppress(asyncio.CancelledError):
+                await poller
+
+    async def healthcheck(self, context: dict | Context) -> bool:
+        return all(not poller.done() for poller in self._pollers)
 
 
 def setup_poller(
