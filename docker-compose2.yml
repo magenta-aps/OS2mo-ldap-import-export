@@ -1,0 +1,32 @@
+services:
+  rammearkitektur:
+    container_name: rammearkitektur
+    entrypoint:
+    - /memory-broker
+    - start
+    - --memory.buffer-size
+    - "100"
+    - --memory.produce-timeout
+    - 1s
+    - --broker-config-path
+    - /etc/triggermesh/broker.conf
+    environment:
+    - BROKER_CONFIG={"triggers":{"rammearkitektur-trigger-ff3fbf40":{"filters":[{"exact":{"type":"dk.magenta.rammearkitektur.os2mo.org_unit"}}],"target":{"url":"http://rammearkitektur-cloudeventstarget:8080"}}}}
+    image: gcr.io/triggermesh/memory-broker:v1.5.0
+    ports:
+    - 41447:8080
+  rammearkitektur-cloudeventssource:
+    container_name: rammearkitektur-cloudeventssource
+    environment:
+    - EVENTS_BRIDGE_IDENTIFIER=
+    - K_SINK=http://rammearkitektur:8080
+    image: gcr.io/triggermesh/cloudeventssource-adapter:v1.27.0
+    ports:
+    - "8080"
+  rammearkitektur-cloudeventstarget:
+    container_name: rammearkitektur-cloudeventstarget
+    environment:
+    - CLOUDEVENTS_URL=http://192.168.0.17:8000/mo2ldap/org_unit
+    image: gcr.io/triggermesh/cloudeventstarget-adapter:v1.27.0
+    ports:
+    - 46761:8080

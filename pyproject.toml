@@ -23,6 +23,7 @@ pycryptodome = "^3.20.0"
 jinja2 = "^3.1.4"
 ramodels = ">=18.5.2,<37.0.0"
 sqlalchemy = "^2.0.31"
+cloudevents = "^1.11.0"
 
 [tool.poetry.group.pre-commit.dependencies]
 mypy = "^1.8.0"
