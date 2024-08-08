@@ -14,6 +14,7 @@ from typing import Mapping
 from typing import cast
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -57,8 +58,34 @@ def pytest_collection_modifyitems(items: list[Item]) -> None:
         if item.get_closest_marker("integration_test"):
             # MUST prepend to replicate auto-use fixtures coming first
             item.fixturenames[:0] = [  # type: ignore[attr-defined]
+                "disable_dap",
                 "purge_ldap",  # Ensure LDAP is cleaned between integration tests
             ]
+
+    for item in items:
+        if not item.get_closest_marker("integration_test"):
+            # MUST prepend to replicate auto-use fixtures coming first
+            item.fixturenames[:0] = [  # type: ignore[attr-defined]
+                "empty_environment",
+            ]
+
+
+@pytest.fixture
+def disable_dap(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Disable DAP debugging during integration-tests.
+
+    When running integration-tests locally both instance running inside the container,
+    and the instance under test inside the test-suite attempt to allocate the same port.
+    """
+    monkeypatch.setenv("FASTRAMQPI__DAP", "False")
+    yield
+
+
+@pytest.fixture
+async def empty_environment() -> AsyncIterator[None]:
+    """Clear all environmental variables before running unit-test."""
+    with patch.dict(os.environ, clear=True):
+        yield
 
 
 @pytest.fixture(autouse=True)

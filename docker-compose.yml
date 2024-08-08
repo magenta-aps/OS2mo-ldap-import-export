@@ -24,7 +24,8 @@ services:
   mo_ldap_import_export:
     container_name: mo_ldap_ie
     build: .
-    command: ["uvicorn", "--factory", "mo_ldap_import_export.main:create_app", "--host", "0.0.0.0", "--reload"]
+      # command: ["uvicorn", "--factory", "mo_ldap_import_export.main:create_app", "--host", "0.0.0.0", "--reload"]
+    command: ["sleep", "infinity"]
     environment:
       FASTRAMQPI__DAP: "true"
 
