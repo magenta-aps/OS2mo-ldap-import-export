@@ -504,6 +504,7 @@ async def sync_tool(
             "cpr_field": "employeeID",
             # TODO: This should be set by side-effect reference, no?
             "ldap_it_system_user_key": None,
+            "converter": None,
         },
         "graphql_client": graphql_client,
         "legacy_model_client": AsyncMock(),
@@ -528,6 +529,7 @@ async def sync_tool(
     converter = LdapConverter(settings, mapping, dataloader)
     await converter._init()
     context["user_context"]["converter"] = converter
+    dataloader.converter = converter
 
     # Needs context, user_context, dataloader, converter
     export_checks = ExportChecks(context)

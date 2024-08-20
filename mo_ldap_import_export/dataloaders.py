@@ -155,6 +155,8 @@ def extract_current_or_latest_validity(validities: list[T]) -> T | None:
 
 class DataLoader:
     def __init__(self, context: Context) -> None:
+        from .converters import LdapConverter
+
         self.context = context
         self.user_context = context["user_context"]
         self.ldap_connection: Connection = self.user_context["ldap_connection"]
@@ -162,6 +164,7 @@ class DataLoader:
         self.legacy_model_client: LegacyModelClient = self.context[
             "legacy_model_client"
         ]
+        self.converter: LdapConverter = self.user_context["converter"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self.create_mo_class_lock = asyncio.Lock()
@@ -181,7 +184,7 @@ class DataLoader:
         """
         Returns a list of all LDAP attribute names which are synchronized to LDAP.
         """
-        converter = self.user_context["converter"]
+        converter = self.converter
 
         mo_to_ldap_attributes = []
         for json_dict in converter.mapping["mo_to_ldap"].values():
@@ -268,7 +271,7 @@ class DataLoader:
         search_bases = [
             combine_dn_strings([ou, search_base]) for ou in ous_to_search_in
         ]
-        converter = self.user_context["converter"]
+        converter = self.converter
 
         object_class = converter.find_ldap_object_class(json_key)
         attributes = converter.get_ldap_attributes(json_key) + additional_attributes
@@ -455,7 +458,7 @@ class DataLoader:
         _, result = await ldap_add(
             self.ldap_connection,
             dn,
-            self.user_context["converter"].find_ldap_object_class("Employee"),
+            self.converter.find_ldap_object_class("Employee"),
             attributes=attributes,
         )
         logger.info("LDAP Result", result=result, dn=dn)
@@ -595,7 +598,7 @@ class DataLoader:
         delete: bool
             Set to True to delete contents in LDAP, instead of creating/modifying them
         """
-        converter = self.user_context["converter"]
+        converter = self.converter
         if not converter._export_to_ldap_(json_key):
             logger.info("_export_to_ldap_ == False.", json_key=json_key)
             return []
