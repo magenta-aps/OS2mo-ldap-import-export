@@ -171,7 +171,12 @@ class DataLoader:
         self.legacy_model_client: LegacyModelClient = self.context[
             "legacy_model_client"
         ]
-        self.username_generator: UserNameGenerator = self.user_context["username_generator"]
+        self.username_generator: UserNameGenerator = self.user_context[
+            "username_generator"
+        ]
+        self.ldap_it_system_user_key: str | None = self.user_context[
+            "ldap_it_system_user_key"
+        ]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self.create_mo_class_lock = asyncio.Lock()
@@ -817,18 +822,19 @@ class DataLoader:
         Return the IT system uuid belonging to the LDAP-it-system
         Return None if the LDAP-it-system is not found.
         """
-        user_key = self.user_context["ldap_it_system_user_key"]
-        if user_key is None:
+        if self.ldap_it_system_user_key is None:
             return None
 
         try:
             from .converters import get_it_system_uuid
 
-            return await get_it_system_uuid(self.graphql_client, user_key)
+            return await get_it_system_uuid(
+                self.graphql_client, self.ldap_it_system_user_key
+            )
         except UUIDNotFoundException:
             logger.info(
                 "UUID Not found",
-                suggestion=f"Does the '{user_key}' it-system exist?",
+                suggestion=f"Does the '{self.ldap_it_system_user_key}' it-system exist?",
             )
             return None
 
