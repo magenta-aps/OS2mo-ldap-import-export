@@ -317,7 +317,7 @@ async def test_load_ldap_cpr_object(
         await dataloader.load_ldap_cpr_object("__invalid__", "Employee")  # type: ignore
 
     with pytest.raises(NoObjectsReturnedException):
-        dataloader.user_context["cpr_field"] = None
+        dataloader.cpr_field = None
         await dataloader.load_ldap_cpr_object(CPRNumber("0101012002"), "Employee")
 
 
@@ -833,7 +833,7 @@ def mock_read_employee_uuid_by_ituser(
 
 async def test_find_mo_employee_uuid_by_cpr_number(dataloader: DataLoader):
     uuid = uuid4()
-    dataloader.user_context["cpr_field"] = "employeeID"
+    dataloader.cpr_field = "employeeID"
 
     with patch(
         "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_object",
@@ -849,7 +849,7 @@ async def test_find_mo_employee_uuid_by_cpr_number(dataloader: DataLoader):
 
 async def test_find_mo_employee_uuid_by_ituser(dataloader: DataLoader):
     uuid = uuid4()
-    dataloader.user_context["cpr_field"] = "employeeID"
+    dataloader.cpr_field = "employeeID"
 
     with patch(
         "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_object",
@@ -864,7 +864,7 @@ async def test_find_mo_employee_uuid_by_ituser(dataloader: DataLoader):
 async def test_find_mo_employee_uuid_fallback_ituser(dataloader: DataLoader):
     uuid1 = uuid4()
     uuid2 = uuid4()
-    dataloader.user_context["cpr_field"] = None
+    dataloader.cpr_field = None
 
     with patch(
         "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_object",
@@ -923,7 +923,7 @@ async def test_find_mo_employee_uuid_ituser_multiple_matches(dataloader: DataLoa
 async def test_find_mo_employee_uuid_multiple_matches(dataloader: DataLoader):
     uuid1 = uuid4()
     uuid2 = uuid4()
-    dataloader.user_context["cpr_field"] = "employeeID"
+    dataloader.cpr_field = "employeeID"
 
     with patch(
         "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_object",
