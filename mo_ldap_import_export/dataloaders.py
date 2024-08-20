@@ -168,6 +168,9 @@ class DataLoader:
         self.converter: LdapConverter = self.user_context["converter"]
         self._sync_tool: SyncTool = self.user_context["sync_tool"]
         self._graphql_client: GraphQLClient = self.context["graphql_client"]
+        self.legacy_model_client: LegacyModelClient = self.context[
+            "legacy_model_client"
+        ]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self.create_mo_class_lock = asyncio.Lock()
