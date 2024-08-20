@@ -159,25 +159,20 @@ class DataLoader:
         from .import_export import SyncTool
 
         self.context = context
-        self.user_context = context["user_context"]
-        self.ldap_connection: Connection = self.user_context["ldap_connection"]
-        self.settings: Settings = self.user_context["settings"]
-        self.legacy_model_client: LegacyModelClient = self.context[
-            "legacy_model_client"
-        ]
-        self.converter: LdapConverter = self.user_context["converter"]
-        self._sync_tool: SyncTool = self.user_context["sync_tool"]
+        user_context = context["user_context"]
+        self.ldap_connection: Connection = user_context["ldap_connection"]
+        self.settings: Settings = user_context["settings"]
+        self.converter: LdapConverter = user_context["converter"]
+        self._sync_tool: SyncTool = user_context["sync_tool"]
         self._graphql_client: GraphQLClient = self.context["graphql_client"]
         self.legacy_model_client: LegacyModelClient = self.context[
             "legacy_model_client"
         ]
-        self.username_generator: UserNameGenerator = self.user_context[
-            "username_generator"
-        ]
-        self.ldap_it_system_user_key: str | None = self.user_context[
+        self.username_generator: UserNameGenerator = user_context["username_generator"]
+        self.ldap_it_system_user_key: str | None = user_context[
             "ldap_it_system_user_key"
         ]
-        self.cpr_field: str | None = self.user_context["cpr_field"]
+        self.cpr_field: str | None = user_context["cpr_field"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self.create_mo_class_lock = asyncio.Lock()
