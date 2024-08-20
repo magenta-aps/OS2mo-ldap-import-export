@@ -156,6 +156,7 @@ def extract_current_or_latest_validity(validities: list[T]) -> T | None:
 class DataLoader:
     def __init__(self, context: Context) -> None:
         from .converters import LdapConverter
+        from .import_export import SyncTool
 
         self.context = context
         self.user_context = context["user_context"]
@@ -165,6 +166,7 @@ class DataLoader:
             "legacy_model_client"
         ]
         self.converter: LdapConverter = self.user_context["converter"]
+        self._sync_tool: SyncTool = self.user_context["sync_tool"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self.create_mo_class_lock = asyncio.Lock()
@@ -175,9 +177,7 @@ class DataLoader:
 
     @property
     def sync_tool(self):
-        from .import_export import SyncTool
-
-        return cast(SyncTool, self.user_context["sync_tool"])
+        return self._sync_tool
 
     @property
     def mo_to_ldap_attributes(self):

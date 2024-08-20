@@ -505,6 +505,7 @@ async def sync_tool(
             # TODO: This should be set by side-effect reference, no?
             "ldap_it_system_user_key": None,
             "converter": None,
+            "sync_tool": None,
         },
         "graphql_client": graphql_client,
         "legacy_model_client": AsyncMock(),
