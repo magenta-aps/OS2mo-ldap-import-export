@@ -171,6 +171,7 @@ class DataLoader:
         self.legacy_model_client: LegacyModelClient = self.context[
             "legacy_model_client"
         ]
+        self.username_generator: UserNameGenerator = self.user_context["username_generator"]
         self.attribute_types = get_attribute_types(self.ldap_connection)
         self.single_value = {k: v.single_value for k, v in self.attribute_types.items()}
         self.create_mo_class_lock = asyncio.Lock()
@@ -1020,7 +1021,6 @@ class DataLoader:
         # If we did not find a DN neither via ITUser nor via CPR-number, then we want
         # to create one, by generating a DN, importing the user and potentially creating
         # a binding between the two.
-        username_generator: UserNameGenerator = self.user_context["username_generator"]
 
         logger.info("Generating DN for user", employee_uuid=uuid)
         # NOTE: This not only generates the DN as the name suggests,
@@ -1033,7 +1033,7 @@ class DataLoader:
         #       If we do not have the CPR number nor the ITSystem, we would be leaking
         #       the DN we generate, so maybe we should guard for this, the old code seemed
         #       to do so, maybe we should simply not upload anything in that case.
-        dn = await username_generator.generate_dn(employee)
+        dn = await self.username_generator.generate_dn(employee)
 
         # If the LDAP ITSystem exists, we want to create a binding to our newly
         # generated (and created) DN, such that it can be correlated in the future.
