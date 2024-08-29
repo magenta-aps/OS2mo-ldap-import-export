@@ -1083,6 +1083,15 @@ class SyncTool:
             dn=dn,
         )
 
+        if json_key == "Custom":
+            await asyncio.gather(
+                *[
+                    obj.sync_to_mo(self.dataloader.graphql_client)
+                    for obj, _ in converted_objects
+                ]
+            )
+            return
+
         try:
             converted_objects = await self.format_converted_objects(
                 converted_objects, json_key
@@ -1118,26 +1127,18 @@ class SyncTool:
             dn=dn,
         )
 
-        if json_key == "Custom":
-            await asyncio.gather(
-                *[
-                    obj.sync_to_mo(self.dataloader.graphql_client)
-                    for obj, _ in converted_objects
-                ]
-            )
-        else:
-            try:
-                await self.dataloader.create_or_edit_mo_objects(converted_objects)
-            except HTTPStatusError as e:
-                # TODO: This could also happen if MO is just busy, right?
-                #       In which case we would probably like to retry I imagine?
+        try:
+            await self.dataloader.create_or_edit_mo_objects(converted_objects)
+        except HTTPStatusError as e:
+            # TODO: This could also happen if MO is just busy, right?
+            #       In which case we would probably like to retry I imagine?
 
-                # This can happen, for example if a phone number in LDAP is
-                # invalid
-                logger.warning(
-                    "Failed to upload objects",
-                    error=e,
-                    converted_objects=converted_objects,
-                    request=e.request,
-                    dn=dn,
-                )
+            # This can happen, for example if a phone number in LDAP is
+            # invalid
+            logger.warning(
+                "Failed to upload objects",
+                error=e,
+                converted_objects=converted_objects,
+                request=e.request,
+                dn=dn,
+            )
