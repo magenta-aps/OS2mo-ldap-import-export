@@ -1465,12 +1465,8 @@ async def test_import_single_user_entity(sync_tool: SyncTool) -> None:
     json_key = "Engagement"
     dn = "CN=foo"
     employee_uuid = uuid4()
-    engagement_uuid = uuid4()
     with capture_logs() as cap_logs:
-        result = await sync_tool.import_single_user_entity(
-            json_key, dn, employee_uuid, engagement_uuid
-        )
-        assert result == engagement_uuid
+        await sync_tool.import_single_user_entity(json_key, dn, employee_uuid)
 
         assert "No converted objects" in str(cap_logs)
 
