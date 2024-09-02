@@ -431,17 +431,16 @@ class DataLoader:
             search_base=search_base,
             mute=True,
         )
-
         dns = [r["dn"] for r in responses]
+
+        searchParameters = {
+            "search_filter": "(objectclass=user)",
+            "attributes": [],
+            "size_limit": 1,
+        }
         output = {}
 
         for dn in dns:
-            searchParameters = {
-                "search_filter": "(objectclass=user)",
-                "attributes": [],
-                "size_limit": 1,
-            }
-
             responses = await paged_search(
                 self.settings,
                 self.ldap_connection,
