@@ -433,19 +433,16 @@ class DataLoader:
         )
         dns = [r["dn"] for r in responses]
 
-        searchParameters = {
-            "search_filter": "(objectclass=user)",
-            "attributes": [],
-            "size_limit": 1,
-        }
         dn_responses = await asyncio.gather(
             *[
-                paged_search(
-                    self.settings,
+                object_search(
+                    {
+                        "search_base": dn,
+                        "search_filter": "(objectclass=user)",
+                        "attributes": [],
+                        "size_limit": 1,
+                    },
                     self.ldap_connection,
-                    searchParameters,
-                    search_base=dn,
-                    mute=True,
                 )
                 for dn in dns
             ]
