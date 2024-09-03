@@ -1,7 +1,10 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
+import asyncio
 import copy
 import re
+import sys
+from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import partial
 from functools import wraps
@@ -20,6 +23,44 @@ from ramodels.mo.employee import Employee
 from .customer_specific import JobTitleFromADToMO
 
 logger = structlog.stdlib.get_logger()
+
+
+@asynccontextmanager
+async def shielded(acontext):
+    """AsyncContextManager equivalent of asyncio.shield for tasks.
+
+    Works almost like a decorator by wrapping an existing asynccontextmanager,
+    blocking the asyncio.CancelledError from being send into it.
+
+    Implements PEP-492 desugaring to access the internals of the
+    asynccontextmanager exception handling.
+
+    Args:
+        acontext: An async context manager to shield from CancelledError.
+
+    Yields:
+        Whatever acontext yields.
+    """
+
+    async def shield_task(coro):
+        task = asyncio.create_task(coro)
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            await task
+            raise
+
+    result = await shield_task(acontext.__aenter__())
+    try:
+        yield result
+    except asyncio.CancelledError:
+        if not await shield_task(acontext.__aexit__(None, None, None)):
+            raise
+    except:  # noqa: E722
+        if not await shield_task(acontext.__aexit__(*sys.exc_info())):
+            raise
+    else:
+        await shield_task(acontext.__aexit__(None, None, None))
 
 
 def import_class(name: str) -> type[MOBase]:

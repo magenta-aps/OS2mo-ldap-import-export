@@ -36,6 +36,7 @@ from .ldap import ldap_search
 from .ldap import ldapresponse2entries
 from .ldap_emit import publish_uuids
 from .utils import combine_dn_strings
+from .utils import shielded
 
 logger = structlog.stdlib.get_logger()
 
@@ -245,7 +246,7 @@ async def _poller(
 
     while True:
         # Fetch the last run time, and update it after running
-        async with update_timestamp(sessionmaker, search_base) as last_run:
+        async with shielded(update_timestamp(sessionmaker, search_base)) as last_run:
             # Fetch changes since last-run and emit events for them
             uuids = await seeded_poller(last_search_time=last_run)
             await publish_uuids(ldap_amqpsystem, list(uuids))
