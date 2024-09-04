@@ -98,10 +98,6 @@ class LDAPEventGenerator(AsyncContextManager):
         # Signal all pollers to shutdown
         for poller in self._pollers:
             poller.cancel()
-        # Wait for all pollers to be shutdown
-        for poller in self._pollers:
-            with suppress(asyncio.CancelledError):
-                await poller
 
     async def healthcheck(self, context: dict | Context) -> bool:
         return all(not poller.done() for poller in self._pollers)
@@ -114,16 +110,9 @@ def setup_poller(
     sessionmaker: async_sessionmaker[AsyncSession],
     search_base: str,
 ) -> asyncio.Task:
-    def done_callback(future):
-        # Silence CancelledErrors on shutdown
-        with suppress(asyncio.CancelledError):
-            # This ensures exceptions go to the terminal
-            future.result()
-
     handle = asyncio.create_task(
         _poller(settings, ldap_amqpsystem, ldap_connection, search_base, sessionmaker)
     )
-    handle.add_done_callback(done_callback)
     return handle
 
 
@@ -244,14 +233,21 @@ async def _poller(
     )
 
     while True:
-        # Fetch the last run time, and update it after running
-        async with update_timestamp(sessionmaker, search_base) as last_run:
-            # Fetch changes since last-run and emit events for them
-            uuids = await seeded_poller(last_search_time=last_run)
-            await publish_uuids(ldap_amqpsystem, list(uuids))
+        try:
+            # Fetch the last run time, and update it after running
+            async with update_timestamp(sessionmaker, search_base) as last_run:
+                # Fetch changes since last-run and emit events for them
+                uuids = await seeded_poller(last_search_time=last_run)
+                await publish_uuids(ldap_amqpsystem, list(uuids))
 
-        # Wait for a while before running again
-        await asyncio.sleep(settings.poll_time)
+            # Wait for a while before running again
+            await asyncio.sleep(settings.poll_time)
+        except Exception:
+            logger.exception("Failed to generate events")
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            logger.info("Shutting down event-generator")
+            raise
 
 
 def datetime_to_ldap_timestamp(dt: datetime) -> str:
