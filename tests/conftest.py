@@ -297,20 +297,6 @@ def import_checks() -> AsyncMock:
     return AsyncMock()
 
 
-def read_mapping(filename):
-    """
-    Read a json mapping file
-    """
-    file_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        "mo_ldap_import_export",
-        "mappings",
-        filename,
-    )
-    with open(file_path) as file:
-        return yaml.safe_load(file)
-
-
 @pytest.fixture
 async def fastramqpi(load_marked_envvars: None) -> FastRAMQPI:
     return create_fastramqpi()
