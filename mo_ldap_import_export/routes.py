@@ -22,7 +22,6 @@ from fastapi import Query
 from fastapi import Response
 from fastapi import status
 from fastapi.encoders import jsonable_encoder
-from fastramqpi.depends import UserContext
 from ldap3 import Connection
 from more_itertools import one
 from pydantic import ValidationError
@@ -248,11 +247,10 @@ async def get_non_existing_unique_ldap_uuids(
     ]
 
 
-def construct_router(user_context: UserContext) -> APIRouter:
+def construct_router(settings: Settings) -> APIRouter:
     router = APIRouter()
 
-    mapping = user_context["mapping"]
-    default_ldap_class = mapping["mo_to_ldap"]["Employee"]["objectClass"]
+    default_ldap_class = settings.conversion_mapping.mo_to_ldap["Employee"].objectClass
 
     # Load all users from LDAP, and import them into MO
     @router.get("/Import", status_code=202, tags=["Import"])
