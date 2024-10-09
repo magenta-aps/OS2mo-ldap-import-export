@@ -1364,7 +1364,8 @@ async def test_move_ldap_object(sync_tool: SyncTool, dataloader: AsyncMock):
     new_dn = "CN=Angus,OU=Dundee"
 
     # Attempt to move Angus from OU=Auchtertool to OU=Dundee
-    ldap_object = await sync_tool.move_ldap_object(LdapObject(dn=new_dn), old_dn)
+    moved = await sync_tool.move_ldap_object(new_dn, old_dn)
+    assert moved is True
 
     # Which means we need to create OU=Dundee
     dataloader.ldapapi.create_ou.assert_called_once_with("OU=Dundee")
@@ -1375,8 +1376,6 @@ async def test_move_ldap_object(sync_tool: SyncTool, dataloader: AsyncMock):
     # And delete OU=Auchtertool, which is now empty
     dataloader.ldapapi.delete_ou.assert_called_once_with("OU=Auchtertool")
 
-    assert ldap_object.dn == new_dn
-
 
 async def test_move_ldap_object_move_failed(sync_tool: SyncTool, dataloader: AsyncMock):
     dataloader.ldapapi.move_ldap_object.return_value = False
@@ -1385,10 +1384,10 @@ async def test_move_ldap_object_move_failed(sync_tool: SyncTool, dataloader: Asy
     new_dn = "CN=Angus,OU=Dundee"
 
     # Attempt to move Angus from OU=Auchtertool to OU=Dundee
-    ldap_object = await sync_tool.move_ldap_object(LdapObject(dn=new_dn), old_dn)
+    moved = await sync_tool.move_ldap_object(new_dn, old_dn)
+    assert moved is False
 
     # The move was not successful so we fall back to the old DN
-    assert ldap_object.dn == old_dn
     dataloader.ldapapi.delete_ou.assert_not_called()
 
 
@@ -1399,13 +1398,12 @@ async def test_move_ldap_object_nothing_to_move(
     new_dn = "CN=Angus,OU=Dundee"
 
     # The new DN is equal to the old DN. We expect nothing to happen.
-    ldap_object = await sync_tool.move_ldap_object(LdapObject(dn=new_dn), old_dn)
+    moved = await sync_tool.move_ldap_object(new_dn, old_dn)
+    assert moved is True
 
     dataloader.create_ou.assert_not_called()
     dataloader.move_ldap_object.assert_not_called()
     dataloader.delete_ou.assert_not_called()
-    assert ldap_object.dn == new_dn
-    assert ldap_object.dn == old_dn
 
 
 async def test_publish_engagements_for_org_unit(dataloader: AsyncMock) -> None:

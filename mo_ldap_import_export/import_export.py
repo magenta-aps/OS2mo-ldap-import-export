@@ -244,26 +244,18 @@ class SyncTool:
             )
         return True
 
-    async def move_ldap_object(self, ldap_object: LdapObject, dn: DN) -> LdapObject:
-        """
-        Parameters
-        ----------------
-        ldap_object: LdapObject
-            LDAP object as converted by converter.to_ldap()
-        dn: str
-            DN which we expect the object to have
+    async def move_ldap_object(self, new_dn: DN, old_dn: DN) -> bool:
+        """Move the object at old_dn to new_dn creating OUs as required.
 
-        Notes
-        -----------
-        If the DN on the ldap object is different from the supplied dn, we move the
-        object in LDAP, so the two match. We always assume that the DN on the LDAP
-        object is correct, because that one is mapped in the json file.
-        """
-        old_dn = dn
-        new_dn = ldap_object.dn
+        Arguments:
+            new_dn: The DN we are moving to.
+            old_dn: The DN we are moving from.
 
+        Returns:
+            Whether the move was succesful.
+        """
         if new_dn == old_dn:
-            return ldap_object
+            return True
 
         old_ou = extract_ou_from_dn(old_dn)
         new_ou = extract_ou_from_dn(new_dn)
@@ -285,10 +277,11 @@ class SyncTool:
         if move_successful:
             # Delete the old OU (dataloader.delete_ou checks if it is empty)
             await self.dataloader.ldapapi.delete_ou(old_ou)
-        else:
-            ldap_object.dn = old_dn
+            return True
 
-        return ldap_object
+        # TODO: Should we try to delete the new_ou in this to avoid leaking it?
+        logger.warning("Unable to move object", old_dn=old_dn, new_dn=new_dn)
+        return False
 
     async def mo_person_to_ldap(
         self,
@@ -732,14 +725,21 @@ class SyncTool:
             **engagements,
         }
 
+
+        deletes = {"ldap_feltnavn"}
+
+        changes = {
+            "ldap_feltnavn": ("værdi")
+        }
+
+        for delete in deletes:
+            self.ldapapi.delete_ldap(...)
+        for field, change in changes.items():
+            self.ldapapi.replace_ldap(...)
+
         # If dry-running we do not want to makes changes in LDAP
         if not dry_run:
             for json_key, (ldap_object, delete) in changes.items():
-                # TODO: Does this moving even make sense?
-                #       What if an object already exists where we are trying to move?
-                #       If we move it, all other edits will fail.
-                #       Does anyone actually depend on this behavior?
-                ldap_object = await self.move_ldap_object(ldap_object, best_dn)
                 await self.dataloader.modify_ldap_object(
                     ldap_object, json_key, delete=delete
                 )
