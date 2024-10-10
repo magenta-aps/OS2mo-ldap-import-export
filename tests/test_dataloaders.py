@@ -72,7 +72,6 @@ from mo_ldap_import_export.dataloaders import extract_current_or_latest_validity
 from mo_ldap_import_export.environments import get_or_create_engagement_type_uuid
 from mo_ldap_import_export.environments import get_or_create_job_function_uuid
 from mo_ldap_import_export.environments import load_mo_root_org_uuid
-from mo_ldap_import_export.exceptions import AttributeNotFound
 from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import MultipleObjectsReturnedException
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
@@ -355,7 +354,7 @@ async def test_delete_data_from_ldap_object(
         }
     }
 
-    await dataloader.modify_ldap_object(address, "Employee", delete=True)
+    await dataloader.modify_ldap_object(address, delete=True)
 
     changes = {"postalAddress": [("MODIFY_DELETE", "foo")]}
     dn = address.dn
@@ -386,7 +385,7 @@ async def test_upload_ldap_object_invalid_value(
     ldap_connection.modify.side_effect = LDAPInvalidValueError("Invalid value")
 
     with capture_logs() as cap_logs:
-        await dataloader.modify_ldap_object(ldap_object, "Employee")
+        await dataloader.modify_ldap_object(ldap_object)
 
         warnings = [w for w in cap_logs if w["log_level"] == "warning"]
         last_warning_message = str(warnings[-1]["event"])
@@ -403,7 +402,7 @@ async def test_modify_ldap_object_but_export_equals_false(
     )
 
     with capture_logs() as cap_logs:
-        await dataloader.modify_ldap_object(ldap_object, "Employee")
+        await dataloader.modify_ldap_object(ldap_object)
 
         messages = [w for w in cap_logs if w["log_level"] == "info"]
         assert re.match(
@@ -1236,24 +1235,6 @@ async def test_is_primaries(
     assert primary == expected
 
     assert is_primary_engagements_route.called
-
-
-async def test_shared_attribute(dataloader: DataLoader):
-    converter = MagicMock()
-    converter.mapping = {
-        "mo_to_ldap": {
-            "Employee": {"cpr_no": None, "name": None},
-            "Address": {"cpr_no": None, "value": None},
-        }
-    }
-    dataloader.user_context["converter"] = converter
-
-    assert dataloader.shared_attribute("cpr_no") is True
-    assert dataloader.shared_attribute("name") is False
-    assert dataloader.shared_attribute("value") is False
-
-    with pytest.raises(AttributeNotFound):
-        dataloader.shared_attribute("non_existing_attribute")
 
 
 async def test_modify_ldap(

@@ -684,15 +684,20 @@ class SyncTool:
             **itusers,
             **engagements,
         }
+        # Remove non-export entries
+        changes = {
+            json_key: value
+            for json_key, value in changes.items()
+            if not self.settings.conversion_mapping.mo_to_ldap[
+                json_key
+            ].export_to_ldap_as_bool()
+        }
 
         # If dry-running we do not want to makes changes in LDAP
         if not dry_run:
-            for json_key, (ldap_object, delete) in changes.items():
-                # Moving objects is not supported
+            for ldap_object, delete in changes.values():
                 assert ldap_object.dn == best_dn
-                await self.dataloader.modify_ldap_object(
-                    ldap_object, json_key, delete=delete
-                )
+                await self.dataloader.modify_ldap_object(ldap_object, delete=delete)
 
         return changes
 
