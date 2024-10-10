@@ -7,12 +7,10 @@ import asyncio
 import datetime
 import json
 import os
-import re
 import time
 from collections.abc import Collection
 from collections.abc import Iterator
 from functools import partial
-from itertools import repeat
 from typing import Any
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -25,10 +23,8 @@ from fastapi.encoders import jsonable_encoder
 from fastramqpi.context import Context
 from freezegun import freeze_time
 from httpx import Response
-from ldap3.core.exceptions import LDAPInvalidValueError
 from mergedeep import Strategy  # type: ignore
 from mergedeep import merge
-from more_itertools import flatten
 from more_itertools import one
 from pydantic import BaseModel
 from pydantic import Field
@@ -323,171 +319,6 @@ async def test_load_ldap_objects(
     output = await load_ldap_objects(settings, ldap_connection, converter, "Employee")
 
     assert output == expected_result
-
-
-async def test_modify_ldap_employee(
-    ldap_connection: MagicMock,
-    dataloader: DataLoader,
-    ldap_attributes: dict,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Hack to override overly mocked settings setup
-    set_employee_export_to_ldap(monkeypatch)
-    dataloader.settings = Settings()
-
-    employee = LdapObject(
-        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        **ldap_attributes,
-    )
-
-    bad_response = {
-        "result": 67,
-        "description": "notAllowedOnRDN",
-        "dn": "",
-        "message": (
-            "000020B1: UpdErr: DSID-030F1357,"
-            " problem 6004 (CANT_ON_RDN), data 0\n\x00"
-        ),
-        "referrals": None,
-        "type": "modifyResponse",
-    }
-    good_response = {
-        "result": 0,
-        "description": "success",
-        "dn": "",
-        "message": "",
-        "referrals": None,
-        "type": "modifyResponse",
-    }
-
-    # LDAP does not allow one to change the 'name' attribute and throws a bad response
-    not_allowed_on_RDN = {"name"}
-    parameters_to_upload = set(employee.dict().keys())
-    parameters_to_upload.discard("dn")
-    parameters_to_upload.discard("cpr")
-
-    allowed_parameters_to_upload = parameters_to_upload - not_allowed_on_RDN
-    disallowed_parameters_to_upload = (
-        parameters_to_upload - allowed_parameters_to_upload
-    )
-
-    num_allowed_parameters = len(allowed_parameters_to_upload)
-    num_disallowed_parameters = len(disallowed_parameters_to_upload)
-
-    expected = [good_response] * num_allowed_parameters + [
-        bad_response
-    ] * num_disallowed_parameters
-    compare_result = {"type": "test", "description": "compareFalse"}
-    results = flatten(zip(repeat(compare_result), expected))
-
-    def set_new_result(*args, **kwargs) -> None:
-        ldap_connection.get_response.return_value = [], next(results)
-
-    # Every time a modification is performed, point to the next page.
-    ldap_connection.modify.side_effect = set_new_result
-    ldap_connection.compare.side_effect = set_new_result
-
-    dataloader.ldap_connection.get_response.return_value = (
-        [],
-        {"type": "test", "description": "compareFalse"},
-    )
-    # Get result from dataloader
-    with patch(
-        "mo_ldap_import_export.dataloaders.DataLoader.load_ldap_cpr_object",
-        return_value=employee,
-    ):
-        output = await dataloader.modify_ldap_object(employee)
-
-    assert output == expected
-
-
-async def test_delete_data_from_ldap_object(
-    ldap_connection: MagicMock,
-    dataloader: DataLoader,
-    ldap_attributes: dict,
-    cpr_field: str,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    # Hack to override overly mocked settings setup
-    set_employee_export_to_ldap(monkeypatch)
-    dataloader.settings = Settings()
-
-    dataloader.ldap_connection.get_response.return_value = (
-        [],
-        {"type": "test", "description": "compareTrue"},
-    )
-
-    address = LdapObject(
-        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        postalAddress="foo",
-        sharedValue="bar",
-        **{cpr_field: "123"},
-    )
-
-    # Note: 'sharedValue' won't be deleted because it is shared with another ldap object
-    converter = dataloader.user_context["converter"]
-    converter.mapping = {
-        "mo_to_ldap": {
-            "Employee": {cpr_field: None, "sharedValue": None},
-            "Address": {cpr_field: None, "sharedValue": None, "postalAddress": None},
-        }
-    }
-
-    await dataloader.modify_ldap_object(address, delete=True)
-
-    changes = {"postalAddress": [("MODIFY_DELETE", "foo")]}
-    dn = address.dn
-    assert ldap_connection.modify.called_once_with(dn, changes)
-
-
-async def test_upload_ldap_object_invalid_value(
-    ldap_connection: MagicMock,
-    dataloader: DataLoader,
-    cpr_field: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Hack to override overly mocked settings setup
-    set_employee_export_to_ldap(monkeypatch)
-    dataloader.settings = Settings()
-
-    dataloader.ldap_connection.get_response.return_value = (
-        [],
-        {"type": "test", "description": "compareFalse"},
-    )
-
-    ldap_object = LdapObject(
-        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        postalAddress="foo",
-        **{cpr_field: "123"},
-    )
-
-    ldap_connection.modify.side_effect = LDAPInvalidValueError("Invalid value")
-
-    with capture_logs() as cap_logs:
-        await dataloader.modify_ldap_object(ldap_object)
-
-        warnings = [w for w in cap_logs if w["log_level"] == "warning"]
-        last_warning_message = str(warnings[-1]["event"])
-        assert last_warning_message == "LDAPInvalidValueError exception"
-
-
-async def test_modify_ldap_object_but_export_equals_false(
-    dataloader: DataLoader, converter: MagicMock
-):
-    converter._export_to_ldap_.return_value = False
-    ldap_object = LdapObject(
-        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        postalAddress="foo",
-    )
-
-    with capture_logs() as cap_logs:
-        await dataloader.modify_ldap_object(ldap_object)
-
-        messages = [w for w in cap_logs if w["log_level"] == "info"]
-        assert re.match(
-            ".*_export_to_ldap_ == False",
-            str(messages[-1]["event"]),
-        )
 
 
 async def test_load_mo_employee(
@@ -1314,78 +1145,6 @@ async def test_is_primaries(
     assert primary == expected
 
     assert is_primary_engagements_route.called
-
-
-async def test_modify_ldap(
-    dataloader: DataLoader,
-    sync_tool: AsyncMock,
-    ldap_connection: MagicMock,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    def setup_mock(compares: bool = False):
-        result = "compareTrue" if compares else "compareFalse"
-        ldap_connection.get_response.return_value = (
-            [],
-            {"type": "test", "description": result},
-        )
-
-        def set_new_result(*args, **kwargs):
-            ldap_connection.get_response.return_value = (
-                [],
-                {"type": "test", "description": "success"},
-            )
-
-        ldap_connection.modify.side_effect = set_new_result
-
-    dn = "CN=foo"
-
-    # Validate that empty lists are allowed
-    setup_mock()
-    await dataloader.ldapapi.modify_ldap(
-        "MODIFY_REPLACE", dn, "parameter_to_modify", []
-    )
-    ldap_connection.compare.assert_called_with(dn, "parameter_to_modify", "")
-
-    # Simulate case where a value exists
-    with capture_logs() as cap_logs:
-        setup_mock(True)
-        await dataloader.ldapapi.modify_ldap(
-            "MODIFY_REPLACE", dn, "parameter_to_modify", []
-        )
-        messages = [w["event"] for w in cap_logs]
-        assert messages == ["Attribute value already exists"]
-
-    # DELETE statments should still be executed, even if a value exists
-    setup_mock()
-    response = await dataloader.ldapapi.modify_ldap(
-        "MODIFY_DELETE", dn, "parameter_to_modify", "foo"
-    )
-    assert response == {"description": "success", "type": "test"}
-
-    monkeypatch.setenv("LDAP_READ_ONLY", "true")
-    dataloader.ldapapi.settings = Settings()
-    with pytest.raises(ReadOnlyException) as exc:
-        setup_mock()
-        await dataloader.ldapapi.modify_ldap(
-            "MODIFY_REPLACE", dn, "parameter_to_modify", []
-        )
-    assert "LDAP connection is read-only" in str(exc.value)
-
-
-async def test_modify_ldap_ou_not_in_ous_to_write_to(
-    dataloader: DataLoader,
-    sync_tool: AsyncMock,
-    ldap_connection: MagicMock,
-):
-    dataloader.ldapapi.ou_in_ous_to_write_to = MagicMock()  # type: ignore
-    dataloader.ldapapi.ou_in_ous_to_write_to.return_value = False
-
-    assert (
-        await dataloader.ldapapi.modify_ldap(
-            "MODIFY_REPLACE", "CN=foo", "attribute", "value"
-        )
-        is None
-    )  # type: ignore
 
 
 @pytest.mark.envvar({"LDAP_IT_SYSTEM": "ADUUID"})

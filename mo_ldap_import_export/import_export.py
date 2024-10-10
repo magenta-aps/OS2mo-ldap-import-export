@@ -21,7 +21,9 @@ import structlog
 from fastapi.encoders import jsonable_encoder
 from fastramqpi.ramqp.depends import handle_exclusively_decorator
 from fastramqpi.ramqp.utils import RequeueMessage
+from ldap3 import MODIFY_REPLACE
 from ldap3 import Connection
+from ldap3.core.exceptions import LDAPChangeError
 from more_itertools import all_equal
 from more_itertools import first
 from more_itertools import one
@@ -52,8 +54,10 @@ from .dataloaders import DataLoader
 from .dataloaders import Verb
 from .dataloaders import extract_current_or_latest_validity
 from .exceptions import DNNotFound
+from .exceptions import ReadOnlyException
 from .ldap import apply_discriminator
 from .ldap import get_ldap_object
+from .ldap import ldap_modify
 from .ldap_classes import LdapObject
 from .types import EmployeeUUID
 from .types import OrgUnitUUID
@@ -685,19 +689,70 @@ class SyncTool:
             **engagements,
         }
         # Remove non-export entries
-        changes = {
+        export_changes = {
             json_key: value
             for json_key, value in changes.items()
-            if not self.settings.conversion_mapping.mo_to_ldap[
+            if self.settings.conversion_mapping.mo_to_ldap[
                 json_key
             ].export_to_ldap_as_bool()
         }
 
-        # If dry-running we do not want to makes changes in LDAP
-        if not dry_run:
-            for ldap_object, delete in changes.values():
-                assert ldap_object.dn == best_dn
-                await self.dataloader.modify_ldap_object(ldap_object, delete=delete)
+        no_export_changes = changes.keys() - export_changes.keys()
+        for json_key in no_export_changes:
+            logger.info("_export_to_ldap_ == False.", json_key=json_key)
+
+        ldap_changes: dict[str, Any] = {
+            # NOTE: Replacing with an empty list works like deleting
+            key: [(MODIFY_REPLACE, [])]
+            for ldap_object, delete in export_changes.values()
+            for key in ldap_object.dict()
+            if delete
+        }
+        # Intentionally overwriting deletes with replaces if in both
+        # TODO: Handle list values in REPLACE
+        ldap_changes.update(
+            {
+                key: [(MODIFY_REPLACE, [value])]
+                for ldap_object, delete in export_changes.values()
+                for key, value in ldap_object.dict().items()
+                if not delete
+            }
+        )
+        # Cannot template 'dn' out
+        # TODO: Move this to template validator
+        ldap_changes = {
+            key: value for key, value in ldap_changes.items() if key != "dn"
+        }
+
+        if dry_run:
+            return changes
+
+        # TODO: Remove this when ldap3s read-only flag works
+        if self.settings.ldap_read_only:
+            logger.info(
+                "LDAP connection is read-only",
+                operation="modify_ldap",
+                dn=best_dn,
+                changes=changes,
+            )
+            raise ReadOnlyException("LDAP connection is read-only")
+
+        # Checks
+        if not self.dataloader.ldapapi.ou_in_ous_to_write_to(best_dn):
+            logger.info(
+                "Not allowed to write to the specified OU",
+                operation="modify_ldap",
+                dn=best_dn,
+            )
+            return {}
+
+        logger.info("Uploading the changes", changes=ldap_changes, dn=best_dn)
+        try:
+            _, result = await ldap_modify(self.ldap_connection, best_dn, ldap_changes)
+            logger.info("LDAP Result", result=result, dn=best_dn)
+        except LDAPChangeError as exc:
+            if "no changes in modify request" not in str(exc):
+                raise exc
 
         return changes
 
