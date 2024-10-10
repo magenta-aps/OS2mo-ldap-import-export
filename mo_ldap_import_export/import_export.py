@@ -21,7 +21,9 @@ import structlog
 from fastapi.encoders import jsonable_encoder
 from fastramqpi.ramqp.depends import handle_exclusively_decorator
 from fastramqpi.ramqp.utils import RequeueMessage
+from ldap3 import MODIFY_REPLACE
 from ldap3 import Connection
+from ldap3.core.exceptions import LDAPChangeError
 from more_itertools import all_equal
 from more_itertools import first
 from more_itertools import one
@@ -52,8 +54,10 @@ from .dataloaders import DataLoader
 from .dataloaders import Verb
 from .dataloaders import extract_current_or_latest_validity
 from .exceptions import DNNotFound
+from .exceptions import ReadOnlyException
 from .ldap import apply_discriminator
 from .ldap import get_ldap_object
+from .ldap import ldap_modify
 from .ldap_classes import LdapObject
 from .types import EmployeeUUID
 from .types import OrgUnitUUID
@@ -705,7 +709,11 @@ class SyncTool:
         # Keys are unique across all mappers by pydantic validation
         ldap_changes: dict[str, Any] = {
             # NOTE: Replacing with an empty list works like deleting
+<<<<<<< HEAD
             key: [] if (delete or value is None) else [value]
+=======
+            key: [(MODIFY_REPLACE, ([] if delete else [value]))]
+>>>>>>> c562b89a (feat(mo2ldap)!: [#59372] reimplement mo2ldap)
             for ldap_object, delete in export_changes.values()
             for key, value in ldap_object.dict().items()
         }
@@ -716,11 +724,43 @@ class SyncTool:
         if not ldap_changes:
             return {}
 
+<<<<<<< HEAD
         # If dry-running we do not want to makes changes in LDAP
         if not dry_run:
             return changes
 
         await self.dataloader.modify_ldap_object(best_dn, ldap_changes)
+=======
+        # TODO: Remove this when ldap3s read-only flag works
+        if self.settings.ldap_read_only:
+            logger.info(
+                "LDAP connection is read-only",
+                operation="modify_ldap",
+                dn=best_dn,
+                changes=changes,
+            )
+            raise ReadOnlyException("LDAP connection is read-only")
+
+        # Checks
+        if not self.dataloader.ldapapi.ou_in_ous_to_write_to(best_dn):
+            logger.info(
+                "Not allowed to write to the specified OU",
+                operation="modify_ldap",
+                dn=best_dn,
+            )
+            return {}
+
+        if dry_run:
+            return changes
+
+        logger.info("Uploading the changes", changes=ldap_changes, dn=best_dn)
+        try:
+            _, result = await ldap_modify(self.ldap_connection, best_dn, ldap_changes)
+            logger.info("LDAP Result", result=result, dn=best_dn)
+        except LDAPChangeError as exc:
+            if "no changes in modify request" not in str(exc):
+                raise exc
+>>>>>>> c562b89a (feat(mo2ldap)!: [#59372] reimplement mo2ldap)
 
         return changes
 

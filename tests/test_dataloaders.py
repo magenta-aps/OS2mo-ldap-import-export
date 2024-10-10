@@ -23,7 +23,6 @@ from fastapi.encoders import jsonable_encoder
 from fastramqpi.context import Context
 from freezegun import freeze_time
 from httpx import Response
-from ldap3.core.exceptions import LDAPInvalidValueError
 from mergedeep import Strategy  # type: ignore
 from mergedeep import merge
 from more_itertools import one
@@ -320,74 +319,6 @@ async def test_load_ldap_objects(
     output = await load_ldap_objects(settings, ldap_connection, converter, "Employee")
 
     assert output == expected_result
-
-
-async def test_delete_data_from_ldap_object(
-    ldap_connection: MagicMock,
-    dataloader: DataLoader,
-    ldap_attributes: dict,
-    cpr_field: str,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    # Hack to override overly mocked settings setup
-    set_employee_export_to_ldap(monkeypatch)
-    dataloader.settings = Settings()
-
-    dataloader.ldap_connection.get_response.return_value = (
-        [],
-        {"type": "test", "description": "compareTrue"},
-    )
-
-    address = LdapObject(
-        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        postalAddress="foo",
-        sharedValue="bar",
-        **{cpr_field: "123"},
-    )
-
-    # Note: 'sharedValue' won't be deleted because it is shared with another ldap object
-    converter = dataloader.user_context["converter"]
-    converter.mapping = {
-        "mo_to_ldap": {
-            "Employee": {cpr_field: None, "sharedValue": None},
-            "Address": {cpr_field: None, "sharedValue": None, "postalAddress": None},
-        }
-    }
-    changes = {"postalAddress": [("MODIFY_DELETE", "foo")]}
-
-    await dataloader.modify_ldap_object(address.dn, changes)
-    assert ldap_connection.modify.called_once_with(address.dn, changes)
-
-
-async def test_upload_ldap_object_invalid_value(
-    ldap_connection: MagicMock,
-    dataloader: DataLoader,
-    cpr_field: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Hack to override overly mocked settings setup
-    set_employee_export_to_ldap(monkeypatch)
-    dataloader.settings = Settings()
-
-    dataloader.ldap_connection.get_response.return_value = (
-        [],
-        {"type": "test", "description": "compareFalse"},
-    )
-
-    ldap_object = LdapObject(
-        dn="CN=Nick Janssen,OU=Users,OU=Magenta,DC=ad,DC=addev",
-        postalAddress="foo",
-        **{cpr_field: "123"},
-    )
-
-    ldap_connection.modify.side_effect = LDAPInvalidValueError("Invalid value")
-
-    with capture_logs() as cap_logs:
-        await dataloader.modify_ldap_object(ldap_object.dn, {})
-
-        warnings = [w for w in cap_logs if w["log_level"] == "warning"]
-        last_warning_message = str(warnings[-1]["event"])
-        assert last_warning_message == "LDAPInvalidValueError exception"
 
 
 async def test_load_mo_employee(
