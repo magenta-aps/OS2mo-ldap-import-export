@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
 from contextlib import suppress
-from functools import partialmethod
 from typing import Any
-from typing import Literal
 from typing import cast
 from uuid import UUID
 
@@ -23,8 +21,6 @@ from .exceptions import NoObjectsReturnedException
 from .exceptions import ReadOnlyException
 from .ldap import get_ldap_object
 from .ldap import ldap_add
-from .ldap import ldap_compare
-from .ldap import ldap_delete
 from .ldap import ldap_modify
 from .ldap import ldap_modify_dn
 from .ldap import object_search
@@ -116,7 +112,6 @@ class LDAPAPI:
 
     async def modify_ldap(
         self,
-        operation: Literal["MODIFY_DELETE", "MODIFY_REPLACE"],
         dn: str,
         attribute: str,
         value: list[str] | str,
@@ -152,71 +147,12 @@ class LDAPAPI:
                 ),
             )
 
-        # Compare to LDAP
-        value_exists = await ldap_compare(self.ldap_connection, dn, attribute, value)
-
-        # If the value is already as expected, and we are not deleting, we are done
-        if value_exists and "DELETE" not in operation:
-            logger.info(
-                "Attribute value already exists",
-                attribute=attribute,
-                value_to_modify=value,
-            )
-            return None
-
         # Modify LDAP
-        changes = {attribute: [(operation, value)]}
+        changes = {attribute: [("MODIFY_REPLACE", value)]}
         logger.info("Uploading the changes", changes=changes, dn=dn)
         _, result = await ldap_modify(self.ldap_connection, dn, changes)
         logger.info("LDAP Result", result=result, dn=dn)
         return result
-
-    delete_ldap = partialmethod(modify_ldap, "MODIFY_DELETE")
-    replace_ldap = partialmethod(modify_ldap, "MODIFY_REPLACE")
-
-    async def load_ldap_OUs(self, search_base: str | None = None) -> dict:
-        """
-        Returns a dictionary where the keys are OU strings and the items are dicts
-        which contain information about the OU
-        """
-        searchParameters: dict = {
-            "search_filter": "(objectclass=OrganizationalUnit)",
-            "attributes": [],
-        }
-
-        responses = await paged_search(
-            self.settings,
-            self.ldap_connection,
-            searchParameters,
-            search_base=search_base,
-            mute=True,
-        )
-        dns = [r["dn"] for r in responses]
-
-        user_object_class = self.settings.ldap_user_objectclass
-        dn_responses = await asyncio.gather(
-            *[
-                object_search(
-                    {
-                        "search_base": dn,
-                        "search_filter": f"(objectclass={user_object_class})",
-                        "attributes": [],
-                        "size_limit": 1,
-                    },
-                    self.ldap_connection,
-                )
-                for dn in dns
-            ]
-        )
-        dn_map = dict(zip(dns, dn_responses, strict=False))
-
-        return {
-            extract_ou_from_dn(dn): {
-                "empty": len(dn_map[dn]) == 0,
-                "dn": dn,
-            }
-            for dn in dns
-        }
 
     async def add_ldap_object(self, dn: str, attributes: dict[str, Any] | None = None):
         """
