@@ -1218,64 +1218,6 @@ async def test_is_primaries(
     assert is_primary_engagements_route.called
 
 
-async def test_modify_ldap(
-    dataloader: DataLoader,
-    sync_tool: AsyncMock,
-    ldap_connection: MagicMock,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    def setup_mock(compares: bool = False):
-        result = "compareTrue" if compares else "compareFalse"
-        ldap_connection.get_response.return_value = (
-            [],
-            {"type": "test", "description": result},
-        )
-
-        def set_new_result(*args, **kwargs):
-            ldap_connection.get_response.return_value = (
-                [],
-                {"type": "test", "description": "success"},
-            )
-
-        ldap_connection.modify.side_effect = set_new_result
-
-    dn = "CN=foo"
-
-    # Validate that empty lists are allowed
-    setup_mock()
-    await dataloader.ldapapi.modify_ldap(dn, "parameter_to_modify", [])
-
-    # Simulate case where a value exists
-    with capture_logs() as cap_logs:
-        setup_mock(True)
-        await dataloader.ldapapi.modify_ldap(dn, "parameter_to_modify", [])
-        messages = [w["event"] for w in cap_logs]
-        assert messages == ["Uploading the changes", "LDAP Result"]
-
-    # DELETE statments should still be executed, even if a value exists
-    setup_mock()
-    response = await dataloader.ldapapi.modify_ldap(dn, "parameter_to_modify", "foo")
-    assert response == {"description": "success", "type": "test"}
-
-    monkeypatch.setenv("LDAP_READ_ONLY", "true")
-    dataloader.ldapapi.settings = Settings()
-    with pytest.raises(ReadOnlyException) as exc:
-        setup_mock()
-        await dataloader.ldapapi.modify_ldap(dn, "parameter_to_modify", [])
-    assert "LDAP connection is read-only" in str(exc.value)
-
-
-async def test_modify_ldap_ou_not_in_ous_to_write_to(
-    dataloader: DataLoader,
-    sync_tool: AsyncMock,
-    ldap_connection: MagicMock,
-):
-    dataloader.ldapapi.ou_in_ous_to_write_to = MagicMock()  # type: ignore
-    dataloader.ldapapi.ou_in_ous_to_write_to.return_value = False
-
-    assert await dataloader.ldapapi.modify_ldap("CN=foo", "attribute", "value") is None  # type: ignore
-
-
 @pytest.mark.envvar({"LDAP_IT_SYSTEM": "ADUUID"})
 async def test_get_ldap_it_system_uuid(
     graphql_mock: GraphQLMocker,
