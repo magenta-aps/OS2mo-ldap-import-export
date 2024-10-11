@@ -48,7 +48,6 @@ from .exceptions import NoObjectsReturnedException
 from .exceptions import ReadOnlyException
 from .ldap import is_uuid
 from .ldap import ldap_modify
-from .ldap_classes import LdapObject
 from .ldapapi import LDAPAPI
 from .moapi import MOAPI
 from .moapi import extract_current_or_latest_validity
@@ -133,8 +132,8 @@ class DataLoader:
 
     async def modify_ldap_object(
         self,
-        object_to_modify: LdapObject,
-        delete: bool = False,
+        dn: DN,
+        requested_changes: dict[str, list],
     ) -> None:
         """
         Parameters
@@ -144,8 +143,7 @@ class DataLoader:
         delete: bool
             Set to True to delete contents in LDAP, instead of creating/modifying them
         """
-        logger.info("Uploading object", object_to_modify=object_to_modify)
-        dn = object_to_modify.dn
+        logger.info("Uploading object", dn=dn, requested_changes=requested_changes)
 
         # TODO: Remove this when ldap3s read-only flag works
         if self.settings.ldap_read_only:
@@ -164,17 +162,6 @@ class DataLoader:
                 dn=dn,
             )
             return None
-
-        requested_changes = {}
-
-        parameters_to_modify = list(object_to_modify.dict().keys())
-        parameters_to_modify = [p for p in parameters_to_modify if p != "dn"]
-        for parameter_to_modify in parameters_to_modify:
-            value = getattr(object_to_modify, parameter_to_modify)
-            value_to_modify: list[str] = [] if value is None else [value]
-            if delete:
-                value_to_modify = []
-            requested_changes[parameter_to_modify] = value_to_modify
 
         # Transform key-value changes to LDAP format
         changes = {

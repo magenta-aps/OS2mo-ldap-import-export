@@ -702,10 +702,25 @@ class SyncTool:
         for json_key in no_export_changes:
             logger.info("_export_to_ldap_ == False.", json_key=json_key)
 
+        # Keys are unique across all mappers by pydantic validation
+        ldap_changes: dict[str, Any] = {
+            # NOTE: Replacing with an empty list works like deleting
+            key: [] if (delete or value is None) else [value]
+            for ldap_object, delete in export_changes.values()
+            for key, value in ldap_object.dict().items()
+        }
+        # Cannot template 'dn' out
+        # TODO: Move this to settings validator
+        ldap_changes.pop("dn", None)
+
+        if not ldap_changes:
+            return {}
+
         # If dry-running we do not want to makes changes in LDAP
         if not dry_run:
-            for ldap_object, delete in export_changes.values():
-                await self.dataloader.modify_ldap_object(ldap_object, delete=delete)
+            return changes
+
+        await self.dataloader.modify_ldap_object(best_dn, ldap_changes)
 
         return changes
 
