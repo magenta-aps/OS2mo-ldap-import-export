@@ -29,6 +29,7 @@ from mo_ldap_import_export.customer_specific import JobTitleFromADToMO
 from mo_ldap_import_export.dataloaders import DataLoader
 from mo_ldap_import_export.dataloaders import Verb
 from mo_ldap_import_export.depends import GraphQLClient
+from mo_ldap_import_export.environments import construct_environment
 from mo_ldap_import_export.exceptions import DNNotFound
 from mo_ldap_import_export.exceptions import NoObjectsReturnedException
 from mo_ldap_import_export.import_export import SyncTool
@@ -1667,3 +1668,46 @@ async def test_find_best_dn(sync_tool: SyncTool) -> None:
     uuid = EmployeeUUID(uuid4())
     result = await sync_tool._find_best_dn(uuid)
     assert result == dn
+
+
+@pytest.mark.parametrize(
+    "template, expected",
+    (
+        # No result call, gives value error
+        ("", "Result not set"),
+        # Empty dict in result call, empty dict as result
+        ("{{ result(dict()) }}", {}),
+        # Actual dict in result call, actual dict as result
+        ("{{ result({'a': 'b'}) }}", {"a": "b"}),
+        # Multiple result calls, give value error
+        ("{{ result({'a': 'b'}) }} {{ result({'c': 'd'}) }}", "Result already set"),
+        # Templates can use context
+        ("{{ result({'a': dn})}}", {"a": "CN=foo"}),
+        (
+            "{{ result({'b': uuid})}}",
+            {"b": UUID("fa15edad-da1e-c0de-babe-c1a551f1ab1e")},
+        ),
+        # Templates can use set operations
+        ("{% set a = 'hej' %} {{ result({'a': a})}}", {"a": "hej"}),
+        # Templates can filters
+        ("{% set a = 'hej123'|strip_non_digits %} {{ result({'a': a})}}", {"a": "123"}),
+        # Templates can globals
+        ("{% set a = min(1, 2) %} {{ result({'a': a})}}", {"a": 1}),
+        ("{% set a = nonejoin('a', 'b') %} {{ result({'a': a})}}", {"a": "a, b"}),
+    ),
+)
+async def test_render_ldap2mo(
+    sync_tool: SyncTool, template: str, expected: dict | str
+) -> None:
+    sync_tool.settings.conversion_mapping.mo2ldap = template  # type: ignore
+    sync_tool.converter.environment = construct_environment(
+        sync_tool.settings, sync_tool.dataloader
+    )
+    uuid = EmployeeUUID(UUID("fa15edad-da1e-c0de-babe-c1a551f1ab1e"))
+    if isinstance(expected, str):
+        with pytest.raises(ValueError) as exc_info:
+            await sync_tool.render_ldap2mo(uuid, "CN=foo")
+        assert expected in str(exc_info.value)
+    else:
+        result = await sync_tool.render_ldap2mo(uuid, "CN=foo")
+        assert result == expected
