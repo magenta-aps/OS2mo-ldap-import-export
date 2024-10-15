@@ -1685,27 +1685,44 @@ async def test_find_best_dn(sync_tool: SyncTool) -> None:
 @pytest.mark.parametrize(
     "template, expected",
     (
-        # No result call, gives value error
-        ("", "Result not set"),
-        # Empty dict in result call, empty dict as result
-        ("{{ result(dict()) }}", {}),
-        # Actual dict in result call, actual dict as result
-        ("{{ result({'a': 'b'}) }}", {"a": "b"}),
+        # No result call, gives decode error
+        ("", "Expecting value"),
+        # Empty dict in result call, works as expected
+        ("{{ {} }}", {}),
+        # Empty dict in result call, works as expected
+        ("{{ dict() }}", {}),
+        # Empty dict in result call with tojson, works as expected
+        ("{{ dict()|tojson }}", {}),
+        # Actual dict in result call, but single quotes, gives decode error
+        ("{{ {'a': 'b'} }}", "Expecting property name enclosed in double quotes"),
+        # Actual dict in result call, with double quotes, works as expected
+        ('{{ {"a": "b"} }}', "Expecting property name enclosed in double quotes"),
+        # Actual dict in result call, but single quotes with tojson, works as expected
+        ("{{ {'a': 'b'}|tojson }}", {"a": "b"}),
         # Multiple result calls, give value error
-        ("{{ result({'a': 'b'}) }} {{ result({'c': 'd'}) }}", "Result already set"),
-        # Templates can use context
-        ("{{ result({'a': dn})}}", {"a": "CN=foo"}),
         (
-            "{{ result({'b': uuid})}}",
-            {"b": UUID("fa15edad-da1e-c0de-babe-c1a551f1ab1e")},
+            '{{ {"a": "b"} }} {{ {"c": "d"} }}',
+            "Expecting property name enclosed in double quotes",
+        ),
+        # Templates can use context
+        ('{{ {"a": dn} }}', "Expecting property name enclosed in double quotes"),
+        ('{{ {"a": dn}|tojson }}', {"a": "CN=foo"}),
+        ('{{ {"b": uuid} }}', "Expecting property name enclosed in double quotes"),
+        ("{{ {'b': uuid}|tojson }}", "Object of type UUID is not JSON serializable"),
+        (
+            "{{ {'b': uuid|string}|tojson }}",
+            {"b": "fa15edad-da1e-c0de-babe-c1a551f1ab1e"},
         ),
         # Templates can use set operations
-        ("{% set a = 'hej' %} {{ result({'a': a})}}", {"a": "hej"}),
+        ("{% set a = 'hej' %} {{ {'a': a}|tojson }}", {"a": "hej"}),
         # Templates can filters
-        ("{% set a = 'hej123'|strip_non_digits %} {{ result({'a': a})}}", {"a": "123"}),
+        ("{% set a = 'hej123'|strip_non_digits %} {{ {'a': a}|tojson }}", {"a": "123"}),
         # Templates can globals
-        ("{% set a = min(1, 2) %} {{ result({'a': a})}}", {"a": 1}),
-        ("{% set a = nonejoin('a', 'b') %} {{ result({'a': a})}}", {"a": "a, b"}),
+        ("{% set a = min(1, 2) %} {{ {'a': a}|tojson }}", {"a": 1}),
+        ("{% set a = nonejoin('a', 'b') %} {{ {'a': a}|tojson }}", {"a": "a, b"}),
+        # Generating raw json outside of tojson
+        ('{"key": "value"}', {"key": "value"}),
+        ('{"key": "{{ dn }}"}', {"key": "CN=foo"}),
     ),
 )
 async def test_render_ldap2mo(
@@ -1717,7 +1734,7 @@ async def test_render_ldap2mo(
     )
     uuid = EmployeeUUID(UUID("fa15edad-da1e-c0de-babe-c1a551f1ab1e"))
     if isinstance(expected, str):
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(Exception) as exc_info:
             await sync_tool.render_ldap2mo(uuid, "CN=foo")
         assert expected in str(exc_info.value)
     else:
