@@ -721,9 +721,9 @@ class SyncTool:
                 for key, value in ldap_object.dict().items()
             }
 
-        # Cannot template 'dn' out
-        # TODO: Move this to settings validator
-        ldap_changes.pop("dn", None)
+            # Cannot template 'dn' out
+            # TODO: Move this to settings validator
+            ldap_changes.pop("dn", None)
 
         # If dry-running we do not want to makes changes in LDAP
         if dry_run:

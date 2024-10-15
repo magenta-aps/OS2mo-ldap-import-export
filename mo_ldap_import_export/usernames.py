@@ -303,11 +303,7 @@ class UserNameGenerator:
 
     async def _get_employee_ldap_attributes(self, employee: Employee, dn: str):
         if self.settings.conversion_mapping.mo2ldap:
-            ldap_changes = await self.dataloader.sync_tool.render_ldap2mo(
-                employee.uuid, dn
-            )
-            ldap_changes.pop("dn", None)
-            return ldap_changes
+            return await self.dataloader.sync_tool.render_ldap2mo(employee.uuid, dn)
         else:
             # TODO: Remove this when everyone uses the new template
             employee_ldap = await self.converter.to_ldap(
