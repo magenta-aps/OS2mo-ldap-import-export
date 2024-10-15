@@ -35,12 +35,15 @@ def address_mapping(minimal_mapping: dict) -> dict:
                     "person": "{{ dict(uuid=employee_uuid or NONE) }}",
                 }
             },
-            "mo_to_ldap": {
-                "EmailEmployee": {
-                    "_export_to_ldap_": "true",
-                    "mail": "{{mo_employee_address.value}}",
-                }
-            },
+            "mo2ldap": """
+                {% set mo_employee_address = load_mo_address(uuid, "EmailEmployee") %}
+                {{
+                    {
+                        "mail": mo_employee_address.value
+                    }|tojson
+                }}
+            """,
+            "mo_to_ldap": {}
         },
     )
     return cast(dict, new_mapping)

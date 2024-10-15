@@ -118,12 +118,7 @@ def minimal_mapping() -> dict[str, Any]:
                 "uuid": "{{ employee_uuid or NONE }}",
             }
         },
-        "mo_to_ldap": {
-            "Employee": {
-                "_export_to_ldap_": "false",
-                "employeeID": "{{mo_employee.cpr_no or None}}",
-            }
-        },
+        "mo_to_ldap": {},
         "username_generator": {"objectClass": "UserNameGenerator"},
     }
 
@@ -173,15 +168,18 @@ def integration_test_environment_variables(monkeypatch: pytest.MonkeyPatch) -> N
                 "surname": "{{ ldap.sn }}",
             }
         },
-        "mo_to_ldap": {
-            "Employee": {
-                "_export_to_ldap_": "true",
-                "employeeNumber": "{{mo_employee.cpr_no}}",
-                "title": "{{ mo_employee.user_key }}",
-                "givenName": "{{ mo_employee.givenname }}",
-                "sn": "{{ mo_employee.surname }}",
-            }
-        },
+        "mo2ldap": """
+            {% set mo_employee = load_mo_employee(uuid, current_objects_only=False) %}
+            {{
+                {
+                    "employeeNumber": mo_employee.cpr_no,
+                    "title": mo_employee.user_key,
+                    "givenName": mo_employee.givenname,
+                    "sn": mo_employee.surname,
+                }|tojson
+            }}
+        """,
+        "mo_to_ldap": {},
         "username_generator": {
             "objectClass": "UserNameGenerator",
             "combinations_to_try": ["FFFX", "LLLX"],

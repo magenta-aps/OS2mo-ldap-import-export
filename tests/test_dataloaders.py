@@ -93,7 +93,7 @@ def set_employee_export_to_ldap(monkeypatch: pytest.MonkeyPatch) -> None:
         json.dumps(
             overlay(
                 json.loads(os.environ["CONVERSION_MAPPING"]),
-                {"mo_to_ldap": {"Employee": {"_export_to_ldap_": "true"}}},
+                {"mo_to_ldap": {}},
             )
         ),
     )

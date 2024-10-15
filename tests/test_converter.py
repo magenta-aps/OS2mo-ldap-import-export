@@ -116,23 +116,22 @@ def converter_mapping() -> dict[str, Any]:
                 "person": "{{ dict(uuid=employee_uuid or NONE) }}",
             },
         },
-        "mo_to_ldap": {
-            "Employee": {
-                "_export_to_ldap_": "True",
-                "givenName": "{{mo_employee.givenname}}",
-                "sn": "{{mo_employee.surname}}",
-                "displayName": "{{mo_employee.surname}}, {{mo_employee.givenname}}",
-                "name": "{{mo_employee.givenname}} {{mo_employee.surname}}",
-                "employeeID": "{{mo_employee.cpr_no or None}}",
-            },
-            "Email": {
-                "_export_to_ldap_": "True",
-            },
-            "Active Directory": {
-                "_export_to_ldap_": "True",
-                "msSFU30Name": "{{mo_employee_it_user.user_key}}",
-            },
-        },
+        "mo2ldap": """
+            {% set mo_employee = load_mo_employee(uuid, current_objects_only=False) %}
+            {% set mo_employee_it_user = load_mo_it_user(uuid, "Active Directory") %}
+            {{
+                {
+                    "employeeID": mo_employee.cpr_no or None,
+                    "carLicense": mo_employee.uuid|string,
+                    "sn": mo_employee.surname,
+                    "givenName": mo_employee.surname + ", " + mo_employee.givenname,
+                    "name": mo_employee.givenname + " " + mo_employee.surname,
+                    "displayName": mo_employee.nickname_givenname + " " + mo_employee.nickname_surname,
+                    "msSFU30Name": mo_employee_it_user.user_key
+                }|tojson
+            }}
+        """,
+        "mo_to_ldap": {},
     }
 
 
@@ -342,15 +341,16 @@ async def test_ldap_to_mo_dict_validation_error(
                 "uuid": "{{ employee_uuid or NONE }}",
             },
         },
-        "mo_to_ldap": {
-            "Employee": {
-                "_export_to_ldap_": "True",
-                "employeeID": "{{mo_employee.cpr_no or None}}",
-            },
-            "Custom": {
-                "_export_to_ldap_": "True",
-            },
-        },
+        "mo2ldap": """
+            {% set mo_employee = load_mo_employee(uuid, current_objects_only=False) %}
+            {% set mo_employee_it_user = load_mo_it_user(uuid, "Active Directory") %}
+            {{
+                {
+                    "employeeID": mo_employee.cpr_no or None,
+                }|tojson
+            }}
+        """,
+        "mo_to_ldap": {},
     }
     monkeypatch.setenv("CONVERSION_MAPPING", json.dumps(mapping))
     settings = Settings()
@@ -437,15 +437,7 @@ async def test_template_strictness(
                 "uuid": "{{ employee_uuid }}",
             }
         },
-        "mo_to_ldap": {
-            "Employee": {
-                "_export_to_ldap_": "True",
-                "cpr": "{{ mo_employee.cpr_no }}",
-                "givenName": "{{ mo_employee.givenname }}",
-                "sn": "{{ mo_employee.surname }}",
-                "dn": "{{ mo_employee.user_key }}",
-            }
-        },
+        "mo_to_ldap": {},
     }
     monkeypatch.setenv("CONVERSION_MAPPING", json.dumps(mapping))
     converter.settings = Settings()
