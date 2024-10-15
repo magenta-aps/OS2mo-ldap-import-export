@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2019-2020 Magenta ApS
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
+import json
 from collections import ChainMap
 from collections.abc import Awaitable
 from collections.abc import Callable
@@ -623,21 +624,14 @@ class SyncTool:
     async def render_ldap2mo(self, uuid: EmployeeUUID, dn: DN) -> dict[str, list[Any]]:
         await self.perform_export_checks(uuid, uuid)
 
-        reference_dict = {}
-
-        def set_result(result: dict) -> None:
-            if "result" in reference_dict:
-                raise ValueError("Result already set")
-            reference_dict["result"] = result
-
         mo2ldap_template = self.settings.conversion_mapping.mo2ldap
         assert mo2ldap_template is not None
         template = self.converter.environment.from_string(mo2ldap_template)
-        template.globals.update({"result": set_result})
-        await template.render_async({"uuid": uuid, "dn": dn})
-        if "result" not in reference_dict:
-            raise ValueError("Result not set")
-        return reference_dict["result"]
+        result = await template.render_async({"uuid": uuid, "dn": dn})
+        parsed = json.loads(result)
+        assert isinstance(parsed, dict)
+        assert all(isinstance(key, str) for key in parsed)
+        return parsed
 
     @with_exitstack
     async def listen_to_changes_in_employees(
