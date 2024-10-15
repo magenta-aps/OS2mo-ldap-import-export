@@ -139,13 +139,13 @@ async def test_to_mo(
                 "mo2ldap": """
                     {% set mo_employee = load_mo_employee(uuid, current_objects_only=False) %}
                     {{
-                        result({
+                        {
                             "employeeNumber": mo_employee.cpr_no,
                             "carLicense": mo_employee.uuid|string,
                             "sn": mo_employee.surname,
                             "givenName": mo_employee.givenname,
                             "displayName": mo_employee.nickname_givenname + " " + mo_employee.nickname_surname
-                        })
+                        }|tojson
                     }}
                 """,
                 "mo_to_ldap": {},
