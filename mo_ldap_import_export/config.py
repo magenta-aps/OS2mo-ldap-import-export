@@ -316,9 +316,12 @@ class ConversionMapping(MappingBaseModel):
 
     @validator("mo_to_ldap")
     def check_for_conflicts(
-        cls, v: dict[str, MO2LDAPMapping]
-    ) -> dict[str, MO2LDAPMapping]:
+        cls, v: dict[str, MO2LDAPMapping] | None
+    ) -> dict[str, MO2LDAPMapping] | None:
         """Check that no mo_to_ldap mappings map the same fields."""
+        if v is None:
+            return None
+
         mappings = [mapping.dict().keys() for mapping in v.values()]
         conflicts = set(duplicates_everseen(flatten(mappings)))
         # Allow multiple configs to have these keys as they are required for each
