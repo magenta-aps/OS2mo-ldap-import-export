@@ -1029,7 +1029,7 @@ pyyaml = "*"
 
 [[package]]
 name = "ramodels"
-version = "36.27.3"
+version = "36.27.4"
 description = "Pydantic data models for OS2mo"
 category = "main"
 optional = false
@@ -2472,8 +2472,8 @@ pyyaml-env-tag = [
     {file = "pyyaml_env_tag-0.1.tar.gz", hash = "sha256:70092675bda14fdec33b31ba77e7543de9ddc88f2e5b99160396572d11525bdb"},
 ]
 ramodels = [
-    {file = "ramodels-36.27.3-py3-none-any.whl", hash = "sha256:c157604c36b71c1fff0fa762e0746c9aa55cd91b0f0a3e780f41ed86ea6feb89"},
-    {file = "ramodels-36.27.3.tar.gz", hash = "sha256:e3b8ec4891d7a8364504a7b8f658283bc4eb0991c967a5dc850653a1c3e57a47"},
+    {file = "ramodels-36.27.4-py3-none-any.whl", hash = "sha256:b6a87d34639a3da6808bd85901b0f5d43c069b9512b8fecbb61cbeeedb5edf4b"},
+    {file = "ramodels-36.27.4.tar.gz", hash = "sha256:58f9baaa531869e53f5f50c32e781c288297e4fa41cacd212db1f133f0a7bf5a"},
 ]
 requests = [
     {file = "requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6"},
