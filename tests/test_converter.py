@@ -305,19 +305,11 @@ async def test_ldap_to_mo_dict_validation_error(
         "ldap_to_mo": {
             "Employee": {
                 "objectClass": "ramodels.mo.employee.Employee",
-                "_import_to_mo_": "True",
+                "_import_to_mo_": "true",
                 "_ldap_attributes_": ["employeeID"],
                 "cpr_number": "{{ldap.employeeID or None}}",
                 "uuid": "{{ employee_uuid or '' }}",
-            },
-            "Custom": {
-                "objectClass": "Custom.JobTitleFromADToMO",
-                "_import_to_mo_": "true",
-                "_ldap_attributes_": ["hkStsuuid"],
-                "user": "{{ ldap.hkStsuuid }}",
-                "job_function": f"{{ {uuid4()} }}",
-                "uuid": "{{ employee_uuid or '' }}",
-            },
+            }
         }
     }
     monkeypatch.setenv("CONVERSION_MAPPING", json.dumps(mapping))
@@ -330,11 +322,9 @@ async def test_ldap_to_mo_dict_validation_error(
         await converter.from_ldap(
             LdapObject(
                 dn="",
-                hkStsuuid="not_an_uuid",
-                title="job title",
-                comment="job title default",
+                employeeID="not-a-cpr-number",
             ),
-            "Custom",
+            "Employee",
             employee_uuid=uuid4(),
         )
 

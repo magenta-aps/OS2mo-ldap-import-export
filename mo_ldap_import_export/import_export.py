@@ -580,6 +580,7 @@ class SyncTool:
 
         # First import the Employee, then Engagement if present, then the rest.
         # We want this order so dependencies exist before their dependent objects
+        # TODO: Should this not be based on the objectClass instead of the json_key?
         if "Employee" in json_keys:
             await self.import_single_user_entity("Employee", dn, employee_uuid)
             json_keys.discard("Employee")
@@ -628,14 +629,6 @@ class SyncTool:
             n=len(converted_objects),
             dn=dn,
         )
-        if json_key == "Custom":
-            await asyncio.gather(
-                *[
-                    obj.sync_to_mo(self.dataloader.graphql_client)
-                    for obj in converted_objects
-                ]
-            )
-            return
 
         converted_objects = await self.format_converted_objects(
             converted_objects, json_key

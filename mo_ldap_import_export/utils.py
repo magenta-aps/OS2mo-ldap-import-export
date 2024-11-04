@@ -24,8 +24,6 @@ from mo_ldap_import_export.models import Engagement
 from mo_ldap_import_export.models import ITUser
 from mo_ldap_import_export.models import MOBase
 
-from .models import JobTitleFromADToMO
-
 logger = structlog.stdlib.get_logger()
 
 T = TypeVar("T")
@@ -42,7 +40,6 @@ def mo_today() -> datetime:
 
 def import_class(name: str) -> type[MOBase]:
     import_map: dict[str, type[MOBase]] = {
-        "Custom.JobTitleFromADToMO": JobTitleFromADToMO,
         # TODO: these have nothing to do with ramodels anymore
         "ramodels.mo.details.address.Address": Address,
         "ramodels.mo.details.engagement.Engagement": Engagement,

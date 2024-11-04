@@ -40,7 +40,7 @@ async def test_check_holstebro_ou_is_externals_custom_succeeds(
     import_checks: ImportChecks,
 ):
     result = await import_checks.check_holstebro_ou_is_externals_issue_57426(
-        ["doesn't matter"], "neither does this", "Custom"
+        ["doesn't matter"], "neither does this", "Engagement"
     )
     assert result is True
 
