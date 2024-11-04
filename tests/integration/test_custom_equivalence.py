@@ -37,17 +37,17 @@ from mo_ldap_import_export.utils import combine_dn_strings
                         "_ldap_attributes_": [],
                         "uuid": "{{ employee_uuid or '' }}",  # TODO: why is this required?
                     },
-                    "Custom": {
-                        "objectClass": "Custom.JobTitleFromADToMO",
+                    "Engagement": {
+                        "objectClass": "ramodels.mo.details.engagement.Engagement",
                         "_import_to_mo_": "true",
-                        "_ldap_attributes_": [
-                            "carLicense",
-                            "title",
-                        ],
-                        # carLicense is arbitrarily chosen to hold the MO uuid
-                        "user": "{{ ldap.carLicense }}",
+                        "_ldap_attributes_": ["title"],
+                        "uuid": "{{ skip_if_none(load_mo_primary_engagement(employee_uuid)).uuid }}",
+                        "user_key": "{{ skip_if_none(load_mo_primary_engagement(employee_uuid)).user_key }}",
+                        "org_unit": "{{ skip_if_none(load_mo_primary_engagement(employee_uuid)).org_unit }}",
+                        "person": "{{ skip_if_none(load_mo_primary_engagement(employee_uuid)).person }}",
+                        "engagement_type": "{{ skip_if_none(load_mo_primary_engagement(employee_uuid)).engagement_type }}",
+                        "primary": "{{ skip_if_none(load_mo_primary_engagement(employee_uuid)).primary }}",
                         "job_function": "{{ get_or_create_job_function_uuid(ldap.title, default='Medarbejder') or ''}}",
-                        "uuid": "{{ employee_uuid or '' }}",  # TODO: why is this required?
                     },
                 },
                 # TODO: why is this required?
