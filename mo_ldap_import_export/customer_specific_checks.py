@@ -45,11 +45,11 @@ class ImportChecks:
         """
         Raise IgnoreChanges if current_dn's OU is not in any of ou_includes.
 
-        Never raise if json_key==Custom as Holstebro want to import job
+        Never raise if json_key==Engagement as Holstebro want to import job
         functions for everyone regardless of OU.
         """
         # Holstebro needs stillingsbetegnelser regardless of OU
-        if json_key == "Custom":
+        if json_key == "Engagement":
             return True
 
         # Check that current_dn's OU is in one of the accepted OU's

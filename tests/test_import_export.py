@@ -21,7 +21,6 @@ from more_itertools import last
 from structlog.testing import capture_logs
 
 from mo_ldap_import_export.config import Settings
-from mo_ldap_import_export.dataloaders import Verb
 from mo_ldap_import_export.depends import GraphQLClient
 from mo_ldap_import_export.environments import construct_environment
 from mo_ldap_import_export.exceptions import DNNotFound
@@ -33,7 +32,6 @@ from mo_ldap_import_export.models import Address
 from mo_ldap_import_export.models import Employee
 from mo_ldap_import_export.models import Engagement
 from mo_ldap_import_export.models import ITUser
-from mo_ldap_import_export.models import JobTitleFromADToMO
 from mo_ldap_import_export.types import DN
 from mo_ldap_import_export.types import EmployeeUUID
 from mo_ldap_import_export.types import OrgUnitUUID
@@ -741,45 +739,6 @@ async def test_wait_for_import_to_finish(sync_tool: SyncTool):
 
     assert elapsed_time >= 0.2
     assert elapsed_time < 0.3
-
-
-@pytest.mark.usefixtures("fake_find_mo_employee_dn")
-async def test_import_jobtitlefromadtomo_objects(
-    context: Context,
-    converter: MagicMock,
-    sync_tool: SyncTool,
-    fake_dn: DN,
-) -> None:
-    converter.find_mo_object_class.return_value = (
-        "mo_ldap_import_export.customer_specific.JobTitleFromADToMO"
-    )
-    converter.import_mo_object_class.return_value = JobTitleFromADToMO
-    converter.get_mo_attributes.return_value = ["user", "uuid", "job_function"]
-    sync_tool.settings.conversion_mapping.ldap_to_mo.keys.return_value = {  # type: ignore
-        "Custom"
-    }
-
-    converted_object = AsyncMock()
-
-    converted_objects = [converted_object]
-
-    formatted_objects = [
-        (converted_object, Verb.CREATE) for converted_object in converted_objects
-    ]
-
-    converter.from_ldap.return_value = converted_objects
-
-    context["legacy_graphql_session"] = AsyncMock()
-
-    with (
-        patch(
-            "mo_ldap_import_export.import_export.SyncTool.format_converted_objects",
-            return_value=formatted_objects,
-        ),
-        patch("mo_ldap_import_export.import_export.get_ldap_object"),
-    ):
-        await sync_tool.import_single_user(fake_dn)
-        converted_object.sync_to_mo.assert_called_once()
 
 
 async def test_publish_engagements_for_org_unit(dataloader: AsyncMock) -> None:

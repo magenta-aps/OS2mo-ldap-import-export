@@ -119,7 +119,6 @@ async def test_to_mo(
             "cn": "Aage Bach Klarskov",
             "sn": "Bach Klarskov",
             "employeeNumber": "2108613133",
-            "carLicense": str(mo_person),
             "title": title,
             "departmentNumber": str(mo_org_unit),
         },
