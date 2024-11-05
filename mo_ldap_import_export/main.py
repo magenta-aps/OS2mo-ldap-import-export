@@ -16,12 +16,15 @@ from fastapi import Depends
 from fastapi import FastAPI
 from fastramqpi.main import FastRAMQPI
 from fastramqpi.ramqp import AMQPSystem
+from fastramqpi.ramqp.depends import Context
 from fastramqpi.ramqp.depends import handle_exclusively_decorator
 from fastramqpi.ramqp.depends import rate_limit
 from fastramqpi.ramqp.mo import MORouter
 from fastramqpi.ramqp.mo import PayloadUUID
 from fastramqpi.ramqp.utils import RejectMessage
 from fastramqpi.ramqp.utils import RequeueMessage
+from httpx import ASGITransport
+from httpx import AsyncClient
 from ldap3 import Connection
 from more_itertools import one
 
@@ -52,6 +55,22 @@ amqp_router = MORouter()
 mo2ldap_router = APIRouter(prefix="/mo2ldap")
 
 
+async def send_http_event(
+    context: Context,
+    receiver: str,
+    object_uuid: PayloadUUID,
+) -> Any:
+    transport = ASGITransport(app=context["app"], client=("0.1.2.3", 4567))  # type: ignore
+    async with AsyncClient(transport=transport, base_url="http://ldap") as client:
+        content = str(object_uuid)
+        headers = {"Content-Type": "text/plain"}
+        result = await client.post(
+            f"/mo2ldap/{receiver}", content=content, headers=headers
+        )
+        result.raise_for_status()
+        return result.json()
+
+
 @mo2ldap_router.post("/address")
 @http_reject_on_failure
 async def http_process_address(
@@ -65,11 +84,10 @@ async def http_process_address(
 @amqp_router.register("address")
 @amqp_reject_on_failure
 async def process_address(
+    context: Context,
     object_uuid: PayloadUUID,
-    graphql_client: depends.GraphQLClient,
-    amqpsystem: depends.AMQPSystem,
-) -> None:
-    await handle_address(object_uuid, graphql_client, amqpsystem)
+) -> Any:
+    return await send_http_event(context, "address", object_uuid)
 
 
 async def handle_address(
@@ -121,11 +139,10 @@ async def http_process_engagement(
 @amqp_router.register("engagement")
 @amqp_reject_on_failure
 async def process_engagement(
+    context: Context,
     object_uuid: PayloadUUID,
-    graphql_client: depends.GraphQLClient,
-    amqpsystem: depends.AMQPSystem,
-) -> None:
-    await handle_engagement(object_uuid, graphql_client, amqpsystem)
+) -> Any:
+    return await send_http_event(context, "engagement", object_uuid)
 
 
 async def handle_engagement(
@@ -162,11 +179,10 @@ async def http_process_ituser(
 @amqp_router.register("ituser")
 @amqp_reject_on_failure
 async def process_ituser(
+    context: Context,
     object_uuid: PayloadUUID,
-    graphql_client: depends.GraphQLClient,
-    amqpsystem: depends.AMQPSystem,
-) -> None:
-    await handle_ituser(object_uuid, graphql_client, amqpsystem)
+) -> Any:
+    return await send_http_event(context, "ituser", object_uuid)
 
 
 async def handle_ituser(
@@ -207,15 +223,13 @@ async def http_process_person(
 @amqp_router.register("person")
 @handle_exclusively_decorator(key=lambda object_uuid, *_, **__: object_uuid)
 async def process_person(
+    context: Context,
     object_uuid: PayloadUUID,
-    sync_tool: depends.SyncTool,
     graphql_client: depends.GraphQLClient,
     amqpsystem: depends.AMQPSystem,
-) -> None:
+) -> Any:
     try:
-        await amqp_reject_on_failure(sync_tool.listen_to_changes_in_employees)(
-            object_uuid
-        )
+        return await send_http_event(context, "person", object_uuid)
     except RequeueMessage:  # pragma: no cover
         # NOTE: This is a hack to cycle messages because quorum queues do not work
         await asyncio.sleep(30)
@@ -235,11 +249,10 @@ async def http_process_org_unit(
 @amqp_router.register("org_unit")
 @amqp_reject_on_failure
 async def process_org_unit(
+    context: Context,
     object_uuid: PayloadUUID,
-    graphql_client: depends.GraphQLClient,
-    amqpsystem: depends.AMQPSystem,
-) -> None:
-    await handle_org_unit(object_uuid, graphql_client, amqpsystem)
+) -> Any:
+    return await send_http_event(context, "org_unit", object_uuid)
 
 
 async def handle_org_unit(
