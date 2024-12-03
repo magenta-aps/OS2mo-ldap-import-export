@@ -36,7 +36,6 @@ from mo_ldap_import_export.models import MOBase
 from .config import Settings
 from .converters import LdapConverter
 from .customer_specific_checks import ExportChecks
-from .customer_specific_checks import ImportChecks
 from .dataloaders import DN
 from .dataloaders import DataLoader
 from .dataloaders import Verb
@@ -82,14 +81,12 @@ class SyncTool:
         dataloader: DataLoader,
         converter: LdapConverter,
         export_checks: ExportChecks,
-        import_checks: ImportChecks,
         settings: Settings,
         ldap_connection: Connection,
     ) -> None:
         self.dataloader: DataLoader = dataloader
         self.converter: LdapConverter = converter
         self.export_checks: ExportChecks = export_checks
-        self.import_checks: ImportChecks = import_checks
         self.settings: Settings = settings
         self.ldap_connection: Connection = ldap_connection
 
@@ -115,15 +112,6 @@ class SyncTool:
             employee_uuid,
             self.settings.it_user_to_check,
         )
-
-    async def perform_import_checks(self, dn: str, json_key: str) -> bool:
-        if self.settings.check_holstebro_ou_issue_57426:
-            return await self.import_checks.check_holstebro_ou_is_externals_issue_57426(
-                self.settings.check_holstebro_ou_issue_57426,
-                dn,
-                json_key,
-            )
-        return True
 
     async def _find_best_dn(
         self, uuid: EmployeeUUID, dry_run: bool = False
@@ -577,13 +565,6 @@ class SyncTool:
             ].import_to_mo_as_bool(manual_import)
         }
         logger.info("Import to MO filtered", json_keys=json_keys)
-
-        json_keys = {
-            json_key
-            for json_key in json_keys
-            if await self.perform_import_checks(dn, json_key)
-        }
-        logger.info("Import checks executed", json_keys=json_keys)
 
         # First import the Employee, then Engagement if present, then the rest.
         # We want this order so dependencies exist before their dependent objects

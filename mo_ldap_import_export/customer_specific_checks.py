@@ -36,33 +36,3 @@ class ExportChecks:
                 f"employee with uuid = {employee_uuid} "
                 f"does not have an it-user with user_key = {it_system_user_key}"
             )
-
-
-class ImportChecks:
-    async def check_holstebro_ou_is_externals_issue_57426(
-        self, ou_includes: list[str], current_dn: str, json_key: str
-    ) -> bool:
-        """
-        Raise IgnoreChanges if current_dn's OU is not in any of ou_includes.
-
-        Never raise if json_key==Custom as Holstebro want to import job
-        functions for everyone regardless of OU.
-        """
-        # Holstebro needs stillingsbetegnelser regardless of OU
-        if json_key == "Custom":
-            return True
-
-        # Check that current_dn's OU is in one of the accepted OU's
-        current_ou = extract_ou_from_dn(current_dn)
-        try:
-            check_ou_in_list_of_ous(current_ou, ou_includes)
-        except ValueError:
-            logger.info(
-                "Check Holstebro OU is externals failed",
-                current_ou=current_ou,
-                ou_includes=ou_includes,
-                json_key=json_key,
-                exc_info=True,
-            )
-            return False
-        return True

@@ -46,7 +46,6 @@ def context(
     dataloader: AsyncMock,
     converter: MagicMock,
     export_checks: AsyncMock,
-    import_checks: AsyncMock,
     settings_mock: MagicMock,
 ) -> Context:
     settings_mock.discriminator_field = None
@@ -57,7 +56,6 @@ def context(
             "dataloader": dataloader,
             "converter": converter,
             "export_checks": export_checks,
-            "import_checks": import_checks,
             "settings": settings_mock,
             "ldap_connection": ldap_connection,
         },
@@ -791,26 +789,6 @@ async def test_publish_engagements_for_org_unit(dataloader: AsyncMock) -> None:
     dataloader.graphql_client.org_unit_engagements_refresh.assert_called_with(
         amqpsystem.exchange_name, uuid
     )
-
-
-async def test_perform_import_checks_noop(sync_tool: SyncTool) -> None:
-    """Test that perform_import_checks returns True when nothing is checked."""
-    sync_tool.settings.check_holstebro_ou_issue_57426 = False  # type: ignore
-    result = await sync_tool.perform_import_checks("CN=foo", "Employee")
-    assert result is True
-
-
-@pytest.mark.usefixtures("fake_find_mo_employee_dn")
-async def test_holstebro_import_checks(sync_tool: SyncTool, fake_dn: DN) -> None:
-    with (
-        patch(
-            "mo_ldap_import_export.import_export.SyncTool.perform_import_checks",
-            return_value=False,
-        ),
-        capture_logs() as cap_logs,
-    ):
-        await sync_tool.import_single_user(fake_dn)
-        assert "Import checks executed" in str(cap_logs)
 
 
 async def test_import_single_user_entity(sync_tool: SyncTool) -> None:
