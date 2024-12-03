@@ -6,8 +6,6 @@ import structlog
 
 from .dataloaders import DataLoader
 from .exceptions import IgnoreChanges
-from .ldap import check_ou_in_list_of_ous
-from .utils import extract_ou_from_dn
 
 logger = structlog.stdlib.get_logger()
 

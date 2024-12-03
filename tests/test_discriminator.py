@@ -566,7 +566,6 @@ async def context(sync_tool_and_context: tuple[SyncTool, Context]) -> Context:
             False,
             [
                 "Import to MO filtered",
-                "Import checks executed",
             ],
             marks=pytest.mark.envvar({}),
         ),
@@ -593,7 +592,6 @@ async def context(sync_tool_and_context: tuple[SyncTool, Context]) -> Context:
                 "Found DN",
                 "Found DN",
                 "Import to MO filtered",
-                "Import checks executed",
             ],
             marks=pytest.mark.envvar(
                 {
@@ -611,7 +609,6 @@ async def context(sync_tool_and_context: tuple[SyncTool, Context]) -> Context:
                 "Found DN",
                 "Found better DN for employee",
                 "Import to MO filtered",
-                "Import checks executed",
             ],
             marks=pytest.mark.envvar(
                 {
