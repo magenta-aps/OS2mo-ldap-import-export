@@ -46,6 +46,7 @@ from .utils import mo_today
 
 logger = structlog.stdlib.get_logger()
 T = TypeVar("T")
+UNSET: Any = object()
 
 
 def filter_mo_datestring(datetime_object):
@@ -317,7 +318,10 @@ async def create_mo_it_user(
 
 
 async def load_address(
-    dataloader: DataLoader, employee_uuid: UUID, address_type_user_key: str
+    dataloader: DataLoader,
+    employee_uuid: UUID,
+    address_type_user_key: str,
+    visibility: UUID | None = UNSET,
 ) -> Address | None:
     result = await dataloader.graphql_client.read_filtered_addresses(
         AddressFilter(
@@ -327,6 +331,14 @@ async def load_address(
             to_date=None,
         )
     )
+    # TODO: Use a MO AddressFilter instead
+    if visibility is not UNSET:
+        result.objects = [
+            o
+            for o in result.objects
+            if any(v.visibility_uuid == visibility for v in o.validities)
+        ]
+
     address = only(result.objects)
     if address is None:
         logger.info(

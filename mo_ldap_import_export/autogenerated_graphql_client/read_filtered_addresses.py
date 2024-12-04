@@ -22,6 +22,7 @@ class ReadFilteredAddressesAddressesObjectsValidities(BaseModel):
     address_type: "ReadFilteredAddressesAddressesObjectsValiditiesAddressType"
     uuid: UUID
     validity: "ReadFilteredAddressesAddressesObjectsValiditiesValidity"
+    visibility_uuid: UUID | None
 
 
 class ReadFilteredAddressesAddressesObjectsValiditiesAddressType(BaseModel):

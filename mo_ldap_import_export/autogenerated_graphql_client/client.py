@@ -1106,6 +1106,7 @@ class GraphQLClient(AsyncBaseClient):
                       from
                       to
                     }
+                    visibility_uuid
                   }
                 }
               }
