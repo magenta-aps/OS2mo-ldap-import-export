@@ -456,6 +456,9 @@ class Settings(BaseSettings):
     ldap_response_timeout: int = Field(
         10, description="Number of seconds to wait for responses (query timeout)."
     )
+    ldap_dn_filter: str | None = Field(
+        None, description="Jinja template to filter DNs before discriminator"
+    )
 
     # TODO: Remove this, as it already exists within FastRAMQPI?
     mo_url: AnyHttpUrl = Field(

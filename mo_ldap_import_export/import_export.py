@@ -125,10 +125,25 @@ class SyncTool:
             )
         return True
 
+    async def filter_dns(self, uuid: EmployeeUUID, dns: set[DN]) -> set[DN]:
+        if self.settings.ldap_dn_filter is None:
+            return dns
+        template = self.converter.environment.from_string(self.settings.ldap_dn_filter)
+
+        async def check_dn(dn: DN) -> bool:
+            result = await template.render_async({"uuid": uuid, "dn": dn})
+            is_ok = json.loads(result)
+            assert isinstance(is_ok, bool)
+            return is_ok
+
+        return {dn for dn in dns if check_dn(dn)}
+
     async def _find_best_dn(
         self, uuid: EmployeeUUID, dry_run: bool = False
     ) -> DN | None:
         dns = await self.dataloader.find_mo_employee_dn(uuid)
+        # Filter the relevant DNS before choosing the best one
+        dns = await self.filter_dns(uuid, dns)
         # If we found DNs, we want to synchronize to the best of them
         if dns:
             logger.info("Found DNs for user", dns=dns, uuid=uuid)
@@ -543,6 +558,9 @@ class SyncTool:
 
         # At this point 'employee_uuid' is an UUID that may or may not be in MO
         # At this point 'dns' is a list of LDAP account DNs
+
+        # Filter the relevant DNS before choosing the best one
+        dns = await self.filter_dns(employee_uuid, dns)
 
         # We always want to synchronize from the best LDAP account, instead of just
         # synchronizing from the last LDAP account that has been touched.
