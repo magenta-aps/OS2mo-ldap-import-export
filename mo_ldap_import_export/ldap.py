@@ -4,6 +4,7 @@
 
 import asyncio
 import signal
+import json
 from collections import ChainMap
 from contextlib import suppress
 from ssl import CERT_NONE
@@ -41,7 +42,7 @@ from .exceptions import MultipleObjectsReturnedException
 from .exceptions import NoObjectsReturnedException
 from .exceptions import TimeOutException
 from .ldap_classes import LdapObject
-from .types import DN
+from .types import DN, EmployeeUUID
 from .types import RDN
 from .utils import combine_dn_strings
 from .utils import ensure_list
@@ -265,7 +266,7 @@ async def ldap_search(
 
 
 async def apply_discriminator(
-    settings: Settings, ldap_connection: Connection, dns: set[DN]
+    settings: Settings, ldap_connection: Connection, dns: set[DN], uuid: EmployeeUUID
 ) -> DN | None:
     """Find the account to synchronize from a set of DNs.
 
@@ -285,6 +286,28 @@ async def apply_discriminator(
 
     # Empty input-set means we have no accounts to consider
     if not dns:
+        return None
+
+    if settings.discriminator_function == "new_template":
+        for discriminator in settings.discriminator_values:
+            template = self.converter.environment.from_string(discriminator)
+
+            async def passes(dn: DN) -> bool:
+                result = await template.render_async({"uuid": uuid, "dn": dn})
+                is_ok = json.loads(result)
+                assert isinstance(is_ok, bool)
+                return is_ok
+
+            dns_passing_template = {
+                dn for dn in dns if await passes(dn)
+            }
+            if dns_passing_template:
+                return one(
+                    dns_passing_template,
+                    too_long=MultipleObjectsReturnedException(
+                        f"Ambiguous account result from apply discriminator {dns_passing_template=}"
+                    ),
+                )
         return None
 
     discriminator_field = settings.discriminator_field

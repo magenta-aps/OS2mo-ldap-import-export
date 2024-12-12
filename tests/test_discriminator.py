@@ -306,14 +306,14 @@ async def test_apply_discriminator_no_config(
     """Test that apply_discriminator only allows one DN when not configured."""
     assert settings.discriminator_field is None
 
-    result = await apply_discriminator(settings, ldap_connection, set())
+    result = await apply_discriminator(settings, ldap_connection, set(), uuid4())
     assert result is None
 
-    result = await apply_discriminator(settings, ldap_connection, {"CN=Anzu"})
+    result = await apply_discriminator(settings, ldap_connection, {"CN=Anzu"}, uuid4())
     assert result == "CN=Anzu"
 
     with pytest.raises(ValueError) as exc_info:
-        await apply_discriminator(settings, ldap_connection, {"CN=Anzu", "CN=Arak"})
+        await apply_discriminator(settings, ldap_connection, {"CN=Anzu", "CN=Arak"}, uuid4())
     assert "Expected exactly one item in iterable" in str(exc_info.value)
 
 
@@ -355,7 +355,7 @@ async def test_apply_discriminator_settings_invariants(
     with pytest.raises(AssertionError):
         # Need function and values
         new_settings = settings.copy(update=discriminator_settings)
-        await apply_discriminator(new_settings, ldap_connection, {ldap_dn})
+        await apply_discriminator(new_settings, ldap_connection, {ldap_dn}, uuid4())
 
 
 async def test_apply_discriminator_unknown_dn(
@@ -370,7 +370,7 @@ async def test_apply_discriminator_unknown_dn(
         }
     )
     with pytest.raises(RequeueMessage) as exc_info:
-        await apply_discriminator(settings, ldap_connection, {"CN=__missing__dn__"})
+        await apply_discriminator(settings, ldap_connection, {"CN=__missing__dn__"}, uuid4())
     assert "Unable to lookup DN(s)" in str(exc_info.value)
 
 
@@ -411,7 +411,7 @@ async def test_apply_discriminator_exclude_one_user(
             "discriminator_values": discriminator_values,
         }
     )
-    result = await apply_discriminator(settings, ldap_connection, {ldap_dn})
+    result = await apply_discriminator(settings, ldap_connection, {ldap_dn}, uuid4())
     assert result == expected
 
 
@@ -445,7 +445,7 @@ async def test_apply_discriminator_exclude_none(
         }
     )
     with capture_logs() as cap_logs:
-        result = await apply_discriminator(settings, ldap_connection, {another_ldap_dn})
+        result = await apply_discriminator(settings, ldap_connection, {another_ldap_dn}, uuid4())
         assert "Discriminator value is None" in (x["event"] for x in cap_logs)
 
     if discriminator_function == "include":
@@ -482,7 +482,7 @@ async def test_apply_discriminator_missing_field(
         }
     )
     with capture_logs() as cap_logs:
-        result = await apply_discriminator(settings, ldap_connection, {another_ldap_dn})
+        result = await apply_discriminator(settings, ldap_connection, {another_ldap_dn}, uuid4())
         assert "Discriminator value is None" in (x["event"] for x in cap_logs)
 
     if discriminator_function == "include":
@@ -907,7 +907,7 @@ async def test_apply_discriminator_template(
 
     with patch("mo_ldap_import_export.ldap.get_ldap_object", wraps=get_ldap_object):
         result = await apply_discriminator(
-            settings, ldap_connection, set(dn_map.keys())
+            settings, ldap_connection, set(dn_map.keys()), uuid4()
         )
         assert result == expected
 
