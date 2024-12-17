@@ -124,37 +124,11 @@ class SyncTool:
             )
         return True
 
-    async def _find_best_dn(
-        self, uuid: EmployeeUUID, dry_run: bool = False
-    ) -> DN | None:
-        dns = await self.dataloader.find_mo_employee_dn(uuid)
-        # If we found DNs, we want to synchronize to the best of them
-        if dns:
-            logger.info("Found DNs for user", dns=dns, uuid=uuid)
-            best_dn = await apply_discriminator(
-                self.settings, self.ldap_connection, dns
-            )
-            # If no good LDAP account was found, we do not want to synchronize at all
-            if best_dn:
-                return best_dn
-            logger.warning(
-                "Aborting synchronization, as no good LDAP account was found",
-                dns=dns,
-                uuid=uuid,
-            )
-            return None
+    async def _find_best_dn(self, dns: set[DN]) -> DN | None:
+        best_dn = await apply_discriminator(self.settings, self.ldap_connection, dns)
+        return best_dn
 
-        # If dry-running we do not want to generate real DNs in LDAP
-        if dry_run:
-            return "CN=Dry run,DC=example,DC=com"
-
-        if not self.settings.add_objects_to_ldap:
-            logger.info(
-                "Aborting synchronization, as no LDAP account was found and we are not configured to create",
-                uuid=uuid,
-            )
-            return None
-
+    async def generate_dn(self, uuid: EmployeeUUID) -> DN | None:
         # If we did not find DNs, we want to make one
         try:
             # This call actually writes in LDAP, so make sure that is okay
@@ -203,8 +177,29 @@ class SyncTool:
             logger.info("listen_to_changes_in_employees called without mapping")
             return {}
 
-        best_dn = await self._find_best_dn(uuid, dry_run=dry_run)
+        dns = await self.dataloader.find_mo_employee_dn(uuid)
+        # No DNS found, either we bail or we create one
+        if dns:
+            exit_stack.enter_context(bound_contextvars(dns=dns))
+            logger.info("Found DNs for user")
+            best_dn = await self._find_best_dn(dns)
+        elif dry_run:
+            logger.info("Found no DNs for user, configured to dry-run")
+            best_dn = "CN=Dry run,DC=example,DC=com"
+        elif self.settings.add_objects_to_ldap:
+            logger.info("Found no DNs for user, generating one")
+            best_dn = await self.generate_dn(uuid)
+        else:
+            logger.info(
+                "Aborting synchronization, as no LDAP account was found and we are not configured to create",
+            )
+            return {}
+
+        # If no good LDAP account was found, we do not want to synchronize at all
         if best_dn is None:
+            logger.warning(
+                "Aborting synchronization, as no good LDAP account was found",
+            )
             return {}
 
         exit_stack.enter_context(bound_contextvars(dn=best_dn))

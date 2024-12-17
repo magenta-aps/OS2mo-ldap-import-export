@@ -100,6 +100,7 @@ async def test_listen_to_changes_in_employees_no_dn(
         messages = [w["event"] for w in cap_logs]
         assert messages == [
             "Registered change in an employee",
+            "Found no DNs for user, generating one",
             "Unable to generate DN",
         ]
 
@@ -1078,32 +1079,13 @@ async def test_get_primary_engagement(
     assert route.called
 
 
-async def test_find_best_dn(sync_tool: SyncTool) -> None:
+async def test_generate_dn(sync_tool: SyncTool) -> None:
     dn = "CN=foo"
-    sync_tool.dataloader.find_mo_employee_dn.return_value = set()  # type: ignore
     sync_tool.dataloader.make_mo_employee_dn.return_value = dn  # type: ignore
 
     uuid = EmployeeUUID(uuid4())
-    result = await sync_tool._find_best_dn(uuid)
+    result = await sync_tool.generate_dn(uuid)
     assert result == dn
-
-
-async def test_find_best_dn_no_create(sync_tool: SyncTool) -> None:
-    sync_tool.dataloader.find_mo_employee_dn.return_value = set()  # type: ignore
-    sync_tool.settings.add_objects_to_ldap = False  # type: ignore
-
-    uuid = EmployeeUUID(uuid4())
-    with capture_logs() as cap_logs:
-        result = await sync_tool._find_best_dn(uuid)
-    assert result is None
-
-    assert cap_logs == [
-        {
-            "event": "Aborting synchronization, as no LDAP account was found and we are not configured to create",
-            "log_level": "info",
-            "uuid": uuid,
-        },
-    ]
 
 
 @freeze_time("2022-08-10T12:34:56")
