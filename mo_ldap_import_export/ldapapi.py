@@ -14,7 +14,7 @@ from ldap3.core.exceptions import LDAPNoSuchObjectResult
 from ldap3.utils.dn import escape_rdn
 from ldap3.utils.dn import parse_dn
 from ldap3.utils.dn import safe_dn
-from more_itertools import one
+from more_itertools import one, only
 from more_itertools import partition
 
 from .config import Settings
@@ -199,11 +199,13 @@ class LDAPAPI:
         )
         # Try to get the cpr number from LDAP and use that.
         raw_cpr_number = getattr(ldap_object, self.settings.ldap_cpr_attribute)
-        assert raw_cpr_number is not None
+        if raw_cpr_number is None:
+            return None
         # NOTE: Not sure if this only necessary for the mocked server or not
         if isinstance(raw_cpr_number, list):
-            raw_cpr_number = one(raw_cpr_number)
-        assert raw_cpr_number is not None
+            raw_cpr_number = only(raw_cpr_number)
+        if raw_cpr_number is None:
+            return None
         cpr_number = str(raw_cpr_number)
         return CPRNumber(cpr_number)
 
