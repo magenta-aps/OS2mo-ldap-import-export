@@ -315,7 +315,7 @@ class Settings(BaseSettings):
         description="Conversion mapping between LDAP and OS2mo",
     )
     use_uuid_mapping: bool = Field(
-        False, description="Use UUID mapping instead of the complex old mapping logic"
+        True, description="Use UUID mapping instead of the complex old mapping logic"
     )
 
     ldap_amqp: LDAPAMQPConnectionSettings = Field(
