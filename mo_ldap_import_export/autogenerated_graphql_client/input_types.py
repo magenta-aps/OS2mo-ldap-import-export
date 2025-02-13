@@ -161,7 +161,28 @@ class ClassFilter(BaseModel):
     parents: list[UUID] | None = None
     parent_user_keys: list[str] | None = None
     it_system: Optional["ITSystemFilter"] = None
+    owner: Optional["ClassOwnerFilter"] = None
     scope: list[str] | None = None
+
+
+class ClassOwnerFilter(BaseModel):
+    uuids: list[UUID] | None = None
+    user_keys: list[str] | None = None
+    from_date: datetime | None
+    to_date: datetime | None
+    registration: Optional["OrganisationUnitRegistrationFilter"] = None
+    query: str | None
+    names: list[str] | None
+    parent: Optional["OrganisationUnitFilter"]
+    parents: list[UUID] | None
+    child: Optional["OrganisationUnitFilter"]
+    hierarchy: Optional["ClassFilter"] = None
+    hierarchies: list[UUID] | None = None
+    subtree: Optional["OrganisationUnitFilter"]
+    descendant: Optional["OrganisationUnitFilter"]
+    ancestor: Optional["OrganisationUnitFilter"]
+    engagement: Optional["EngagementFilter"] = None
+    include_none: bool = False
 
 
 class ClassRegistrationFilter(BaseModel):
@@ -283,6 +304,7 @@ class EmployeesBoundEngagementFilter(BaseModel):
     to_date: datetime | None
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
+    engagement_type: Optional["ClassFilter"] = None
 
 
 class EmployeesBoundITUserFilter(BaseModel):
@@ -321,6 +343,7 @@ class EmployeesBoundManagerFilter(BaseModel):
     to_date: datetime | None
     registration: Optional["ManagerRegistrationFilter"] = None
     responsibility: Optional["ClassFilter"] = None
+    exclude: Optional["EmployeeFilter"] = None
 
 
 class EngagementCreateInput(BaseModel):
@@ -356,6 +379,7 @@ class EngagementFilter(BaseModel):
     org_units: list[UUID] | None = None
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
+    engagement_type: Optional["ClassFilter"] = None
 
 
 class EngagementRegistrationFilter(BaseModel):
@@ -441,6 +465,7 @@ class FacetsBoundClassFilter(BaseModel):
     parents: list[UUID] | None = None
     parent_user_keys: list[str] | None = None
     it_system: Optional["ITSystemFilter"] = None
+    owner: Optional["ClassOwnerFilter"] = None
     scope: list[str] | None = None
 
 
@@ -700,6 +725,7 @@ class ManagerFilter(BaseModel):
     org_units: list[UUID] | None = None
     registration: Optional["ManagerRegistrationFilter"] = None
     responsibility: Optional["ClassFilter"] = None
+    exclude: Optional["EmployeeFilter"] = None
 
 
 class ManagerRegistrationFilter(BaseModel):
@@ -774,6 +800,7 @@ class OrgUnitsboundengagementfilter(BaseModel):
     to_date: datetime | None
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
+    engagement_type: Optional["ClassFilter"] = None
 
 
 class OrgUnitsboundituserfilter(BaseModel):
@@ -811,6 +838,19 @@ class OrgUnitsboundleavefilter(BaseModel):
     registration: Optional["LeaveRegistrationFilter"] = None
 
 
+class OrgUnitsboundmanagerfilter(BaseModel):
+    org_unit: Optional["OrganisationUnitFilter"] = None
+    employee: Optional["EmployeeFilter"] = None
+    employees: list[UUID] | None = None
+    uuids: list[UUID] | None = None
+    user_keys: list[str] | None = None
+    from_date: datetime | None
+    to_date: datetime | None
+    registration: Optional["ManagerRegistrationFilter"] = None
+    responsibility: Optional["ClassFilter"] = None
+    exclude: Optional["EmployeeFilter"] = None
+
+
 class OrgUnitsboundrelatedunitfilter(BaseModel):
     org_unit: Optional["OrganisationUnitFilter"] = None
     uuids: list[UUID] | None = None
@@ -845,6 +885,7 @@ class OrganisationUnitFilter(BaseModel):
     names: list[str] | None
     parent: Optional["OrganisationUnitFilter"]
     parents: list[UUID] | None
+    child: Optional["OrganisationUnitFilter"]
     hierarchy: Optional["ClassFilter"] = None
     hierarchies: list[UUID] | None = None
     subtree: Optional["OrganisationUnitFilter"]
@@ -927,6 +968,7 @@ class ParentsBoundClassFilter(BaseModel):
     parent: Optional["ClassFilter"] = None
     parent_user_keys: list[str] | None = None
     it_system: Optional["ITSystemFilter"] = None
+    owner: Optional["ClassOwnerFilter"] = None
     scope: list[str] | None = None
 
 
@@ -949,6 +991,7 @@ class ParentsBoundOrganisationUnitFilter(BaseModel):
     query: str | None
     names: list[str] | None
     parent: Optional["OrganisationUnitFilter"]
+    child: Optional["OrganisationUnitFilter"]
     hierarchy: Optional["ClassFilter"] = None
     hierarchies: list[UUID] | None = None
     subtree: Optional["OrganisationUnitFilter"]
@@ -1044,6 +1087,7 @@ class UuidsBoundClassFilter(BaseModel):
     parents: list[UUID] | None = None
     parent_user_keys: list[str] | None = None
     it_system: Optional["ITSystemFilter"] = None
+    owner: Optional["ClassOwnerFilter"] = None
     scope: list[str] | None = None
 
 
@@ -1066,6 +1110,7 @@ class UuidsBoundEngagementFilter(BaseModel):
     to_date: datetime | None
     registration: Optional["EngagementRegistrationFilter"] = None
     job_function: Optional["ClassFilter"] = None
+    engagement_type: Optional["ClassFilter"] = None
 
 
 class UuidsBoundFacetFilter(BaseModel):
@@ -1120,6 +1165,7 @@ class UuidsBoundOrganisationUnitFilter(BaseModel):
     names: list[str] | None
     parent: Optional["OrganisationUnitFilter"]
     parents: list[UUID] | None
+    child: Optional["OrganisationUnitFilter"]
     hierarchy: Optional["ClassFilter"] = None
     hierarchies: list[UUID] | None = None
     subtree: Optional["OrganisationUnitFilter"]
@@ -1146,6 +1192,7 @@ AssociationUpdateInput.update_forward_refs()
 AuditLogFilter.update_forward_refs()
 ClassCreateInput.update_forward_refs()
 ClassFilter.update_forward_refs()
+ClassOwnerFilter.update_forward_refs()
 ClassRegistrationFilter.update_forward_refs()
 ClassTerminateInput.update_forward_refs()
 ClassUpdateInput.update_forward_refs()
@@ -1211,6 +1258,7 @@ OrgUnitsboundengagementfilter.update_forward_refs()
 OrgUnitsboundituserfilter.update_forward_refs()
 OrgUnitsboundklefilter.update_forward_refs()
 OrgUnitsboundleavefilter.update_forward_refs()
+OrgUnitsboundmanagerfilter.update_forward_refs()
 OrgUnitsboundrelatedunitfilter.update_forward_refs()
 OrganisationCreate.update_forward_refs()
 OrganisationUnitCreateInput.update_forward_refs()

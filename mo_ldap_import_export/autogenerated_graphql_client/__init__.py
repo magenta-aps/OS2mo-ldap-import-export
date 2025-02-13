@@ -85,6 +85,7 @@ from .input_types import AssociationUpdateInput
 from .input_types import AuditLogFilter
 from .input_types import ClassCreateInput
 from .input_types import ClassFilter
+from .input_types import ClassOwnerFilter
 from .input_types import ClassRegistrationFilter
 from .input_types import ClassTerminateInput
 from .input_types import ClassUpdateInput
@@ -156,6 +157,7 @@ from .input_types import OrgUnitsboundengagementfilter
 from .input_types import OrgUnitsboundituserfilter
 from .input_types import OrgUnitsboundklefilter
 from .input_types import OrgUnitsboundleavefilter
+from .input_types import OrgUnitsboundmanagerfilter
 from .input_types import OrgUnitsboundrelatedunitfilter
 from .input_types import OwnerCreateInput
 from .input_types import OwnerFilter
@@ -407,6 +409,7 @@ __all__ = [
     "ClassCreateClassCreate",
     "ClassCreateInput",
     "ClassFilter",
+    "ClassOwnerFilter",
     "ClassRegistrationFilter",
     "ClassTerminateInput",
     "ClassUpdateInput",
@@ -497,6 +500,7 @@ __all__ = [
     "OrgUnitsboundituserfilter",
     "OrgUnitsboundklefilter",
     "OrgUnitsboundleavefilter",
+    "OrgUnitsboundmanagerfilter",
     "OrgUnitsboundrelatedunitfilter",
     "OrganisationCreate",
     "OrganisationUnitCreateInput",
