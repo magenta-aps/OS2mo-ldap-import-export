@@ -83,6 +83,8 @@ queries_path = "queries.graphql"
 plugins = [
     # Return values directly when only a single top field is requested
     "ariadne_codegen.contrib.shorter_results.ShorterResultsPlugin",
+    # Add UNSET and UnsetType to generated input types
+    "tools.unset_plugin.UnsetInputTypesPlugin"
 ]
 include_comments = false
 [tool.ariadne-codegen.scalars.DateTime]
