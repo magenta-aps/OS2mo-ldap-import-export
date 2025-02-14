@@ -8,6 +8,7 @@ from typing import Any
 from typing import TypeVar
 from typing import cast
 from uuid import UUID
+from mo_ldap_import_export.import_export import SyncTool
 
 import structlog
 from fastapi.encoders import jsonable_encoder
@@ -530,6 +531,14 @@ async def get_manager_person_uuid(
     return manager_validity.uuid
 
 
+async def mo_uuid_to_dn(sync_tool: SyncTool, uuid: EmployeeUUID) -> DN | None:
+    dn, create = await sync_tool._find_best_dn(uuid, dry_run=True)
+    # Never return a newly generated DN
+    if create:
+        return None
+    return dn
+
+
 def skip_if_none(obj: T | None) -> T:
     if obj is None:
         raise SkipObject("Object is None")
@@ -577,6 +586,7 @@ def construct_globals_dict(
         "get_engagement_uuid": partial(get_engagement_uuid, graphql_client),
         "get_employment_interval": partial(get_employment_interval, graphql_client),
         "get_manager_person_uuid": partial(get_manager_person_uuid, graphql_client),
+        "mo_uuid_to_dn": partial(mo_uuid_to_dn, dataloader),
     }
 
 
